@@ -1,0 +1,24 @@
+:root {
+  --font: system-ui, 'Segoe UI Variable', 'SF Pro', 'Ubuntu Sans', Cantarell, Inter, sans-serif;
+  --fg: #1d1d1f;
+  --bg: #ffffff;
+  color-scheme: light dark;
+  font-family: var(--font);
+  color: var(--fg);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #f2f2f2;
+    --bg: #1e1e1e;
+  }
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  padding: 24px;
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for Ferry's own windows",
+  "windows": ["manager"],
+  "permissions": ["core:default"]
+}
