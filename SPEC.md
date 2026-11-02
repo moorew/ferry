@@ -503,6 +503,8 @@ Run `whois` on the remote address of every inbound connection, and on the addres
 
 Reject everything else and log the peer's node name.
 
+**Strict mode (default on).** `sync.strict_same_login = true` limits both directions to rule 1: only untagged devices signed in to this device's own Tailscale login can sync. Rules 2 and 3 apply only when the user turns strict mode off, which is required for a tagged relay. Settings shows the mode, and the Devices view lists rejected peers by node name so the user can see what was refused.
+
 ### 8.6 Policy snippet for README
 
 The first grant is only needed if the tailnet policy isn't allow-all. The second is **always** required for a tagged relay, because an allow-all policy grants no app capabilities. The second grant's `src` MUST be the owner's login, never `autogroup:member`; otherwise every other user in the tailnet could read the relay's copy of the history. `tag:tailcopy-relay` also needs a `tagOwners` entry.
@@ -729,8 +731,8 @@ Review risk: EGO forbids sharing clipboard data with a third party without expli
 1. Check the extension through the `org.gnome.Shell.Extensions` D-Bus service (`GetExtensionInfo` with the UUID).
 2. If it's missing:
    - When the extension is published on EGO, call `InstallRemoteExtension` with the UUID. GNOME shows its own confirmation dialog and the extension loads without logging out.
-   - Until then, the `.deb` installs it system-wide under `/usr/share/gnome-shell/extensions/<uuid>/`. GNOME only discovers new extensions at login on Wayland, so tell the user to log out and back in once.
-3. If it's installed but disabled, call `EnableExtension`.
+   - Until then, the `.deb` installs it system-wide under `/usr/share/gnome-shell/extensions/<uuid>/`. GNOME only discovers new extensions at login on Wayland, so first run explains this and offers a **Log out now** button (`org.gnome.SessionManager.Logout`); after logging back in, setup continues by itself.
+3. If it's installed but disabled, call `EnableExtension`. The user never runs a command: installing the package and clicking through first run is the whole setup.
 4. Call `Register`. On success, ask the user to choose the picker shortcut (suggest Ctrl+Alt+V) and set it with `SetShortcut`.
 5. If anything fails, TailCopy runs in degraded mode with a clear explanation and a "Try again" button.
 
@@ -825,13 +827,13 @@ Ctrl+Backspace and Cmd+Backspace keep their normal text-editing meaning in the s
 
 | Token | Value |
 | --- | --- |
-| Font | `system-ui` first; then Segoe UI Variable, SF Pro, Ubuntu Sans, Cantarell, Inter |
+| Font | Commissioner (bundled, SIL OFL; no network fetch), for the app and the wordmark; `system-ui` as fallback |
 | Sizes | Rows 14 px, metadata 12 px, search 16 px |
 | Row height | 36 px; 10 rows visible |
 | Radius | Window 12 px, rows 8 px |
 | Borders | 1 px hairline, 8% foreground on background |
 | Shadow | One soft shadow on the picker |
-| Colour | Follow OS light/dark and OS accent where readable; neutral greys otherwise; colour only for state |
+| Colour | Black and white with neutral greys, following OS light/dark; colour only for state (errors, paused). The icon and wordmark are black and white |
 | Materials | Mica (Windows 11), vibrancy (macOS), solid (Linux) |
 | Motion | 80 to 120 ms fade and scale on open, none on close; honour reduced motion |
 
@@ -892,6 +894,7 @@ mode = "dont_save"          # or "save_dont_sync"
 [sync]
 port = 7441
 relay = ""                  # optional MagicDNS name or 100.x address, always dialled
+strict_same_login = true    # only devices on this Tailscale login (8.5); turn off for a tagged relay
 capability = "moorew.github.io/cap/tailcopy"
 relay_tag = "tag:tailcopy-relay"
 
@@ -918,7 +921,7 @@ localapi_socket = ""        # Linux only; empty = /var/run/tailscale/tailscaled.
 - Uses the LocalAPI socket backend. Hello role `relay`. Never dials. Accepts authorized devices only (8.5). No capture, no live mirror.
 - Two identity options, documented in `docs/INSTALL.md`:
   - **Untagged node logged in as the owner.** Same-user rule covers it; no policy changes.
-  - **Tagged node** (`tag:tailcopy-relay`). Needs the grant in 8.6.
+  - **Tagged node** (`tag:tailcopy-relay`). Needs the grant in 8.6, and `strict_same_login` turned off on each device.
 - **systemd:** `packaging/tailcopy-relay.service` running as a dedicated user with access to the tailscaled socket.
 - **Docker:** `packaging/Dockerfile` (slim base, non-root) and `packaging/compose.yaml` with a Tailscale sidecar. The sidecar MUST use kernel networking (`/dev/net/tun`, `NET_ADMIN`) so the 100.x address exists in the shared network namespace; the relay container uses `network_mode: service:tailscale` and mounts the sidecar's `/var/run/tailscale` volume for the socket.
 
@@ -1017,9 +1020,9 @@ Throwaway code in `spikes/`. Deliverable: `docs/M0-REPORT.md` with pass or fail 
 
 ### M1: Local clipboard manager
 
-Capture, store, display grouping, retention, picker (search, tokens, preview), paste modes, keyboard map, manager window, settings, tray, privacy rules, pause, first run, CLI. Build order: Windows, then Ubuntu GNOME (including the production extension). macOS follows in M3; the M0 spike proves it's feasible. Sync off.
+Capture, store, display grouping, retention, picker (search, tokens, preview), paste modes, keyboard map, manager window, settings, tray, privacy rules, pause, first run, CLI, on Windows, Ubuntu GNOME (including the production extension) and macOS. Installers for all three that need no commands after install (macOS signed and notarized with the owner's Developer ID). Sync off. The M0 hardware tests run on the M1 builds.
 
-**Gate:** smoke items 1 to 7 and 12 pass on Windows and Ubuntu; a week of daily use on Windows.
+**Gate:** smoke items 1 to 7 and 12 pass on Windows, Ubuntu and macOS; a week of daily use on Windows.
 
 ### M2: Tailnet sync
 
@@ -1029,7 +1032,7 @@ Tailnet adapter, discovery, authorization, protocol, sessions, catch-up, blobs, 
 
 ### M3: v1.0
 
-macOS backend and polish (passing the M1 smoke items and the M2 sync items), relay (binary, systemd, Docker), packaging and CI, updater, extension submitted to EGO, docs (`README`, `INSTALL`, `PRIVACY`, `ARCHITECTURE`).
+macOS polish (passing the M2 sync items), relay (binary, systemd, Docker), packaging and CI, updater, extension submitted to EGO, docs (`README`, `INSTALL`, `PRIVACY`, `ARCHITECTURE`).
 
 **Gate:** a fresh install on each tier-1 platform following the README takes under 10 minutes end to end; v1.0 tagged.
 

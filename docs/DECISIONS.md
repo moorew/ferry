@@ -7,6 +7,41 @@ written into SPEC.md).
 
 ---
 
+## D-017 · No commands after install · landed
+
+Owner decision: on every platform, installing and clicking through first run is the
+whole setup. The installers put everything in place (the `.deb` installs the GNOME
+extension and its schema system-wide). First run enables the extension over D-Bus,
+offers a Log out now button when GNOME hasn't loaded it yet, asks for macOS
+Accessibility with a button that opens the right System Settings pane, and handles
+start at login. macOS builds are signed and notarized with the owner's Developer ID,
+so no quarantine command. Unsigned Windows installers keep the SmartScreen "Run
+anyway" click, which the owner accepts. The tailnet test tool leaves the installers;
+its job moves to the Devices view in M2. SPEC 9.4.6 and 17 updated.
+
+## D-016 · Commissioner, black and white · landed
+
+Owner decision: the app UI and the wordmark use Commissioner (Google Fonts, SIL Open
+Font License), bundled with the app so nothing is fetched at runtime (SPEC 16). The
+icon and UI are black and white with neutral greys; colour only signals state. The
+icon is an original design (the Noun Project reference needs a licence or credit).
+SPEC 10.4 updated.
+
+## D-015 · Strict "my login only" sync · landed
+
+Owner decision: a `sync.strict_same_login` setting, on by default, limits sync to
+untagged devices signed in to the same Tailscale login and refuses the app-capability
+and relay-tag paths. Turning it off is needed only for a tagged relay. The owner's
+tailnet policy is allow-all, so the README doesn't need the first grant in SPEC 8.6;
+other users' devices on an allow-all tailnet are refused by the identity check. SPEC
+8.5, 11 and 12 updated.
+
+## D-014 · M1 covers macOS · landed
+
+Owner decision: M1 builds the GUI app on Windows, Ubuntu GNOME and macOS together,
+before the M0 hardware tests, which now run on the M1 builds. macOS moves from M3 to
+M1. SPEC 17 updated.
+
 ## D-013 · Renamed Ferry to TailCopy · landed
 
 The owner renamed the product because another clipboard manager is already called
