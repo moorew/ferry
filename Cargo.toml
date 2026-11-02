@@ -1,0 +1,30 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "app/src-tauri"]
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/moorew/ferry"
+publish = false
+
+[workspace.dependencies]
+ferry-core = { path = "crates/ferry-core" }
+ferry-sync = { path = "crates/ferry-sync" }
+ferry-tailnet = { path = "crates/ferry-tailnet" }
+ferry-platform = { path = "crates/ferry-platform" }
+ferry-testkit = { path = "crates/ferry-testkit" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
