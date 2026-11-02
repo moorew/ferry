@@ -1,7 +1,7 @@
 name: TailCopy test builds
 
-# Installers for the Milestone 0 test builds (the code in spikes/), for the owner to
-# run on real machines. Separate from CI; replaced by release.yml in M3.
+# Installers for the Milestone 0 test builds (the code in spikes/), published as the
+# m0-test-build pre-release for the owner to run on real machines. Separate from CI; replaced by release.yml in M3.
 
 on:
   push:
@@ -124,7 +124,7 @@ jobs:
           path: out/
 
   release:
-    name: Draft release
+    name: Pre-release
     needs: [windows, macos, linux]
     runs-on: ubuntu-24.04
     permissions:
@@ -134,13 +134,24 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Replace the draft release
+      - name: Replace the pre-release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release delete m0-test-build --yes 2>/dev/null || true
-          gh release create m0-test-build dist/* --draft --prerelease \
+          gh release delete m0-test-build --yes --cleanup-tag 2>/dev/null || true
+          cat > notes.md <<NOTES
+          **Pre-release.** A Milestone 0 test build for verifying TailCopy on real machines. It is not a usable clipboard manager yet, and these builds are unsigned.
+
+          | Platform | File |
+          | --- | --- |
+          | Windows 10/11 x64 | \`TailCopy-$VERSION-windows-x64-setup.exe\` (SmartScreen: More info, Run anyway) |
+          | macOS 13+ (universal) | \`TailCopy-$VERSION-macos-universal.dmg\` (then \`xattr -dr com.apple.quarantine /Applications/TailCopy.app\`) |
+          | Ubuntu 24.04 / 26.04 | \`TailCopy-$VERSION-ubuntu-amd64.deb\` (installs the GNOME extension; log out and in, then enable it) |
+
+          Each installs TailCopy and the \`tailcopy-tailnet\` test tool, and logs to \`~/tailcopy-m0.log\`. Test steps: [docs/M0-REPORT.md](https://github.com/${GITHUB_REPOSITORY}/blob/m0-spikes/docs/M0-REPORT.md). Built from ${GITHUB_SHA::7}.
+          NOTES
+          gh release create m0-test-build dist/* --prerelease \
             --target "${{ github.sha }}" \
-            --title "TailCopy $VERSION test build" \
-            --notes "Milestone 0 test build from ${GITHUB_SHA::7}. Not a release: for the owner's M0 tests. Steps are in docs/M0-REPORT.md."
+            --title "TailCopy $VERSION (pre-release test build)" \
+            --notes-file notes.md

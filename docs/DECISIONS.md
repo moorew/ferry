@@ -109,8 +109,8 @@ and mutter 46.8, 50.6 and 51.1.
 `.github/workflows/test-builds.yml` ("TailCopy test builds") packages the M0 code as
 installers: an NSIS setup for Windows, a universal ad-hoc-signed DMG for macOS and a
 `.deb` for Ubuntu that also installs the GNOME extension system-wide. Each bundles
-the `tailcopy-tailnet` test tool. The installers go on a draft release,
-`m0-test-build`. It is separate from CI (SPEC 13 keeps spikes out of CI) and is
+the `tailcopy-tailnet` test tool. The installers are published as the
+pre-release `m0-test-build`, marked as an unsigned test build. It is separate from CI (SPEC 13 keeps spikes out of CI) and is
 replaced by `release.yml` in M3. Tauri names the Debian package `tail-copy` (from the
 product name, with no override); M3 packaging should fix that to `tailcopy`.
 

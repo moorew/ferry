@@ -73,9 +73,9 @@ the editor taking longer than 800 ms to report focus; the pastes into it all pas
 
 ## Test steps for you
 
-Installers are on the draft release **TailCopy 0.0.1-m0 test build**
-(<https://github.com/moorew/tailcopy/releases>; drafts are visible only to you), and
-as artifacts of the **TailCopy test builds** workflow:
+Installers are on the pre-release **TailCopy 0.0.1-m0**
+(<https://github.com/moorew/tailcopy/releases/tag/m0-test-build>), and as artifacts of
+the **TailCopy test builds** workflow:
 
 | Platform | File |
 | --- | --- |

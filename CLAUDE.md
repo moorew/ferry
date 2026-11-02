@@ -69,7 +69,7 @@ Each `spikes/<name>` is its own Cargo project (`cargo build` inside it); the app
 spikes build as `tailcopy` and the tailnet one as `tailcopy-tailnet`. Test steps are
 in `docs/M0-REPORT.md`. The **TailCopy test builds** workflow
 (`.github/workflows/test-builds.yml`) makes the Windows NSIS installer, the universal
-macOS DMG and the Ubuntu `.deb`, and puts them on the draft release `m0-test-build`.
+macOS DMG and the Ubuntu `.deb`, and publishes them as the pre-release `m0-test-build`.
 Building an app spike locally needs `binaries/tailcopy-tailnet-<target-triple>` to
 exist (Tauri checks external binaries); an empty placeholder is enough for clippy.
 The GNOME spikes have headless Docker tests under `test/`.
