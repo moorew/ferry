@@ -242,6 +242,7 @@ pub async fn build_status(app: &AppHandle) -> Status {
         })
         .await;
     let session = state.session;
+    #[cfg_attr(windows, allow(unused_mut))]
     let mut status = Status {
         version: env!("CARGO_PKG_VERSION"),
         session: match session {
