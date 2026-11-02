@@ -7,6 +7,45 @@ written into SPEC.md).
 
 ---
 
+## D-019 · Core data layer choices · applied
+
+Choices made where SPEC 6 is silent, in `tailcopy-core`:
+
+- Purged tombstones (after 30 days) are the one allowed difference between the
+  `clips` table and a full recomputation from `ops`; the consistency check knows this.
+- The version vector stores the highest *contiguous* seq per origin. Same as SPEC 6.1
+  under gapless delivery, and still correct if ops arrive out of order.
+- A label on a grouped row applies to every member, so a new copy of the same content
+  keeps it.
+- Clears from other devices also remove local-only clips, so "clear history" clears
+  everything.
+- Plain text derived from HTML or RTF is stored as a `text/plain` format, so plain
+  paste works for it on every device. `source_app` stays local unless sync is opted in.
+- `before_hlc` for a clear is the larger of the local HLC and the newest `ClipAdded`
+  held, so clips stamped ahead by a skewed clock are cleared too.
+- Retention counts clips, not display rows. A bad config value is an error, shown in
+  the UI, and the app falls back to defaults. `from:` is a case-insensitive prefix match
+  on display name or Tailscale hostname. `today`/`yesterday` use the last-used time and
+  local midnight. The database file is `tailcopy.sqlite3`.
+- Measured: search over 10,000 clips, p95 5.9 ms (budget 16 ms); building the warm
+  index for 10,000 rows takes about 195 ms, once at startup.
+
+## D-018 · A late pin can resurrect a cleared clip · proposed
+
+**Finding.** SPEC 6.4 rule 4 decides whether a `HistoryCleared` spared a clip from its
+pin state "as of `C.hlc`". If device A pins a clip at hlc 5 while offline and device B
+clears without `include_pinned` at hlc 10, B deletes the clip and stubs its content;
+when A's pin arrives later, rule 4 says the clip was never deleted. Nodes that already
+stubbed it keep it hidden (content is gone), so A shows the clip and B doesn't. This
+breaks convergence and is the only case where "no deleted clip ever reappears" and rule
+4 disagree. The current code follows rule 4 as written; a test documents the case.
+
+**Proposal.** `HistoryCleared` carries the ids of the pinned clips it spared, computed by
+the clearing device when it clears. Rule 4 becomes "deleted if some clear doesn't list
+it in `spared`". A later pin can't change the outcome, every node agrees, and the op
+stays small (pinned clips are few). It is a wire format change, so it should land before
+M2 ships sync.
+
 ## D-017 · No commands after install · landed
 
 Owner decision: on every platform, installing and clicking through first run is the
