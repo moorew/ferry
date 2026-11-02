@@ -1,0 +1,154 @@
+name: TailCopy builds
+
+# Installers for the current milestone, published as a pre-release for testing on
+# real machines. Replaced by release.yml (tagged releases) in M3.
+#
+# macOS signing and notarization use these repository secrets when present, and fall
+# back to an ad-hoc signature without them:
+#   APPLE_CERTIFICATE           base64 of the "Developer ID Application" .p12
+#   APPLE_CERTIFICATE_PASSWORD  its export password
+#   APPLE_SIGNING_IDENTITY      e.g. "Developer ID Application: Will Moore (TEAMID)"
+#   APPLE_ID, APPLE_PASSWORD    Apple ID and an app-specific password, for notarization
+#   APPLE_TEAM_ID               the 10-character team id
+
+on:
+  push:
+    branches: [m1]
+  workflow_dispatch:
+
+env:
+  TAG: m1-test-build
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Installer
+        working-directory: app
+        run: npx tauri build
+      - name: Name
+        shell: bash
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/release/bundle/nsis/*-setup.exe "out/TailCopy-$V-windows-x64-setup.exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-windows-x64
+          path: out/
+
+  macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: App and disk image
+        working-directory: app
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Empty secrets would make Tauri try to sign with nothing; drop them instead.
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || unset $v
+          done
+          npx tauri build --target universal-apple-darwin
+      - name: Name
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/universal-apple-darwin/release/bundle/dmg/*.dmg "out/TailCopy-$V-macos-universal.dmg"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-macos-universal
+          path: out/
+
+  linux:
+    name: Ubuntu amd64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Debian package (app and GNOME extension)
+        working-directory: app
+        run: npx tauri build
+      - name: Name and inspect
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/release/bundle/deb/*.deb "out/TailCopy-$V-ubuntu-amd64.deb"
+          dpkg-deb --info out/*.deb
+          dpkg-deb --contents out/*.deb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-ubuntu-amd64
+          path: out/
+
+  prerelease:
+    name: Pre-release
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Replace the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          cat > notes.md <<NOTES
+          **Pre-release.** A Milestone 1 test build of TailCopy $V: the clipboard manager on Windows, macOS and Ubuntu, without sync yet.
+
+          | Platform | File |
+          | --- | --- |
+          | Windows 10/11 x64 | \`TailCopy-$V-windows-x64-setup.exe\` (unsigned: SmartScreen, More info, Run anyway) |
+          | macOS 13+ (universal) | \`TailCopy-$V-macos-universal.dmg\` |
+          | Ubuntu 24.04 / 26.04 | \`TailCopy-$V-ubuntu-amd64.deb\` (includes the GNOME extension) |
+
+          Install, open TailCopy and follow the setup screens; nothing needs a terminal. Test steps: [docs/M1-REPORT.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/M1-REPORT.md). Built from ${GITHUB_SHA::7}.
+          NOTES
+          gh release create "$TAG" dist/* --prerelease --target "${{ github.sha }}" \
+            --title "TailCopy $V (M1 pre-release test build)" --notes-file notes.md

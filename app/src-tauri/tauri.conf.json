@@ -1,6 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TailCopy",
+  "mainBinaryName": "tailcopy",
+  "version": "0.1.0",
   "identifier": "io.github.moorew.tailcopy",
   "build": {
     "frontendDist": "../dist",
@@ -9,23 +11,20 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
-    "windows": [
-      {
-        "label": "manager",
-        "title": "TailCopy",
-        "width": 960,
-        "height": 640,
-        "minWidth": 720,
-        "minHeight": 480
-      }
-    ],
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; img-src 'self' data: thumb: http://thumb.localhost; style-src 'self' 'unsafe-inline'; font-src 'self'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "Clipboard history that syncs over your tailnet",
+    "longDescription": "TailCopy keeps a searchable history of what you copy and pastes it back with one shortcut. It runs on your devices only.",
+    "copyright": "© 2026 Will Moore",
+    "license": "MIT OR Apache-2.0",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

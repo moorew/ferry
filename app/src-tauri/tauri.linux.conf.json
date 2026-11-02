@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "targets": ["deb"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/extension.js": "../../extension/extension.js",
+          "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/metadata.json": "../../extension/metadata.json",
+          "/usr/share/glib-2.0/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml": "../../extension/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml"
+        }
+      }
+    }
+  }
+}

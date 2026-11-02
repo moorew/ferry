@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for TailCopy's own windows",
-  "windows": ["manager"],
+  "description": "TailCopy's own windows: the picker and the manager",
+  "windows": ["picker", "manager"],
   "permissions": ["core:default"]
 }
