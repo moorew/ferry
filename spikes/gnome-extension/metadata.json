@@ -1,0 +1,8 @@
+{
+  "uuid": "ferry@moorew.github.io",
+  "name": "Ferry",
+  "description": "Clipboard and paste support for the Ferry clipboard manager on GNOME Wayland.\n\nThis extension reads and writes the clipboard and forwards clipboard content to the locally installed Ferry app, which may sync it to your own devices over your Tailscale tailnet. It does nothing until Ferry is installed and registers with it.",
+  "shell-version": ["46", "47", "48", "49", "50", "51"],
+  "url": "https://github.com/moorew/ferry",
+  "settings-schema": "org.gnome.shell.extensions.ferry"
+}
