@@ -159,7 +159,7 @@ check("paste-plain shortcut pastes", entry.get_text() == text, repr(entry.get_te
 mark = len(client_log())
 for method in ("DisableExtension", "EnableExtension"):
     conn.call_sync("org.gnome.Shell", "/org/gnome/Shell", "org.gnome.Shell.Extensions", method,
-                   GLib.Variant("(s)", ("ferry@moorew.github.io",)), None, 0, 5000, None)
+                   GLib.Variant("(s)", ("tailcopy@moorew.github.io",)), None, 0, 5000, None)
     pump(300)
 check("client re-registers after the extension is re-enabled", wait_log("re-registered", 3, mark))
 entry.set_text("")

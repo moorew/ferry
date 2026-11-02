@@ -741,58 +741,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferry"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
-]
-
-[[package]]
-name = "ferry-core"
-version = "0.0.0"
-
-[[package]]
-name = "ferry-platform"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
-]
-
-[[package]]
-name = "ferry-relay"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
- "ferry-sync",
- "ferry-tailnet",
-]
-
-[[package]]
-name = "ferry-sync"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
-]
-
-[[package]]
-name = "ferry-tailnet"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
-]
-
-[[package]]
-name = "ferry-testkit"
-version = "0.0.0"
-dependencies = [
- "ferry-core",
-]
-
-[[package]]
 name = "field-offset"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3007,6 +2955,58 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "tailcopy"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tailcopy-core",
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
+name = "tailcopy-core"
+version = "0.0.0"
+
+[[package]]
+name = "tailcopy-platform"
+version = "0.0.0"
+dependencies = [
+ "tailcopy-core",
+]
+
+[[package]]
+name = "tailcopy-relay"
+version = "0.0.0"
+dependencies = [
+ "tailcopy-core",
+ "tailcopy-sync",
+ "tailcopy-tailnet",
+]
+
+[[package]]
+name = "tailcopy-sync"
+version = "0.0.0"
+dependencies = [
+ "tailcopy-core",
+]
+
+[[package]]
+name = "tailcopy-tailnet"
+version = "0.0.0"
+dependencies = [
+ "tailcopy-core",
+]
+
+[[package]]
+name = "tailcopy-testkit"
+version = "0.0.0"
+dependencies = [
+ "tailcopy-core",
 ]
 
 [[package]]

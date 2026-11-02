@@ -1,7 +1,7 @@
-# Ferry: build specification (v1)
+# TailCopy: build specification (v1)
 
 Spec version 1.0 · 2 November 2026 · Owner: Will Moore
-"Ferry" is a working name. Every user-visible name and identifier lives in one module (see 0.2) so a rename is a one-file change.
+The product is TailCopy (renamed from the working name Ferry, which another clipboard manager already uses). Every user-visible name and identifier lives in one module (see 0.2) so a rename is a one-file change.
 
 ---
 
@@ -16,32 +16,32 @@ Spec version 1.0 · 2 November 2026 · Owner: Will Moore
 
 ### 0.2 Names and placeholders (defaults; change in one place)
 
-All of these live in `crates/ferry-core/src/names.rs` (Rust) and are mirrored in `extension/metadata.json` and the GSettings schema.
+All of these live in `crates/tailcopy-core/src/names.rs` (Rust) and are mirrored in `extension/metadata.json` and the GSettings schema.
 
 | Constant | Default | Notes |
 | --- | --- | --- |
-| Product name | `Ferry` | Working name |
-| App identifier | `io.github.moorew.ferry` | Tauri `identifier`, macOS bundle id, Linux app id |
-| CLI and binary | `ferry` (desktop), `ferry-relay` (headless) | |
+| Product name | `TailCopy` | Renamed from Ferry (D-013) |
+| App identifier | `io.github.moorew.tailcopy` | Tauri `identifier`, macOS bundle id, Linux app id |
+| CLI and binary | `tailcopy` (desktop), `tailcopy-relay` (headless) | |
 | Sync TCP port | `7441` | Placeholder; configurable |
-| App capability name | `moorew.github.io/cap/ferry` | Must be a domain the owner controls. `tailscale.com` and `tailscale.io` names are reserved |
-| Relay tag | `tag:ferry-relay` | Only needed for tagged relays |
-| GNOME extension UUID | `ferry@moorew.github.io` | EGO requires `id@namespace`; a `username.github.io` namespace is allowed |
-| D-Bus interface | `org.gnome.Shell.Extensions.Ferry` | EGO reviewers expect the `org.gnome.Shell.Extensions` prefix |
-| D-Bus object path | `/org/gnome/Shell/Extensions/Ferry` | Exported on the shell's session bus connection |
-| GSettings schema | `org.gnome.shell.extensions.ferry`, path `/org/gnome/shell/extensions/ferry/` | EGO-mandated base id and path |
+| App capability name | `moorew.github.io/cap/tailcopy` | Must be a domain the owner controls. `tailscale.com` and `tailscale.io` names are reserved |
+| Relay tag | `tag:tailcopy-relay` | Only needed for tagged relays |
+| GNOME extension UUID | `tailcopy@moorew.github.io` | EGO requires `id@namespace`; a `username.github.io` namespace is allowed |
+| D-Bus interface | `org.gnome.Shell.Extensions.TailCopy` | EGO reviewers expect the `org.gnome.Shell.Extensions` prefix |
+| D-Bus object path | `/org/gnome/Shell/Extensions/TailCopy` | Exported on the shell's session bus connection |
+| GSettings schema | `org.gnome.shell.extensions.tailcopy`, path `/org/gnome/shell/extensions/tailcopy/` | EGO-mandated base id and path |
 | Licence | App: `MIT OR Apache-2.0`. Extension: `GPL-2.0-or-later` | The extension must be GPL-compatible to be distributed by extensions.gnome.org |
 
 ---
 
 ## 1. Product summary
 
-Ferry is a keyboard-first clipboard manager for Windows, macOS and Linux. It keeps a searchable history of what you copy (plain text, rich text, images) and syncs that history in real time across your own devices over your Tailscale tailnet.
+TailCopy is a keyboard-first clipboard manager for Windows, macOS and Linux. It keeps a searchable history of what you copy (plain text, rich text, images) and syncs that history in real time across your own devices over your Tailscale tailnet.
 
 - No account, no cloud, no telemetry, no upsell. Free and open source.
 - Every install is a peer. Devices discover each other through the local Tailscale client and talk directly over WireGuard.
 - An optional headless relay (the same engine without a UI) can run on a home lab box or in Docker so devices that were asleep catch up.
-- The tailnet is the trust boundary: Ferry only listens on Tailscale addresses and only accepts peers that Tailscale identifies as the same user (or that hold a Ferry app capability).
+- The tailnet is the trust boundary: TailCopy only listens on Tailscale addresses and only accepts peers that Tailscale identifies as the same user (or that hold a TailCopy app capability).
 
 ### 1.1 Product principles
 
@@ -63,7 +63,7 @@ Ferry is a keyboard-first clipboard manager for Windows, macOS and Linux. It kee
 | --- | --- | --- |
 | Windows | 11, and 10 22H2 | x86_64 (arm64 is tier 2) |
 | macOS | 13 Ventura and later | Universal binary |
-| Ubuntu, GNOME on Wayland | 24.04 LTS (GNOME 46) and 26.04 LTS (GNOME 50); interim releases up to GNOME 51 | 26.04 is Wayland-only; GNOME 50 removed the X11 session. Requires the Ferry GNOME Shell extension (section 9.4) |
+| Ubuntu, GNOME on Wayland | 24.04 LTS (GNOME 46) and 26.04 LTS (GNOME 50); interim releases up to GNOME 51 | 26.04 is Wayland-only; GNOME 50 removed the X11 session. Requires the TailCopy GNOME Shell extension (section 9.4) |
 
 **Tier 2 (best effort, not gated)**
 
@@ -103,11 +103,11 @@ Use the latest stable release of each crate at the time of building and commit `
 | --- | --- | --- |
 | Language | Rust (stable, edition 2024) | One workspace |
 | Async runtime | `tokio` | |
-| Desktop shell | Tauri 2 | Plugins: `global-shortcut`, `autostart`, `updater`. Single-instance handling goes through Ferry's own local socket (5.2), not a plugin |
+| Desktop shell | Tauri 2 | Plugins: `global-shortcut`, `autostart`, `updater`. Single-instance handling goes through TailCopy's own local socket (5.2), not a plugin |
 | Front end | Svelte 5 + TypeScript + Vite | No component framework; CSS variables for tokens |
 | Clipboard (Windows, macOS, X11) | `clipboard-rs` | Text, HTML, RTF, image, change watching |
 | Clipboard (Wayland data-control) | `lamco-data-control` or `wl-clipboard-rs` | Tier 2 only (KDE, wlroots) |
-| Clipboard (GNOME Wayland) | Ferry GNOME Shell extension over D-Bus (`zbus`), plus GTK clipboard for focused writes | Section 9.4 |
+| Clipboard (GNOME Wayland) | TailCopy GNOME Shell extension over D-Bus (`zbus`), plus GTK clipboard for focused writes | Section 9.4 |
 | Input injection | `enigo` | Windows, macOS, X11 |
 | D-Bus | `zbus` | GNOME backend, portals |
 | Portals (tier 2) | `ashpd` | GlobalShortcuts on KDE |
@@ -134,15 +134,15 @@ Use the latest stable release of each crate at the time of building and commit `
 ## 4. Repository layout
 
 ```text
-ferry/
+tailcopy/
   Cargo.toml                 workspace
   crates/
-    ferry-core/              names, model, HLC, ops, SQLite store, blobs, retention, search
-    ferry-sync/              protocol frames, peer manager, sessions, Transport trait, blob fetch
-    ferry-tailnet/           Tailscale adapter: status, whois, peer watch, auth decisions
-    ferry-platform/          clipboard backends, hotkeys, paste injection, focus tracking, source app
-    ferry-relay/             headless binary (core + sync + tailnet, no UI, no platform)
-    ferry-testkit/           in-memory transport, fake tailnet, simulation harness
+    tailcopy-core/              names, model, HLC, ops, SQLite store, blobs, retention, search
+    tailcopy-sync/              protocol frames, peer manager, sessions, Transport trait, blob fetch
+    tailcopy-tailnet/           Tailscale adapter: status, whois, peer watch, auth decisions
+    tailcopy-platform/          clipboard backends, hotkeys, paste injection, focus tracking, source app
+    tailcopy-relay/             headless binary (core + sync + tailnet, no UI, no platform)
+    tailcopy-testkit/           in-memory transport, fake tailnet, simulation harness
   app/
     src-tauri/               Tauri shell: commands, events, windows, tray, wiring
     src/                     Svelte UI: picker, manager, settings, first run
@@ -181,21 +181,21 @@ The UI thread never waits on disk or network. Every Tauri command is async and b
 
 ### 5.2 CLI
 
-The same `ferry` binary accepts subcommands. If an instance is running, the subcommand is sent over the local socket (name `ferry-<username>`) and the process exits.
+The same `tailcopy` binary accepts subcommands. If an instance is running, the subcommand is sent over the local socket (name `tailcopy-<username>`) and the process exits.
 
 | Command | Effect |
 | --- | --- |
-| `ferry` | Launch, or focus the manager if running |
-| `ferry picker` | Show the picker (used as a desktop-shortcut fallback on tier-2 Wayland) |
-| `ferry paste-plain` | Paste the current clipboard as plain text |
-| `ferry pause` / `ferry resume` | Toggle capture |
-| `ferry status` | Print JSON: version, device id, tailnet state, peers, item counts, last sync per peer |
+| `tailcopy` | Launch, or focus the manager if running |
+| `tailcopy picker` | Show the picker (used as a desktop-shortcut fallback on tier-2 Wayland) |
+| `tailcopy paste-plain` | Paste the current clipboard as plain text |
+| `tailcopy pause` / `tailcopy resume` | Toggle capture |
+| `tailcopy status` | Print JSON: version, device id, tailnet state, peers, item counts, last sync per peer |
 
-A second launch connects to the socket, forwards its arguments (no arguments means "focus the manager") and exits, so there is never more than one instance. On Windows the binary uses the GUI subsystem, so CLI subcommands call `AttachConsole(ATTACH_PARENT_PROCESS)` before printing. The `.deb` puts `ferry` on PATH; on Windows and macOS the CLI is optional, and Settings offers to add it to the user PATH or create a symlink in `~/.local/bin`.
+A second launch connects to the socket, forwards its arguments (no arguments means "focus the manager") and exits, so there is never more than one instance. On Windows the binary uses the GUI subsystem, so CLI subcommands call `AttachConsole(ATTACH_PARENT_PROCESS)` before printing. The `.deb` puts `tailcopy` on PATH; on Windows and macOS the CLI is optional, and Settings offers to add it to the user PATH or create a symlink in `~/.local/bin`.
 
 ### 5.3 Relay
 
-`ferry-relay` is a separate binary built from `ferry-core`, `ferry-sync` and `ferry-tailnet`. No Tauri, no platform crate, no capture. Section 12.
+`tailcopy-relay` is a separate binary built from `tailcopy-core`, `tailcopy-sync` and `tailcopy-tailnet`. No Tauri, no platform crate, no capture. Section 12.
 
 ---
 
@@ -376,7 +376,7 @@ pub trait Transport: Send + Sync + 'static {
 }
 ```
 
-v1 has one production implementation (system Tailscale client, section 8) and one test implementation (`ferry-testkit`). A tailscale-rs implementation can be added later without touching `ferry-sync`.
+v1 has one production implementation (system Tailscale client, section 8) and one test implementation (`tailcopy-testkit`). A tailscale-rs implementation can be added later without touching `tailcopy-sync`.
 
 ### 7.2 HTTP endpoints
 
@@ -410,7 +410,7 @@ pub enum Frame {
 
 ### 7.4 Session flow
 
-1. The dialler sends `Hello`; the listener replies with `Hello`. A `proto_major` mismatch ends the session with `Error { code: ProtoMismatch }` and the UI shows "Update Ferry on <device>".
+1. The dialler sends `Hello`; the listener replies with `Hello`. A `proto_major` mismatch ends the session with `Error { code: ProtoMismatch }` and the UI shows "Update TailCopy on <device>".
 2. Both sides send `Vector`, then `Devices`. If the peer's vector shows a `seq` for this device above the local maximum, stop: regenerate `device_id` (6.1) and reconnect.
 3. Each side sends every op it holds with `seq > their_vv[origin]`, for every origin (including third-party origins: this is full anti-entropy), ordered by `(hlc, origin, seq)` ascending, which is `seq` order within each origin. Inline blobs (total size of a clip's formats up to 256 KiB) are sent as `Blob` frames before the `Ops` frame that needs them.
 4. Each side sends `CaughtUp`.
@@ -428,12 +428,12 @@ pub enum Frame {
 
 Per-device setting, default on. Off while capture is paused.
 
-- Ferry keeps `local_clip_hlc`: it ticks the HLC on every observed local clipboard change, including content it skips for privacy or size. Skipped content still counts, so a mirror can never overwrite a password you just copied.
+- TailCopy keeps `local_clip_hlc`: it ticks the HLC on every observed local clipboard change, including content it skips for privacy or size. Skipped content still counts, so a mirror can never overwrite a password you just copied.
 - An op is "live" if it arrived after `CaughtUp` on its session and its HLC wall time is within 10 seconds of local time.
 - Mirror a live `ClipAdded` or `ClipUsed` from another origin only if its HLC is greater than `local_clip_hlc`, then set `local_clip_hlc` to it.
 - If an image's blob isn't present yet, fetch it. Mirror only if the fetch finishes within 10 s of the op and nothing newer happened locally in the meantime.
 - Catch-up ops never touch the local clipboard. Reconnecting after a night offline MUST NOT overwrite what you just copied.
-- **Loop guard:** when Ferry writes to the OS clipboard (mirror or picker paste), it records the `group_key` and suppresses every change event with that key for 2 s, because platforms often fire several events for one write. Ferry never emits `ClipAdded` for its own writes; a picker paste emits exactly one `ClipUsed`, from the paste path itself.
+- **Loop guard:** when TailCopy writes to the OS clipboard (mirror or picker paste), it records the `group_key` and suppresses every change event with that key for 2 s, because platforms often fire several events for one write. TailCopy never emits `ClipAdded` for its own writes; a picker paste emits exactly one `ClipUsed`, from the paste path itself.
 - Formats: every stored format where the platform allows. GNOME background writes carry one format (9.4.3).
 
 ### 7.7 Connection management
@@ -451,7 +451,7 @@ Per-device setting, default on. Off while capture is paused.
 
 ---
 
-## 8. Tailnet adapter (`ferry-tailnet`)
+## 8. Tailnet adapter (`tailcopy-tailnet`)
 
 ### 8.1 Backends
 
@@ -505,7 +505,7 @@ Reject everything else and log the peer's node name.
 
 ### 8.6 Policy snippet for README
 
-The first grant is only needed if the tailnet policy isn't allow-all. The second is **always** required for a tagged relay, because an allow-all policy grants no app capabilities. The second grant's `src` MUST be the owner's login, never `autogroup:member`; otherwise every other user in the tailnet could read the relay's copy of the history. `tag:ferry-relay` also needs a `tagOwners` entry.
+The first grant is only needed if the tailnet policy isn't allow-all. The second is **always** required for a tagged relay, because an allow-all policy grants no app capabilities. The second grant's `src` MUST be the owner's login, never `autogroup:member`; otherwise every other user in the tailnet could read the relay's copy of the history. `tag:tailcopy-relay` also needs a `tagOwners` entry.
 
 ```json
 "grants": [
@@ -516,16 +516,16 @@ The first grant is only needed if the tailnet policy isn't allow-all. The second
   },
   {
     "src": ["owner@example.com"],
-    "dst": ["tag:ferry-relay"],
+    "dst": ["tag:tailcopy-relay"],
     "ip":  ["tcp:7441"],
-    "app": {"moorew.github.io/cap/ferry": [{"role": "peer"}]}
+    "app": {"moorew.github.io/cap/tailcopy": [{"role": "peer"}]}
   }
 ]
 ```
 
 ---
 
-## 9. Clipboard platform layer (`ferry-platform`)
+## 9. Clipboard platform layer (`tailcopy-platform`)
 
 ### 9.1 Traits
 
@@ -541,7 +541,7 @@ pub struct CapturedFormats {
 
 #[async_trait]
 pub trait ClipboardBackend: Send + Sync {
-    /// Stream of change notifications. Must not fire for Ferry's own writes more than once.
+    /// Stream of change notifications. Must not fire for TailCopy's own writes more than once.
     fn subscribe(&self) -> BoxStream<'static, ChangeEvent>;
     async fn read(&self) -> Result<CapturedFormats>;
     /// Write every format supplied, as one clipboard offer where the platform allows.
@@ -601,7 +601,7 @@ Backend selection at startup:
 
 ### 9.4 Linux: GNOME on Wayland (tier 1)
 
-GNOME's compositor (Mutter) does not implement the Wayland data-control protocols, so a normal background app cannot watch or set the clipboard, inject keystrokes, or focus its own window on demand. Ferry solves this with a small GNOME Shell extension that runs inside the compositor and exposes exactly the services Ferry needs over D-Bus. The Rust app still owns storage, sync and UI; the extension holds no history.
+GNOME's compositor (Mutter) does not implement the Wayland data-control protocols, so a normal background app cannot watch or set the clipboard, inject keystrokes, or focus its own window on demand. TailCopy solves this with a small GNOME Shell extension that runs inside the compositor and exposes exactly the services TailCopy needs over D-Bus. The Rust app still owns storage, sync and UI; the extension holds no history.
 
 #### 9.4.1 Extension responsibilities
 
@@ -610,9 +610,9 @@ GNOME's compositor (Mutter) does not implement the Wayland data-control protocol
 | Clipboard change events | Connect `owner-changed` on the display's `Meta.Selection`; filter to the clipboard selection |
 | Read formats | `St.Clipboard.get_mimetypes()` and the async `St.Clipboard.get_content()` per MIME type |
 | Write one format | `St.Clipboard.set_content(CLIPBOARD, mime, GLib.Bytes)` |
-| Global shortcuts | `Main.wm.addKeybinding()` with keys from the extension's GSettings schema. Ferry's config is the source of truth: the GSettings keys are a cache that Ferry rewrites through `SetShortcut` on every `Register`, converting `Ctrl+Alt+V` style to GTK accelerators such as `<Control><Alt>v` |
+| Global shortcuts | `Main.wm.addKeybinding()` with keys from the extension's GSettings schema. TailCopy's config is the source of truth: the GSettings keys are a cache that TailCopy rewrites through `SetShortcut` on every `Register`, converting `Ctrl+Alt+V` style to GTK accelerators such as `<Control><Alt>v` |
 | Focus tracking | Remember `global.display.focus_window` when the picker shortcut fires |
-| Present the picker | Find a mapped window matching Ferry's PID and title. If none exists yet, present the next matching window that appears within 500 ms, because GTK on Wayland creates a new toplevel each time the picker is shown. Centre it on the monitor of the remembered window, raise it above others, and activate it |
+| Present the picker | Find a mapped window matching TailCopy's PID and title. If none exists yet, present the next matching window that appears within 500 ms, because GTK on Wayland creates a new toplevel each time the picker is shown. Centre it on the monitor of the remembered window, raise it above others, and activate it |
 | Paste keystroke | Wait until no modifiers are held (up to 500 ms; read the current modifier state, for example from `global.get_pointer()`, **[M0 verify]**), activate the remembered window, then send the keystroke through a Clutter virtual keyboard device. Return an error if modifiers stay down |
 | Source app id | `Shell.WindowTracker` app id of the focused window at change time, with the `.desktop` suffix stripped. Untracked windows (ids like `window:12`) send an empty string |
 
@@ -634,7 +634,7 @@ Exported by the extension on the session bus under the shell's own connection (b
 
 ```xml
 <node>
-  <interface name="org.gnome.Shell.Extensions.Ferry">
+  <interface name="org.gnome.Shell.Extensions.TailCopy">
     <!-- Must be called first. Fails unless the caller passes the client check in 9.4.4. -->
     <method name="Register">
       <arg type="u" name="client_api" direction="in"/>
@@ -685,36 +685,36 @@ Implement `GetContent` as an async method (GJS `GetContentAsync(params, invocati
 **Capture**
 
 1. Extension sees `owner-changed` for the clipboard and emits `ClipboardChanged(mimetypes, source_app_id)` to the registered client.
-2. Ferry applies privacy rules on the MIME list first. If `x-kde-passwordManagerHint` is offered, Ferry reads it and skips the clip when its value is `secret`.
-3. Ferry calls `GetContent` for the formats it stores, preferring `text/plain;charset=utf-8`, then `UTF8_STRING`, `text/plain`, `STRING` for text; `text/html`; `text/rtf` or `application/rtf`; `image/png`.
+2. TailCopy applies privacy rules on the MIME list first. If `x-kde-passwordManagerHint` is offered, TailCopy reads it and skips the clip when its value is `secret`.
+3. TailCopy calls `GetContent` for the formats it stores, preferring `text/plain;charset=utf-8`, then `UTF8_STRING`, `text/plain`, `STRING` for text; `text/html`; `text/rtf` or `application/rtf`; `image/png`.
 
 **Picker**
 
 1. The user presses the picker shortcut. The extension remembers the focused window and emits `ShortcutActivated("picker", app_id)`.
-2. Ferry shows the picker window and calls `PresentPicker(pid, "Ferry Picker")`. The extension copes with the window appearing just after the call (9.4.1).
-3. On choose, Ferry writes the clip with the **focused write path** (below), hides the picker, and calls `Paste(keystroke, true)`. The keystroke comes from the paste-override table (9.8) keyed by the app id from step 1.
+2. TailCopy shows the picker window and calls `PresentPicker(pid, "TailCopy Picker")`. The extension copes with the window appearing just after the call (9.4.1).
+3. On choose, TailCopy writes the clip with the **focused write path** (below), hides the picker, and calls `Paste(keystroke, true)`. The keystroke comes from the paste-override table (9.8) keyed by the app id from step 1.
 
 **Writes: two paths**
 
-- **Focused write (picker paste):** while the picker window has focus, Ferry sets the clipboard through GTK's clipboard API on the Tauri window's GTK main thread, offering every stored format in one offer. Ferry stays the owner after the window hides. **[M0 verify]** the offer survives hiding and serves every format.
-- **Background write (live mirror, paste-plain):** Ferry calls `SetContent` with one format, because an extension memory source holds one MIME type: `text/plain;charset=utf-8` for text and rich clips, `image/png` for images. Live mirror on GNOME therefore carries plain text and images; rich formats paste through the picker. A multi-format selection source in the extension is a v1.x stretch goal.
+- **Focused write (picker paste):** while the picker window has focus, TailCopy sets the clipboard through GTK's clipboard API on the Tauri window's GTK main thread, offering every stored format in one offer. TailCopy stays the owner after the window hides. **[M0 verify]** the offer survives hiding and serves every format.
+- **Background write (live mirror, paste-plain):** TailCopy calls `SetContent` with one format, because an extension memory source holds one MIME type: `text/plain;charset=utf-8` for text and rich clips, `image/png` for images. Live mirror on GNOME therefore carries plain text and images; rich formats paste through the picker. A multi-format selection source in the extension is a v1.x stretch goal.
 
 **Paste as plain text (global shortcut)**
 
-The extension emits `ShortcutActivated("paste-plain", app_id)`. Ferry calls `SetContent("text/plain;charset=utf-8", ...)` with the current clip's plain text, then `Paste(keystroke, false)`.
+The extension emits `ShortcutActivated("paste-plain", app_id)`. TailCopy calls `SetContent("text/plain;charset=utf-8", ...)` with the current clip's plain text, then `Paste(keystroke, false)`.
 
 #### 9.4.4 Securing the D-Bus surface
 
 Any process in the user's session can call methods on the shell's bus connection, so the extension MUST restrict who can read the clipboard.
 
-- `Register` resolves the caller's PID through the bus daemon, reads `/proc/<pid>/exe` asynchronously, and accepts only if the path is listed in the GSettings key `allowed-clients` (default `['/usr/bin/ferry']`; developers add their build path with `gsettings`).
+- `Register` resolves the caller's PID through the bus daemon, reads `/proc/<pid>/exe` asynchronously, and accepts only if the path is listed in the GSettings key `allowed-clients` (default `['/usr/bin/tailcopy']`; developers add their build path with `gsettings`).
 - After a successful `Register`, every other method checks that the caller's unique bus name matches the registered one. A new `Register` from an allowed client replaces the old registration (handles app restarts).
 - This is defence in depth, not a security boundary: same-user processes can already do a lot. Document that honestly in `docs/PRIVACY.md`.
 
 #### 9.4.5 extensions.gnome.org (EGO) compliance checklist
 
-- [ ] Description states plainly that the extension reads and writes the clipboard and forwards it to the locally installed Ferry app, which may sync it to the user's own devices over their tailnet.
-- [ ] No default keyboard shortcuts in the schema. Both shortcut keys default to an empty list; Ferry's first run asks the user to choose and sets them through `SetShortcut`.
+- [ ] Description states plainly that the extension reads and writes the clipboard and forwards it to the locally installed TailCopy app, which may sync it to the user's own devices over their tailnet.
+- [ ] No default keyboard shortcuts in the schema. Both shortcut keys default to an empty list; TailCopy's first run asks the user to choose and sets them through `SetShortcut`.
 - [ ] GPL-2.0-or-later licence. GSettings schema id and path under `org.gnome.shell.extensions`. Schema XML shipped; no compiled schema.
 - [ ] All objects created in `enable()` are destroyed in `disable()`; all signals disconnected; all main loop sources removed.
 - [ ] Nothing created at import or in the constructor beyond static data.
@@ -722,7 +722,7 @@ Any process in the user's session can call methods on the shell's bus connection
 - [ ] `metadata.json` has only valid keys; `session-modes` omitted.
 - [ ] Passes GNOME Shell's eslint rules.
 
-Review risk: EGO forbids sharing clipboard data with a third party without explicit user interaction. The local Ferry app is the user's own software and setup is explicit, but a reviewer may still object. Fallback: ship the extension in the `.deb` (system-wide) and as a zip on GitHub Releases.
+Review risk: EGO forbids sharing clipboard data with a third party without explicit user interaction. The local TailCopy app is the user's own software and setup is explicit, but a reviewer may still object. Fallback: ship the extension in the `.deb` (system-wide) and as a zip on GitHub Releases.
 
 #### 9.4.6 Install and enable flow (first run on GNOME)
 
@@ -732,17 +732,17 @@ Review risk: EGO forbids sharing clipboard data with a third party without expli
    - Until then, the `.deb` installs it system-wide under `/usr/share/gnome-shell/extensions/<uuid>/`. GNOME only discovers new extensions at login on Wayland, so tell the user to log out and back in once.
 3. If it's installed but disabled, call `EnableExtension`.
 4. Call `Register`. On success, ask the user to choose the picker shortcut (suggest Ctrl+Alt+V) and set it with `SetShortcut`.
-5. If anything fails, Ferry runs in degraded mode with a clear explanation and a "Try again" button.
+5. If anything fails, TailCopy runs in degraded mode with a clear explanation and a "Try again" button.
 
 #### 9.4.7 Lifecycle and upgrades
 
-- **Lock and unlock.** Without the `unlock-dialog` session mode, GNOME disables the extension when the screen locks and re-enables it on unlock. That unexports the D-Bus object and drops the registration. Ferry subscribes to `ExtensionStateChanged` on `org.gnome.Shell.Extensions` and, whenever the Ferry UUID becomes enabled, calls `Register` again and re-sends both shortcuts. Capture pausing while locked is intended.
-- **Version skew.** Ferry supports the current and previous `extension_api`. After a `.deb` upgrade the running shell keeps the old extension code until the next login. On an unsupported version, Ferry runs in degraded mode and asks the user to log out and back in.
+- **Lock and unlock.** Without the `unlock-dialog` session mode, GNOME disables the extension when the screen locks and re-enables it on unlock. That unexports the D-Bus object and drops the registration. TailCopy subscribes to `ExtensionStateChanged` on `org.gnome.Shell.Extensions` and, whenever the TailCopy UUID becomes enabled, calls `Register` again and re-sends both shortcuts. Capture pausing while locked is intended.
+- **Version skew.** TailCopy supports the current and previous `extension_api`. After a `.deb` upgrade the running shell keeps the old extension code until the next login. On an unsupported version, TailCopy runs in degraded mode and asks the user to log out and back in.
 - **Schemas for system-wide installs.** GNOME Shell doesn't compile schemas for extensions installed under `/usr/share/gnome-shell/extensions/`, so `getSettings()` would throw. The `.deb` also installs the schema XML into `/usr/share/glib-2.0/schemas/`, where the GLib package trigger compiles it. The EGO zip keeps the XML in the extension's own `schemas/` folder.
 
 ### 9.5 Linux tier 2
 
-- **KDE Plasma 6 and wlroots (Wayland):** data-control backend for watch, read and multi-format write. Hotkeys through the GlobalShortcuts portal (`ashpd`); if unavailable, the user binds a desktop shortcut to `ferry picker`. No keystroke injection in v1: the picker copies and shows "Copied. Press Ctrl+V." (v1.x: RemoteDesktop portal.)
+- **KDE Plasma 6 and wlroots (Wayland):** data-control backend for watch, read and multi-format write. Hotkeys through the GlobalShortcuts portal (`ashpd`); if unavailable, the user binds a desktop shortcut to `tailcopy picker`. No keystroke injection in v1: the picker copies and shows "Copied. Press Ctrl+V." (v1.x: RemoteDesktop portal.)
 - **X11:** `clipboard-rs` (watch, read, write), `tauri-plugin-global-shortcut`, `enigo` (XTest) for paste.
 
 ### 9.6 Formats and normalization
@@ -782,11 +782,11 @@ Windows Terminal and macOS terminals accept the default.
 
 | Window | Spec |
 | --- | --- |
-| Picker | Frameless, 640 × 420, not resizable, always on top, hidden at launch, with its webview kept loaded while hidden. Title `Ferry Picker`. Centred on the active monitor (option: near the cursor on Windows and macOS) |
+| Picker | Frameless, 640 × 420, not resizable, always on top, hidden at launch, with its webview kept loaded while hidden. Title `TailCopy Picker`. Centred on the active monitor (option: near the cursor on Windows and macOS) |
 | Manager | Normal window, 960 × 640, minimum 720 × 480. Holds History, Devices, Settings and First run routes |
 | Tray / menu bar | Icon with a status dot. Menu: Open picker, Pause capture, Devices, Settings, Quit |
 
-On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on vanilla GNOME without it, the manager is reachable from the app grid and `ferry`.
+On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on vanilla GNOME without it, the manager is reachable from the app grid and `tailcopy`.
 
 ### 10.2 Picker behaviour
 
@@ -840,7 +840,7 @@ Never: upgrade prompts, badges, onboarding carousels, what's-new popups, rating 
 ### 10.5 Manager window
 
 - **History:** sidebar (All, Pinned, Images, Rich text, one entry per device), list with multi-select, detail pane, bulk delete, pin, label, clear history (with "include pinned" checkbox and confirmation).
-- **Devices:** one row per known device: name, role, online, path (direct or DERP region), last sync, ops pending, Ferry version. Banner if Tailscale isn't running or this device has no peers.
+- **Devices:** one row per known device: name, role, online, path (direct or DERP region), last sync, ops pending, TailCopy version. Banner if Tailscale isn't running or this device has no peers.
 - **Settings:** general (device name, start at login, live mirror), shortcuts, retention, size caps, privacy rules, paste overrides (Linux), sync (port, pinned relay address, capability name), diagnostics (open log folder, copy redacted diagnostics), about.
 - **First run:** 1) Tailscale check, 2) GNOME extension setup if applicable (9.4.6), 3) macOS Accessibility permission if applicable, 4) choose picker shortcut, 5) show discovered devices. Each step can be skipped and revisited.
 
@@ -858,7 +858,7 @@ Events: `clips-changed` (debounced 50 ms), `devices-changed`, `status-changed`, 
 
 ## 11. Configuration
 
-`config.toml` in the platform config directory (`directories::ProjectDirs::from("io.github", "moorew", "Ferry")`). Unknown keys and comments are preserved on save (`toml_edit`). Ferry's config is the source of truth for shortcuts on every platform. Example with defaults:
+`config.toml` in the platform config directory (`directories::ProjectDirs::from("io.github", "moorew", "TailCopy")`). Unknown keys and comments are preserved on save (`toml_edit`). TailCopy's config is the source of truth for shortcuts on every platform. Example with defaults:
 
 ```toml
 [general]
@@ -892,8 +892,8 @@ mode = "dont_save"          # or "save_dont_sync"
 [sync]
 port = 7441
 relay = ""                  # optional MagicDNS name or 100.x address, always dialled
-capability = "moorew.github.io/cap/ferry"
-relay_tag = "tag:ferry-relay"
+capability = "moorew.github.io/cap/tailcopy"
+relay_tag = "tag:tailcopy-relay"
 
 [tailscale]
 cli_path = ""               # empty = auto-detect
@@ -914,12 +914,12 @@ localapi_socket = ""        # Linux only; empty = /var/run/tailscale/tailscaled.
 
 ## 12. Relay
 
-- Binary: `ferry-relay --data-dir <dir> [--port 7441] [--max-items 10000] [--max-age-days 90] [--tailscale-socket <path>]`.
+- Binary: `tailcopy-relay --data-dir <dir> [--port 7441] [--max-items 10000] [--max-age-days 90] [--tailscale-socket <path>]`.
 - Uses the LocalAPI socket backend. Hello role `relay`. Never dials. Accepts authorized devices only (8.5). No capture, no live mirror.
 - Two identity options, documented in `docs/INSTALL.md`:
   - **Untagged node logged in as the owner.** Same-user rule covers it; no policy changes.
-  - **Tagged node** (`tag:ferry-relay`). Needs the grant in 8.6.
-- **systemd:** `packaging/ferry-relay.service` running as a dedicated user with access to the tailscaled socket.
+  - **Tagged node** (`tag:tailcopy-relay`). Needs the grant in 8.6.
+- **systemd:** `packaging/tailcopy-relay.service` running as a dedicated user with access to the tailscaled socket.
 - **Docker:** `packaging/Dockerfile` (slim base, non-root) and `packaging/compose.yaml` with a Tailscale sidecar. The sidecar MUST use kernel networking (`/dev/net/tun`, `NET_ADMIN`) so the 100.x address exists in the shared network namespace; the relay container uses `network_mode: service:tailscale` and mounts the sidecar's `/var/run/tailscale` volume for the socket.
 
 ---
@@ -930,7 +930,7 @@ localapi_socket = ""        # Linux only; empty = /var/run/tailscale/tailscaled.
 | --- | --- |
 | Windows | NSIS `.exe` (per-user) and `.msi` |
 | macOS | Universal `.dmg`; codesign and notarize when a Developer ID is available |
-| Linux | `.deb` (primary; installs `/usr/bin/ferry`, desktop file, icons, the extension system-wide, and its schema XML under `/usr/share/glib-2.0/schemas/`); `.rpm` is tier 2. AppImage is not supported on GNOME: it runs from a random mount path, so the extension's client check can't allow it |
+| Linux | `.deb` (primary; installs `/usr/bin/tailcopy`, desktop file, icons, the extension system-wide, and its schema XML under `/usr/share/glib-2.0/schemas/`); `.rpm` is tier 2. AppImage is not supported on GNOME: it runs from a random mount path, so the extension's client check can't allow it |
 | Relay | Static Linux binaries (x86_64, aarch64), Docker image, systemd unit |
 | Extension | Zip built with `gnome-extensions pack` for EGO and GitHub Releases |
 
@@ -946,9 +946,9 @@ Updates: `tauri-plugin-updater` against GitHub Releases with signed manifests. O
 
 ### 14.1 Automated
 
-- **ferry-core:** unit tests for HLC (monotonic, skew clamp, restart), display grouping, retention, stubbing, device id regeneration, migrations. `proptest`: random op sets (including clears, pins, deletes and stubs) applied in random orders and partitions converge to identical visible state; the materialized `clips` table always equals a full recomputation from `ops`; no deleted clip ever reappears.
-- **ferry-sync:** simulation harness in `ferry-testkit` with N in-memory nodes, a fake tailnet with configurable identities, partitions and heals, clock skew up to 60 s, restarts, duplicate dials, blob fetch when the origin is offline, frame size limits, unauthorized peers.
-- **ferry-tailnet:** parse real (redacted) `status` and `whois` JSON fixtures from the owner's machines, including tagged nodes and DERP-only peers.
+- **tailcopy-core:** unit tests for HLC (monotonic, skew clamp, restart), display grouping, retention, stubbing, device id regeneration, migrations. `proptest`: random op sets (including clears, pins, deletes and stubs) applied in random orders and partitions converge to identical visible state; the materialized `clips` table always equals a full recomputation from `ops`; no deleted clip ever reappears.
+- **tailcopy-sync:** simulation harness in `tailcopy-testkit` with N in-memory nodes, a fake tailnet with configurable identities, partitions and heals, clock skew up to 60 s, restarts, duplicate dials, blob fetch when the origin is offline, frame size limits, unauthorized peers.
+- **tailcopy-tailnet:** parse real (redacted) `status` and `whois` JSON fixtures from the owner's machines, including tagged nodes and DERP-only peers.
 - **Frames:** MessagePack round-trip for every variant; reject oversized frames.
 - **UI:** component tests for search token parsing and keyboard handling.
 
@@ -1009,7 +1009,7 @@ Throwaway code in `spikes/`. Deliverable: `docs/M0-REPORT.md` with pass or fail 
 
 1. **Windows:** watch, read and write text, HTML, RTF and PNG; restore focus and inject Ctrl+V into Notepad, Word or LibreOffice, and Chrome.
 2. **macOS:** the same, including the Accessibility prompt, into TextEdit and Safari.
-3. **GNOME 46 and 50 on Wayland:** a minimal extension that emits `ClipboardChanged`, serves `GetContent` for text, HTML and PNG, performs `SetContent`, presents a Tauri window by PID, and pastes into Text Editor, Firefox and Ptyxis (Ctrl+Shift+V). Verify that a GTK multi-format clipboard offer from a focused Tauri window survives the window hiding. Lock and unlock the screen and confirm Ferry re-registers (9.4.7). Measure hotkey-to-focused-picker latency.
+3. **GNOME 46 and 50 on Wayland:** a minimal extension that emits `ClipboardChanged`, serves `GetContent` for text, HTML and PNG, performs `SetContent`, presents a Tauri window by PID, and pastes into Text Editor, Firefox and Ptyxis (Ctrl+Shift+V). Verify that a GTK multi-format clipboard offer from a focused Tauri window survives the window hiding. Lock and unlock the screen and confirm TailCopy re-registers (9.4.7). Measure hotkey-to-focused-picker latency.
 4. **Tailnet:** parse `status` and `whois` through the CLI on all three platforms and through the LocalAPI socket on Linux as a non-root user; bind a listener to the Tailscale address; two machines exchange `/v1/hello` with whois verification on both ends. On Windows, record what Defender Firewall does when the listener binds.
 5. **All platforms:** a paste triggered by Shift+Enter, and one triggered by the global paste-plain shortcut, arrives as a clean Ctrl+V or Cmd+V (modifier wait, 9.1).
 
@@ -1062,7 +1062,7 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 
 | Decision | Default |
 | --- | --- |
-| Product name | Ferry |
+| Product name | TailCopy |
 | Licence | App `MIT OR Apache-2.0`; extension `GPL-2.0-or-later` |
 | Live mirror default | On |
 | Picker shortcut | Ctrl+Alt+V (Windows, Linux), Cmd+Shift+V (macOS) |

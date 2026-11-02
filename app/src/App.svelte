@@ -9,6 +9,6 @@
 </script>
 
 <main>
-  <h1>Ferry</h1>
+  <h1>TailCopy</h1>
   <p>Milestone 0 scaffold{version ? ` · ${version}` : ''}</p>
 </main>

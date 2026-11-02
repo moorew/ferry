@@ -11,11 +11,11 @@ repository = "https://github.com/moorew/ferry"
 publish = false
 
 [workspace.dependencies]
-ferry-core = { path = "crates/ferry-core" }
-ferry-sync = { path = "crates/ferry-sync" }
-ferry-tailnet = { path = "crates/ferry-tailnet" }
-ferry-platform = { path = "crates/ferry-platform" }
-ferry-testkit = { path = "crates/ferry-testkit" }
+tailcopy-core = { path = "crates/tailcopy-core" }
+tailcopy-sync = { path = "crates/tailcopy-sync" }
+tailcopy-tailnet = { path = "crates/tailcopy-tailnet" }
+tailcopy-platform = { path = "crates/tailcopy-platform" }
+tailcopy-testkit = { path = "crates/tailcopy-testkit" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

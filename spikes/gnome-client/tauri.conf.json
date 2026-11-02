@@ -1,14 +1,14 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ferry-gnome-client-spike",
-  "identifier": "io.github.moorew.ferry.spike",
+  "productName": "tailcopy-gnome-client-spike",
+  "identifier": "io.github.moorew.tailcopy.spike",
   "build": { "frontendDist": "ui" },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "label": "picker",
-        "title": "Ferry Picker",
+        "title": "TailCopy Picker",
         "width": 640,
         "height": 420,
         "resizable": false,

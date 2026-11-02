@@ -2,7 +2,7 @@
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-export default class FerryExtension extends Extension {
+export default class TailCopyExtension extends Extension {
     enable() {
     }
 

@@ -9,5 +9,5 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![app_version])
         .run(tauri::generate_context!())
-        .expect("error while running Ferry");
+        .expect("error while running TailCopy");
 }

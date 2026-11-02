@@ -1,7 +1,7 @@
 #!/bin/sh
 # Inside the container: install the spike extension, start a headless shell, run the client.
 set -e
-UUID=ferry@moorew.github.io
+UUID=tailcopy@moorew.github.io
 EXT=$HOME/.local/share/gnome-shell/extensions/$UUID
 mkdir -p "$EXT/schemas"
 cp /ext/extension.js /ext/metadata.json "$EXT/"

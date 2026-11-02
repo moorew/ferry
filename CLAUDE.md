@@ -1,4 +1,4 @@
-# Ferry
+# TailCopy
 
 Keyboard-first clipboard manager for Windows, macOS and Ubuntu GNOME (Wayland) that
 syncs history between the owner's devices over their Tailscale tailnet.
@@ -23,7 +23,7 @@ syncs history between the owner's devices over their Tailscale tailnet.
    `~/.cargo/registry/src`) before using it. Prefer the crates in SPEC 3; log any
    substitution in `docs/DECISIONS.md`.
 6. **Never block** the UI thread or GNOME Shell's main loop.
-7. **Names** from SPEC 0.2 live only in `crates/ferry-core/src/names.rs`, mirrored in
+7. **Names** from SPEC 0.2 live only in `crates/tailcopy-core/src/names.rs`, mirrored in
    `extension/metadata.json` and the GSettings schema (a test keeps them in step).
 8. **Before every commit:** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`,
    `cargo test --workspace`, front-end typecheck and lint, eslint on the extension.
@@ -80,4 +80,4 @@ file are enough for `check`/`clippy`, never for linking.
 - Nested shell: GNOME 46 `dbus-run-session -- gnome-shell --nested --wayland`;
   GNOME 49+ `dbus-run-session -- gnome-shell --devkit --wayland`
 - A development build must be listed in the extension's `allowed-clients` key:
-  `gsettings --schemadir <ext>/schemas set org.gnome.shell.extensions.ferry allowed-clients "['/abs/path/to/ferry']"`
+  `gsettings --schemadir <ext>/schemas set org.gnome.shell.extensions.tailcopy allowed-clients "['/abs/path/to/tailcopy']"`

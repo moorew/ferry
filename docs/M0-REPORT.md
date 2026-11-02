@@ -21,7 +21,7 @@ run it with the steps below.
 
 | What | Result | Where |
 | --- | --- | --- |
-| GNOME hotkey to focused picker (shell-measured, from the keybinding to the picker becoming the focus window) | 16 to 40 ms over 8 presses (budget 100 ms p95) | Headless GNOME 46.0 and 50.1, software rendering |
+| GNOME hotkey to focused picker (shell-measured, from the keybinding to the picker becoming the focus window) | 11 to 45 ms over 14 presses (budget 100 ms p95) | Headless GNOME 46.0 and 50.1, software rendering |
 | Picker focused as seen by the webview, after the client receives `ShortcutActivated` | 20 to 47 ms | Same |
 | Choose to Ctrl+V sent (modifier poll + 60 ms activation delay) | 83 to 84 ms | Same |
 | `GetContent`, small text or HTML | 1 to 6 ms | Same |
@@ -111,7 +111,7 @@ W7. Elevated window: open Notepad as administrator, try W4 into it. Expect
     `Copied. Press Ctrl+V to paste (admin window).`
 
 W8. clipboard-rs comparison (D-012): quit, run
-    `$env:FERRY_WRITER_CLIPBOARD_RS=1; .\clipboard-win-spike.exe`, copy an image from
+    `$env:TAILCOPY_WRITER_CLIPBOARD_RS=1; .\clipboard-win-spike.exe`, copy an image from
     Chrome, choose it with Enter, then Ctrl+T. I expect formats missing.
 
 W9. Tailnet: `.\tailnet-spike.exe status`, then `.\tailnet-spike.exe serve`.
@@ -122,11 +122,11 @@ W9. Tailnet: `.\tailnet-spike.exe status`, then `.\tailnet-spike.exe serve`.
 ### macOS 13 or later
 
 M1. Unzip `spikes-macos`. The app is ad-hoc signed, so clear quarantine:
-    `xattr -dr com.apple.quarantine ferry-clipboard-mac-spike.app`
+    `xattr -dr com.apple.quarantine tailcopy-clipboard-mac-spike.app`
 
 M2. Launch with logs to a file:
-    `open --stdout /tmp/ferry-spike.log --stderr /tmp/ferry-spike.log ferry-clipboard-mac-spike.app`
-    and `tail -f /tmp/ferry-spike.log` in Terminal. There's no Dock icon by design.
+    `open --stdout /tmp/tailcopy-spike.log --stderr /tmp/tailcopy-spike.log tailcopy-clipboard-mac-spike.app`
+    and `tail -f /tmp/tailcopy-spike.log` in Terminal. There's no Dock icon by design.
 
 M3. First launch should show the Accessibility prompt. Grant it in System Settings,
     quit with `pkill -f clipboard-mac-spike`, launch again (M2). The log should say
@@ -153,18 +153,18 @@ G1. Unzip `spikes-linux`. If WebKitGTK 4.1 is missing:
 G2. Install the extension, then log out and back in (Wayland only picks up new
     extensions at login):
 
-    cp -r ferry@moorew.github.io ~/.local/share/gnome-shell/extensions/
-    glib-compile-schemas ~/.local/share/gnome-shell/extensions/ferry@moorew.github.io/schemas
+    cp -r tailcopy@moorew.github.io ~/.local/share/gnome-shell/extensions/
+    glib-compile-schemas ~/.local/share/gnome-shell/extensions/tailcopy@moorew.github.io/schemas
 
-    After logging in: `gnome-extensions enable ferry@moorew.github.io`
+    After logging in: `gnome-extensions enable tailcopy@moorew.github.io`
 
 G3. Allow the spike client, then run it:
 
-    gsettings --schemadir ~/.local/share/gnome-shell/extensions/ferry@moorew.github.io/schemas \
-      set org.gnome.shell.extensions.ferry allowed-clients "['$(realpath ./gnome-client-spike)']"
+    gsettings --schemadir ~/.local/share/gnome-shell/extensions/tailcopy@moorew.github.io/schemas \
+      set org.gnome.shell.extensions.tailcopy allowed-clients "['$(realpath ./gnome-client-spike)']"
     chmod +x gnome-client-spike && ./gnome-client-spike
 
-    In a second terminal: `journalctl --user -f -o cat /usr/bin/gnome-shell | grep Ferry`
+    In a second terminal: `journalctl --user -f -o cat /usr/bin/gnome-shell | grep TailCopy`
 
 G4. Capture in Text Editor, Firefox (text, a formatted paragraph, Copy Image) and
     Ptyxis. A password from KeePassXC or your manager (expect `skipped`).

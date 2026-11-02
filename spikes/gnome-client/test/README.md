@@ -8,14 +8,14 @@ re-registration after the extension is disabled and enabled.
 Build the client in an Ubuntu 24.04 environment with the Tauri dependencies, then:
 
 ```sh
-docker build -t ferry-gnome46 spikes/gnome-extension/test
-docker build -t ferry-gnome46-e2e spikes/gnome-client/test
+docker build -t tailcopy-gnome46 spikes/gnome-extension/test
+docker build -t tailcopy-gnome46-e2e spikes/gnome-client/test
 docker run --rm --user root \
   -v "$PWD/spikes/gnome-extension:/ext:ro" \
   -v "$PWD/spikes/gnome-client/test:/test:ro" \
   -v "$PWD/spikes/gnome-client/target/debug:/client:ro" \
-  ferry-gnome46-e2e sh /test/e2e-root.sh
+  tailcopy-gnome46-e2e sh /test/e2e-root.sh
 ```
 
-For GNOME 50, build `ferry-gnome50` from the extension test with
-`--build-arg BASE=ubuntu:26.04`, then this image with `--build-arg BASE=ferry-gnome50`.
+For GNOME 50, build `tailcopy-gnome50` from the extension test with
+`--build-arg BASE=ubuntu:26.04`, then this image with `--build-arg BASE=tailcopy-gnome50`.

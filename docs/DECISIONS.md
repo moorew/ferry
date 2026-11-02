@@ -7,6 +7,17 @@ written into SPEC.md).
 
 ---
 
+## D-013 · Renamed Ferry to TailCopy · landed
+
+The owner renamed the product because another clipboard manager is already called
+Ferry. Every SPEC 0.2 identifier changed with it: app id `io.github.moorew.tailcopy`,
+binaries `tailcopy` and `tailcopy-relay`, crates `tailcopy-*`, capability
+`moorew.github.io/cap/tailcopy`, relay tag `tag:tailcopy-relay`, extension UUID
+`tailcopy@moorew.github.io`, D-Bus `org.gnome.Shell.Extensions.TailCopy` at
+`/org/gnome/Shell/Extensions/TailCopy`, GSettings `org.gnome.shell.extensions.tailcopy`.
+The sync port stays 7441. SPEC.md is updated. The GitHub repository is still
+`moorew/ferry` until the owner renames it.
+
 ## D-012 · Windows multi-format writes go through clipboard-win · proposed
 
 **Finding.** `clipboard-rs` 0.3.5 `Clipboard::set` on Windows handles an image by
@@ -15,7 +26,7 @@ return. Formats before the image are wiped and formats after it fail silently
 (`continue` on error), because the clipboard is closed. A clip with an image plus HTML
 or text therefore loses formats. Found by reading the source
 (`src/platform/win.rs`, `set` and `set_image`); the spike can show it on hardware
-(`FERRY_WRITER_CLIPBOARD_RS=1`).
+(`TAILCOPY_WRITER_CLIPBOARD_RS=1`).
 
 **Proposal.** SPEC 3: keep `clipboard-rs` for watching and reading on Windows, and
 write through `clipboard-win` (already its dependency) in one
@@ -58,7 +69,7 @@ Measured against Tailscale 1.102.4 (Linux).
    and `Relay` is the peer's home DERP region whether or not it is in use. So "empty
    `CurAddr` means relayed" mislabels idle peers. `PeerRelay` exists as a string field.
    Proposal for SPEC 8.2: direct if `CurAddr` is set; "peer relay" if `PeerRelay` is
-   set; "relayed via DERP <Relay>" if `Active`; otherwise "idle". Ferry's own sessions
+   set; "relayed via DERP <Relay>" if `Active`; otherwise "idle". TailCopy's own sessions
    keep peers active, so connected peers show their real path.
 3. **Node IDs.** `status` `Self.ID` / `Peer[].ID` is the stable string ID
    (`n…CNTRL`); `whois` `Node.ID` is a number and `Node.StableID` is the string. SPEC
@@ -76,8 +87,8 @@ matches the picker by PID when it is created and checks the title when it is fir
 
 ## D-007 · GTK main thread must not wait on GetContent · applied
 
-While Ferry owns the clipboard through the GTK focused write, the shell's
-`GetContent` asks Ferry's own GTK main loop for the data. A synchronous D-Bus call from
+While TailCopy owns the clipboard through the GTK focused write, the shell's
+`GetContent` asks TailCopy's own GTK main loop for the data. A synchronous D-Bus call from
 that thread would deadlock. The spike makes all D-Bus calls from tokio tasks; M1 must
 do the same.
 

@@ -1,5 +1,5 @@
 [package]
-name = "ferry-testkit"
+name = "tailcopy-tailnet"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,6 +7,6 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-ferry-core.workspace = true
+tailcopy-core.workspace = true
 [lints]
 workspace = true

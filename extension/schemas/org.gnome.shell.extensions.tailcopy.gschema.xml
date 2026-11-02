@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.ferry" path="/org/gnome/shell/extensions/ferry/">
+  <schema id="org.gnome.shell.extensions.tailcopy" path="/org/gnome/shell/extensions/tailcopy/">
     <key name="picker-shortcut" type="as">
       <default>[]</default>
-      <summary>Open the Ferry picker</summary>
-      <description>Set by the Ferry app. Ferry's own config is the source of truth.</description>
+      <summary>Open the TailCopy picker</summary>
+      <description>Set by the TailCopy app. TailCopy's own config is the source of truth.</description>
     </key>
     <key name="paste-plain-shortcut" type="as">
       <default>[]</default>
       <summary>Paste the current clipboard as plain text</summary>
-      <description>Set by the Ferry app. Ferry's own config is the source of truth.</description>
+      <description>Set by the TailCopy app. TailCopy's own config is the source of truth.</description>
     </key>
     <key name="allowed-clients" type="as">
-      <default>['/usr/bin/ferry']</default>
+      <default>['/usr/bin/tailcopy']</default>
       <summary>Executables allowed to register with the extension</summary>
       <description>Absolute paths. Developers add their build path here.</description>
     </key>

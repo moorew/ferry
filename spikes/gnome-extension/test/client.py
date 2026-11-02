@@ -1,4 +1,4 @@
-"""Headless test client for the Ferry GNOME extension spike.
+"""Headless test client for the TailCopy GNOME extension spike.
 
 Drives every D-Bus method and signal, a real Ctrl+V into a GTK entry through the
 extension's virtual keyboard, the picker shortcut, PresentPicker, the modifier wait
@@ -14,9 +14,9 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 BUS = "org.gnome.Shell"
-PATH = "/org/gnome/Shell/Extensions/Ferry"
-IFACE = "org.gnome.Shell.Extensions.Ferry"
-UUID = "ferry@moorew.github.io"
+PATH = "/org/gnome/Shell/Extensions/TailCopy"
+IFACE = "org.gnome.Shell.Extensions.TailCopy"
+UUID = "tailcopy@moorew.github.io"
 
 conn = Gio.bus_get_sync(Gio.BusType.SESSION)
 signals = []
@@ -84,7 +84,7 @@ check("Register returns extension API 1", api == (1,), str(api))
 
 # 3. SetContent text -> ClipboardChanged -> GetContent round trip.
 signals.clear()
-text = "hello from ferry ✓".encode()
+text = "hello from tailcopy ✓".encode()
 call("SetContent", GLib.Variant("(say)", ("text/plain;charset=utf-8", text)))
 pump(300)
 changed = [s for s in signals if s[1] == "ClipboardChanged"]
@@ -120,7 +120,7 @@ except GLib.Error:
 pump(300)
 schema_dir = os.path.expanduser(f"~/.local/share/gnome-shell/extensions/{UUID}/schemas")
 src = Gio.SettingsSchemaSource.new_from_directory(schema_dir, None, False)
-settings = Gio.Settings.new_full(src.lookup("org.gnome.shell.extensions.ferry", False), None, None)
+settings = Gio.Settings.new_full(src.lookup("org.gnome.shell.extensions.tailcopy", False), None, None)
 check("picker-shortcut stored", settings.get_strv("picker-shortcut") == ["<Control><Alt>v"],
       str(settings.get_strv("picker-shortcut")))
 
@@ -136,8 +136,8 @@ check("editor window is focused", editor.is_active())
 PRESS = """
 const seat = (global.stage.context?.get_backend() ?? imports.gi.Clutter.get_default_backend()).get_default_seat();
 const C = imports.gi.Clutter;
-globalThis._ferryTestKb ??= seat.create_virtual_device(C.InputDeviceType.KEYBOARD_DEVICE);
-const kb = globalThis._ferryTestKb;
+globalThis._tailcopyTestKb ??= seat.create_virtual_device(C.InputDeviceType.KEYBOARD_DEVICE);
+const kb = globalThis._tailcopyTestKb;
 const t = imports.gi.GLib.get_monotonic_time();
 const keys = [%s];
 for (const k of keys) kb.notify_keyval(t, k, C.KeyState.%s);
@@ -154,11 +154,11 @@ check("ShortcutActivated('picker') on Ctrl+Alt+V", bool(shortcuts) and shortcuts
       str(shortcuts[-1][2]) if shortcuts else "no signal")
 
 # 7. Show the picker after PresentPicker (the window appears just after the call).
-picker = Gtk.Window(title="Ferry Picker")
+picker = Gtk.Window(title="TailCopy Picker")
 picker.set_default_size(640, 420)
 picker.add(Gtk.Label(label="picker"))
 t = time.monotonic()
-call("PresentPicker", GLib.Variant("(us)", (os.getpid(), "Ferry Picker")))
+call("PresentPicker", GLib.Variant("(us)", (os.getpid(), "TailCopy Picker")))
 picker.show_all()
 deadline = time.monotonic() + 1.5
 while not picker.is_active() and time.monotonic() < deadline:
@@ -171,7 +171,7 @@ picker.hide()
 pump(300)
 t = time.monotonic()
 picker.show_all()
-call("PresentPicker", GLib.Variant("(us)", (os.getpid(), "Ferry Picker")))
+call("PresentPicker", GLib.Variant("(us)", (os.getpid(), "TailCopy Picker")))
 deadline = time.monotonic() + 1.5
 while not picker.is_active() and time.monotonic() < deadline:
     pump(5)
@@ -179,7 +179,7 @@ check("PresentPicker focuses an already mapped window", picker.is_active(),
       f"{(time.monotonic() - t) * 1000:.0f} ms from show")
 
 # 8. Choose: set clipboard, hide picker, Paste(ctrl-v, activate_previous=true).
-call("SetContent", GLib.Variant("(say)", ("text/plain;charset=utf-8", b"pasted by ferry")))
+call("SetContent", GLib.Variant("(say)", ("text/plain;charset=utf-8", b"pasted by tailcopy")))
 picker.hide()
 pump(30)
 t = time.monotonic()
@@ -190,7 +190,7 @@ while not paste_done and time.monotonic() - t < 2:
     pump(5)
 pump(300)
 check("Paste activates the previous window", editor.is_active())
-check("Paste delivers Ctrl+V into the previous window", entry.get_text() == "pasted by ferry",
+check("Paste delivers Ctrl+V into the previous window", entry.get_text() == "pasted by tailcopy",
       repr(entry.get_text()))
 
 # 9. Modifier wait: Paste fails cleanly while Shift is held, succeeds once released.
@@ -213,7 +213,7 @@ conn.call(BUS, PATH, IFACE, "Paste", GLib.Variant("(sb)", ("ctrl-v", False)), No
 while not call_done and time.monotonic() - t < 2:
     pump(5)
 pump(200)
-check("Paste waits for Shift release, then pastes clean Ctrl+V", entry.get_text() == "pasted by ferry",
+check("Paste waits for Shift release, then pastes clean Ctrl+V", entry.get_text() == "pasted by tailcopy",
       f"{(call_done[0] - t) * 1000:.0f} ms; entry={entry.get_text()!r}" if call_done else "no reply")
 
 # 10. Clipboard set by a normal app (GTK) is reported with its source app.

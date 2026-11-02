@@ -199,7 +199,7 @@ fn on_paste_plain_hotkey(spike: &Spike) {
 fn write_clip(spike: &Spike, clip: &Clip, plain: bool) {
     spike.inner.lock().unwrap().last_write = Some((Instant::now(), clip.text.clone()));
     let t = Instant::now();
-    let result = if std::env::var_os("FERRY_WRITER_CLIPBOARD_RS").is_some() {
+    let result = if std::env::var_os("TAILCOPY_WRITER_CLIPBOARD_RS").is_some() {
         win::write_with_clipboard_rs(
             clip.text.clone(),
             clip.html.clone(),

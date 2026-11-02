@@ -4,51 +4,51 @@
 //! extension's GSettings schema. The `names_match_extension` test keeps those in step.
 
 /// Product name shown in the UI.
-pub const PRODUCT_NAME: &str = "Ferry";
+pub const PRODUCT_NAME: &str = "TailCopy";
 
 /// Tauri `identifier`, macOS bundle id and Linux app id.
-pub const APP_ID: &str = "io.github.moorew.ferry";
+pub const APP_ID: &str = "io.github.moorew.tailcopy";
 
 /// `directories::ProjectDirs::from` arguments.
 pub const PROJECT_QUALIFIER: &str = "io.github";
 pub const PROJECT_ORGANIZATION: &str = "moorew";
-pub const PROJECT_APPLICATION: &str = "Ferry";
+pub const PROJECT_APPLICATION: &str = "TailCopy";
 
 /// Desktop binary and CLI name.
-pub const DESKTOP_BINARY: &str = "ferry";
+pub const DESKTOP_BINARY: &str = "tailcopy";
 
 /// Headless relay binary name.
-pub const RELAY_BINARY: &str = "ferry-relay";
+pub const RELAY_BINARY: &str = "tailcopy-relay";
 
 /// Default sync TCP port.
 pub const DEFAULT_SYNC_PORT: u16 = 7441;
 
 /// Default Tailscale app capability name. Must be a domain the owner controls.
-pub const DEFAULT_CAPABILITY: &str = "moorew.github.io/cap/ferry";
+pub const DEFAULT_CAPABILITY: &str = "moorew.github.io/cap/tailcopy";
 
 /// Default tag for tagged relays.
-pub const DEFAULT_RELAY_TAG: &str = "tag:ferry-relay";
+pub const DEFAULT_RELAY_TAG: &str = "tag:tailcopy-relay";
 
 /// GNOME Shell extension UUID.
-pub const GNOME_EXTENSION_UUID: &str = "ferry@moorew.github.io";
+pub const GNOME_EXTENSION_UUID: &str = "tailcopy@moorew.github.io";
 
 /// D-Bus interface exported by the GNOME Shell extension.
-pub const GNOME_DBUS_INTERFACE: &str = "org.gnome.Shell.Extensions.Ferry";
+pub const GNOME_DBUS_INTERFACE: &str = "org.gnome.Shell.Extensions.TailCopy";
 
 /// D-Bus object path exported by the GNOME Shell extension.
-pub const GNOME_DBUS_PATH: &str = "/org/gnome/Shell/Extensions/Ferry";
+pub const GNOME_DBUS_PATH: &str = "/org/gnome/Shell/Extensions/TailCopy";
 
 /// GSettings schema id of the GNOME Shell extension.
-pub const GSETTINGS_SCHEMA: &str = "org.gnome.shell.extensions.ferry";
+pub const GSETTINGS_SCHEMA: &str = "org.gnome.shell.extensions.tailcopy";
 
 /// GSettings schema path of the GNOME Shell extension.
-pub const GSETTINGS_PATH: &str = "/org/gnome/shell/extensions/ferry/";
+pub const GSETTINGS_PATH: &str = "/org/gnome/shell/extensions/tailcopy/";
 
 /// Title of the picker window. The GNOME extension matches windows by PID and this title.
-pub const PICKER_TITLE: &str = "Ferry Picker";
+pub const PICKER_TITLE: &str = "TailCopy Picker";
 
-/// Prefix of the local IPC socket name; the full name is `ferry-<username>`.
-pub const IPC_SOCKET_PREFIX: &str = "ferry";
+/// Prefix of the local IPC socket name; the full name is `tailcopy-<username>`.
+pub const IPC_SOCKET_PREFIX: &str = "tailcopy";
 
 /// Licence of the desktop app, relay and crates.
 pub const APP_LICENSE: &str = "MIT OR Apache-2.0";
@@ -62,7 +62,7 @@ mod tests {
 
     const METADATA: &str = include_str!("../../../extension/metadata.json");
     const SCHEMA: &str =
-        include_str!("../../../extension/schemas/org.gnome.shell.extensions.ferry.gschema.xml");
+        include_str!("../../../extension/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml");
 
     #[test]
     fn names_match_extension() {

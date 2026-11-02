@@ -11,8 +11,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const API_VERSION = 1;
-const OBJECT_PATH = '/org/gnome/Shell/Extensions/Ferry';
-const INTERFACE_NAME = 'org.gnome.Shell.Extensions.Ferry';
+const OBJECT_PATH = '/org/gnome/Shell/Extensions/TailCopy';
+const INTERFACE_NAME = 'org.gnome.Shell.Extensions.TailCopy';
 const ERROR_PREFIX = `${INTERFACE_NAME}.Error`;
 
 const PRESENT_TIMEOUT_MS = 500;
@@ -96,7 +96,7 @@ function appIdForWindow(window) {
     return id.replace(/\.desktop$/, '');
 }
 
-class FerryService {
+class TailCopyService {
     constructor(settings) {
         this._settings = settings;
         this._client = null;
@@ -165,7 +165,7 @@ class FerryService {
             }
             this._client = sender;
             this._clientPid = pid;
-            console.log(`Ferry: registered ${exe} (client API ${clientApi})`);
+            console.log(`TailCopy: registered ${exe} (client API ${clientApi})`);
             invocation.return_value(new GLib.Variant('(u)', [API_VERSION]));
         } catch (e) {
             invocation.return_dbus_error(`${ERROR_PREFIX}.AccessDenied`, e.message);
@@ -302,7 +302,7 @@ class FerryService {
         if (!this._shortcutTime || focused?.get_pid() !== this._clientPid)
             return;
         const ms = (GLib.get_monotonic_time() - this._shortcutTime) / 1000;
-        console.log(`Ferry: picker focused ${ms.toFixed(1)} ms after the shortcut`);
+        console.log(`TailCopy: picker focused ${ms.toFixed(1)} ms after the shortcut`);
         this._shortcutTime = 0;
     }
 
@@ -366,9 +366,9 @@ class FerryService {
     }
 }
 
-export default class FerryExtension extends Extension {
+export default class TailCopyExtension extends Extension {
     enable() {
-        this._service = new FerryService(this.getSettings());
+        this._service = new TailCopyService(this.getSettings());
     }
 
     disable() {

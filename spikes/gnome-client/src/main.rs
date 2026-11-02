@@ -1,6 +1,6 @@
 //! M0 GNOME client spike (SPEC 9.4, 17 item 3).
 //!
-//! Registers with the Ferry Shell extension over zbus, captures every clipboard
+//! Registers with the TailCopy Shell extension over zbus, captures every clipboard
 //! change it reports, shows a Tauri picker on the extension's shortcut, writes the
 //! chosen clip with the GTK multi-format focused write, and pastes through the
 //! extension. Prints timestamps for hotkey, show, focus and paste.
@@ -16,8 +16,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use zbus::{Connection, OwnedVariant, proxy};
 
-const PICKER_TITLE: &str = "Ferry Picker";
-const EXTENSION_UUID: &str = "ferry@moorew.github.io";
+const PICKER_TITLE: &str = "TailCopy Picker";
+const EXTENSION_UUID: &str = "tailcopy@moorew.github.io";
 const CLIENT_API: u32 = 1;
 const MAX_CLIPS: usize = 20;
 
@@ -33,11 +33,11 @@ const PNG_MIMES: &[&str] = &["image/png"];
 const PASSWORD_HINT: &str = "x-kde-passwordManagerHint";
 
 #[proxy(
-    interface = "org.gnome.Shell.Extensions.Ferry",
+    interface = "org.gnome.Shell.Extensions.TailCopy",
     default_service = "org.gnome.Shell",
-    default_path = "/org/gnome/Shell/Extensions/Ferry"
+    default_path = "/org/gnome/Shell/Extensions/TailCopy"
 )]
-trait Ferry {
+trait TailCopy {
     fn register(&self, client_api: u32) -> zbus::Result<u32>;
     fn get_mime_types(&self) -> zbus::Result<Vec<String>>;
     fn get_content(&self, mimetype: &str) -> zbus::Result<Vec<u8>>;
@@ -90,7 +90,7 @@ struct Inner {
 }
 
 struct Spike {
-    proxy: FerryProxy<'static>,
+    proxy: TailCopyProxy<'static>,
     inner: Mutex<Inner>,
     started: Instant,
 }
@@ -130,8 +130,8 @@ fn keystroke_for(app_id: &str) -> &'static str {
 
 async fn register(spike: &Spike) -> zbus::Result<()> {
     let api = spike.proxy.register(CLIENT_API).await?;
-    let picker = shortcut("FERRY_PICKER", "<Control><Alt>v");
-    let plain = shortcut("FERRY_PASTE_PLAIN", "<Control><Alt><Shift>v");
+    let picker = shortcut("TAILCOPY_PICKER", "<Control><Alt>v");
+    let plain = shortcut("TAILCOPY_PASTE_PLAIN", "<Control><Alt><Shift>v");
     spike.proxy.set_shortcut("picker", &[&picker]).await?;
     spike.proxy.set_shortcut("paste-plain", &[&plain]).await?;
     spike.log(format!(
@@ -449,7 +449,7 @@ fn main() {
             let handle = app.handle().clone();
             let (conn, proxy) = tauri::async_runtime::block_on(async {
                 let conn = Connection::session().await?;
-                let proxy = FerryProxy::new(&conn).await?;
+                let proxy = TailCopyProxy::new(&conn).await?;
                 Ok::<_, zbus::Error>((conn, proxy))
             })?;
             let spike = Arc::new(Spike {

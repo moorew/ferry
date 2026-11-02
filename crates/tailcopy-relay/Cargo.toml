@@ -1,5 +1,5 @@
 [package]
-name = "ferry-sync"
+name = "tailcopy-relay"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,6 +7,9 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-ferry-core.workspace = true
+tailcopy-core.workspace = true
+tailcopy-sync.workspace = true
+tailcopy-tailnet.workspace = true
+
 [lints]
 workspace = true

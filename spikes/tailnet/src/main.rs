@@ -24,8 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 const DEFAULT_PORT: u16 = 7441;
-const CAPABILITY: &str = "moorew.github.io/cap/ferry";
-const RELAY_TAG: &str = "tag:ferry-relay";
+const CAPABILITY: &str = "moorew.github.io/cap/tailcopy";
+const RELAY_TAG: &str = "tag:tailcopy-relay";
 const DEFAULT_SOCKET: &str = "/var/run/tailscale/tailscaled.sock";
 
 // ---- Tailscale JSON (lenient: every field defaults, unknown fields ignored) ----

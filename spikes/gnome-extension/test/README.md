@@ -7,9 +7,9 @@ Paste with and without activating the previous window, the modifier wait, and
 re-registration after the extension is disabled and enabled (what a screen lock does).
 
 ```sh
-docker build -t ferry-gnome46 spikes/gnome-extension/test
-docker build -t ferry-gnome50 --build-arg BASE=ubuntu:26.04 spikes/gnome-extension/test
-for img in ferry-gnome46 ferry-gnome50; do
+docker build -t tailcopy-gnome46 spikes/gnome-extension/test
+docker build -t tailcopy-gnome50 --build-arg BASE=ubuntu:26.04 spikes/gnome-extension/test
+for img in tailcopy-gnome46 tailcopy-gnome50; do
   docker run --rm --user root \
     -v "$PWD/spikes/gnome-extension:/ext:ro" \
     -v "$PWD/spikes/gnome-extension/test:/test:ro" \
