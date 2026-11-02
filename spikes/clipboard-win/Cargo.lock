@@ -355,20 +355,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipboard-win-spike"
-version = "0.0.0"
-dependencies = [
- "clipboard-rs",
- "clipboard-win",
- "enigo",
- "serde",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
- "windows 0.62.2",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3197,6 +3183,20 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "tailcopy"
+version = "0.0.1"
+dependencies = [
+ "clipboard-rs",
+ "clipboard-win",
+ "enigo",
+ "serde",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
+ "windows 0.62.2",
 ]
 
 [[package]]

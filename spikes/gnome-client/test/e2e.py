@@ -1,4 +1,5 @@
 """End-to-end test of the gnome-client spike against the extension spike."""
+import os
 import subprocess
 import time
 
@@ -94,7 +95,7 @@ while time.monotonic() < deadline:
 
 # Start the Tauri client.
 log = open("/tmp/client.log", "w")
-client = subprocess.Popen(["/client/gnome-client-spike"], stdout=log, stderr=subprocess.STDOUT)
+client = subprocess.Popen([os.environ.get("TAILCOPY_CLIENT", "/client/tailcopy")], stdout=log, stderr=subprocess.STDOUT)
 check("client registers with the extension", wait_log("registered, extension API 1", 15))
 
 # An editor app with a text field.

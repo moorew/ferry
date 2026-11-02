@@ -329,20 +329,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipboard-mac-spike"
-version = "0.0.0"
-dependencies = [
- "clipboard-rs",
- "enigo",
- "objc2-app-kit",
- "objc2-foundation",
- "serde",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
-]
-
-[[package]]
 name = "clipboard-rs"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3197,6 +3183,20 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "tailcopy"
+version = "0.0.1"
+dependencies = [
+ "clipboard-rs",
+ "enigo",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "serde",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
 ]
 
 [[package]]

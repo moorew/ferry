@@ -1,8 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tailcopy-clipboard-win-spike",
-  "identifier": "io.github.moorew.tailcopy.spike",
-  "build": { "frontendDist": "ui" },
+  "productName": "TailCopy",
+  "mainBinaryName": "tailcopy",
+  "version": "0.0.1",
+  "identifier": "io.github.moorew.tailcopy",
+  "build": {
+    "frontendDist": "ui"
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
@@ -20,5 +24,23 @@
       }
     ]
   },
-  "bundle": { "active": false, "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"] }
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/tailcopy-tailnet"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
 }

@@ -693,8 +693,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "tailnet-spike"
-version = "0.0.0"
+name = "tailcopy-tailnet"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "axum",

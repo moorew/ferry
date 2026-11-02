@@ -15,8 +15,8 @@ binaries `tailcopy` and `tailcopy-relay`, crates `tailcopy-*`, capability
 `moorew.github.io/cap/tailcopy`, relay tag `tag:tailcopy-relay`, extension UUID
 `tailcopy@moorew.github.io`, D-Bus `org.gnome.Shell.Extensions.TailCopy` at
 `/org/gnome/Shell/Extensions/TailCopy`, GSettings `org.gnome.shell.extensions.tailcopy`.
-The sync port stays 7441. SPEC.md is updated. The GitHub repository is still
-`moorew/ferry` until the owner renames it.
+The sync port stays 7441. SPEC.md is updated, and the GitHub repository is now
+`moorew/tailcopy` (GitHub redirects the old `moorew/ferry` URLs).
 
 ## D-012 · Windows multi-format writes go through clipboard-win · proposed
 
@@ -104,11 +104,15 @@ GNOME 51 has shipped (51.1 is current), so `metadata.json` lists 46 to 51 per SP
 9.4.1. The extension's API use was checked against gnome-shell 46.10, 50.6 and 51.1
 and mutter 46.8, 50.6 and 51.1.
 
-## D-004 · Spike build workflow · applied
+## D-004 · M0 test build workflow · applied
 
-`.github/workflows/spikes.yml` builds the spikes on Windows, macOS and Ubuntu runners
-and uploads them, so the owner can run them without a toolchain on each machine. It
-is separate from CI (SPEC 13 keeps spikes out of CI) and goes after the M0 gate.
+`.github/workflows/test-builds.yml` ("TailCopy test builds") packages the M0 code as
+installers: an NSIS setup for Windows, a universal ad-hoc-signed DMG for macOS and a
+`.deb` for Ubuntu that also installs the GNOME extension system-wide. Each bundles
+the `tailcopy-tailnet` test tool. The installers go on a draft release,
+`m0-test-build`. It is separate from CI (SPEC 13 keeps spikes out of CI) and is
+replaced by `release.yml` in M3. Tauri names the Debian package `tail-copy` (from the
+product name, with no override); M3 packaging should fix that to `tailcopy`.
 
 ## D-003 · eslint-config-gnome from git · applied
 

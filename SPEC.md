@@ -1068,7 +1068,7 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 | Picker shortcut | Ctrl+Alt+V (Windows, Linux), Cmd+Shift+V (macOS) |
 | Relay identity | Untagged node logged in as the owner |
 | UI stack | Tauri 2 + Svelte 5 |
-| Repo | `github.com/moorew/ferry`, public |
+| Repo | `github.com/moorew/tailcopy`, public |
 
 ---
 

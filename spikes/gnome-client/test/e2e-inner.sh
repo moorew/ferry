@@ -1,7 +1,7 @@
 set -e
 UUID=tailcopy@moorew.github.io
 EXT=$HOME/.local/share/gnome-shell/extensions/$UUID
-CLIENT=/client/gnome-client-spike
+CLIENT=/client/tailcopy
 gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell enabled-extensions "['$UUID']"
 gsettings --schemadir "$EXT/schemas" set org.gnome.shell.extensions.tailcopy allowed-clients "['$CLIENT']"

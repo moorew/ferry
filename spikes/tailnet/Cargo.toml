@@ -1,6 +1,6 @@
 [package]
-name = "tailnet-spike"
-version = "0.0.0"
+name = "tailcopy-tailnet"
+version = "0.0.1"
 edition = "2024"
 publish = false
 

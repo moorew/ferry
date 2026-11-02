@@ -1,6 +1,6 @@
 [package]
-name = "gnome-client-spike"
-version = "0.0.0"
+name = "tailcopy"
+version = "0.0.1"
 edition = "2024"
 publish = false
 
@@ -8,12 +8,12 @@ publish = false
 [workspace]
 
 [build-dependencies]
-tauri-build = "2.7.4"
+tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
 futures-util = "0.3.31"
 gtk = "0.18.2"
 serde = { version = "1.0.229", features = ["derive"] }
-tauri = "2.12.5"
+tauri = { version = "2.12.5", features = [] }
 tokio = { version = "1.54.1", features = ["time", "macros"] }
 zbus = { version = "6.2.1", default-features = false, features = ["tokio", "proxy"] }

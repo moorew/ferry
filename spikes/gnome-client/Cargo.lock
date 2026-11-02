@@ -1131,19 +1131,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
-name = "gnome-client-spike"
-version = "0.0.0"
-dependencies = [
- "futures-util",
- "gtk",
- "serde",
- "tauri",
- "tauri-build",
- "tokio",
- "zbus",
-]
-
-[[package]]
 name = "gobject-sys"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3034,6 +3021,19 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "tailcopy"
+version = "0.0.1"
+dependencies = [
+ "futures-util",
+ "gtk",
+ "serde",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "zbus",
 ]
 
 [[package]]

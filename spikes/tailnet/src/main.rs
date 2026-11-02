@@ -590,7 +590,7 @@ fn looks_like_addr(s: &str) -> bool {
 
 fn usage() -> ! {
     eprintln!(
-        "usage: tailnet-spike [--localapi [SOCKET]] [--cli PATH] COMMAND
+        "usage: tailcopy-tailnet [--localapi [SOCKET]] [--cli PATH] COMMAND
 commands:
   status                    parse status, list candidate peers (SPEC 8.4)
   whois ADDR                whois an IP or IP:port and show the inbound decision

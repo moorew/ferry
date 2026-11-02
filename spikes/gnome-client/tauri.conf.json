@@ -1,8 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tailcopy-gnome-client-spike",
-  "identifier": "io.github.moorew.tailcopy.spike",
-  "build": { "frontendDist": "ui" },
+  "productName": "TailCopy",
+  "mainBinaryName": "tailcopy",
+  "version": "0.0.1",
+  "identifier": "io.github.moorew.tailcopy",
+  "build": {
+    "frontendDist": "ui"
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
@@ -19,5 +23,27 @@
       }
     ]
   },
-  "bundle": { "active": false, "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"] }
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png"
+    ],
+    "externalBin": [
+      "binaries/tailcopy-tailnet"
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/extension.js": "../gnome-extension/extension.js",
+          "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/metadata.json": "../gnome-extension/metadata.json",
+          "/usr/share/glib-2.0/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml": "../gnome-extension/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml"
+        }
+      }
+    }
+  }
 }

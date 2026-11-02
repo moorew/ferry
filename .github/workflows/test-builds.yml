@@ -1,0 +1,146 @@
+name: TailCopy test builds
+
+# Installers for the Milestone 0 test builds (the code in spikes/), for the owner to
+# run on real machines. Separate from CI; replaced by release.yml in M3.
+
+on:
+  push:
+    branches: [m0-spikes]
+    paths: ['spikes/**', '.github/workflows/test-builds.yml']
+  workflow_dispatch:
+
+env:
+  VERSION: 0.0.1-m0
+  TAURI_CLI: '@tauri-apps/cli@2.12.4'
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            spikes/clipboard-win
+            spikes/tailnet
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Tailnet tool
+        shell: bash
+        run: |
+          cargo build --release --manifest-path spikes/tailnet/Cargo.toml
+          mkdir -p spikes/clipboard-win/binaries
+          cp spikes/tailnet/target/release/tailcopy-tailnet.exe spikes/clipboard-win/binaries/tailcopy-tailnet-x86_64-pc-windows-msvc.exe
+      - name: Installer
+        working-directory: spikes/clipboard-win
+        run: npx --yes ${{ env.TAURI_CLI }} build --bundles nsis
+      - name: Name
+        shell: bash
+        run: |
+          mkdir out
+          cp spikes/clipboard-win/target/release/bundle/nsis/*-setup.exe "out/TailCopy-$VERSION-windows-x64-setup.exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-${{ env.VERSION }}-windows-x64
+          path: out/
+
+  macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            spikes/clipboard-mac
+            spikes/tailnet
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Tailnet tool
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --release --target $t --manifest-path spikes/tailnet/Cargo.toml
+          done
+          mkdir -p spikes/clipboard-mac/binaries
+          lipo -create -output spikes/clipboard-mac/binaries/tailcopy-tailnet-universal-apple-darwin \
+            spikes/tailnet/target/aarch64-apple-darwin/release/tailcopy-tailnet \
+            spikes/tailnet/target/x86_64-apple-darwin/release/tailcopy-tailnet
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cp spikes/tailnet/target/$t/release/tailcopy-tailnet spikes/clipboard-mac/binaries/tailcopy-tailnet-$t
+          done
+      - name: App and disk image (ad-hoc signed)
+        working-directory: spikes/clipboard-mac
+        run: npx --yes ${{ env.TAURI_CLI }} build --bundles app,dmg --target universal-apple-darwin
+      - name: Name
+        run: |
+          mkdir out
+          cp spikes/clipboard-mac/target/universal-apple-darwin/release/bundle/dmg/*.dmg "out/TailCopy-$VERSION-macos-universal.dmg"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-${{ env.VERSION }}-macos-universal
+          path: out/
+
+  linux:
+    name: Ubuntu amd64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            spikes/gnome-client
+            spikes/tailnet
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Tailnet tool
+        run: |
+          cargo build --release --manifest-path spikes/tailnet/Cargo.toml
+          mkdir -p spikes/gnome-client/binaries
+          cp spikes/tailnet/target/release/tailcopy-tailnet spikes/gnome-client/binaries/tailcopy-tailnet-x86_64-unknown-linux-gnu
+      - name: Debian package (app, tailnet tool and GNOME extension)
+        working-directory: spikes/gnome-client
+        run: npx --yes ${{ env.TAURI_CLI }} build --bundles deb
+      - name: Name and inspect
+        run: |
+          mkdir out
+          cp spikes/gnome-client/target/release/bundle/deb/*.deb "out/TailCopy-$VERSION-ubuntu-amd64.deb"
+          dpkg-deb --info out/*.deb
+          dpkg-deb --contents out/*.deb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailcopy-${{ env.VERSION }}-ubuntu-amd64
+          path: out/
+
+  release:
+    name: Draft release
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Replace the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete m0-test-build --yes 2>/dev/null || true
+          gh release create m0-test-build dist/* --draft --prerelease \
+            --target "${{ github.sha }}" \
+            --title "TailCopy $VERSION test build" \
+            --notes "Milestone 0 test build from ${GITHUB_SHA::7}. Not a release: for the owner's M0 tests. Steps are in docs/M0-REPORT.md."

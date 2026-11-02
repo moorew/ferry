@@ -56,11 +56,23 @@ struct Spike {
 
 impl Spike {
     fn log(&self, msg: impl AsRef<str>) {
-        println!(
+        let line = format!(
             "[{:>9.1} ms] {}",
             self.started.elapsed().as_secs_f64() * 1000.0,
             msg.as_ref()
         );
+        println!("{line}");
+        if let Some(home) = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }) {
+            let path = std::path::Path::new(&home).join("tailcopy-m0.log");
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
+                use std::io::Write;
+                let _ = writeln!(file, "{line}");
+            }
+        }
     }
 }
 
