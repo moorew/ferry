@@ -25,3 +25,17 @@ pub use store::{
     ApplyReport, CaptureOutcome, ClipDetail, DisplayRow, ReadView, Reader, RetentionPolicy, Store,
     StoreOptions,
 };
+
+#[cfg(test)]
+mod tests {
+    fn assert_send<T: Send>() {}
+
+    /// The app moves these into an actor thread.
+    #[test]
+    fn store_types_are_send() {
+        assert_send::<super::Store>();
+        assert_send::<super::Reader>();
+        assert_send::<super::SearchIndex>();
+        assert_send::<super::ConfigFile>();
+    }
+}
