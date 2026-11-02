@@ -37,7 +37,9 @@ impl Command {
             Some("resume") => Ok(Command::Resume),
             Some("status") => Ok(Command::Status),
             Some("-h" | "--help" | "help") => Err(usage()),
-            Some("-V" | "--version") => Err(format!("{DESKTOP_BINARY} {}", env!("CARGO_PKG_VERSION"))),
+            Some("-V" | "--version") => {
+                Err(format!("{DESKTOP_BINARY} {}", env!("CARGO_PKG_VERSION")))
+            }
             // Autostart and the OS may pass their own flags; treat those as a plain launch.
             Some(a) if a.starts_with("--") || a.starts_with("-psn") => Ok(Command::Open),
             Some(other) => Err(format!("unknown command: {other}\n\n{}", usage())),
@@ -85,17 +87,17 @@ pub async fn forward(command: Command) -> io::Result<Option<String>> {
     let Ok(conn) = Stream::connect(socket_name()?).await else {
         return Ok(None);
     };
-    let (recv, mut send) = conn.split();
     let mut line = serde_json::to_string(&command).map_err(io::Error::other)?;
     line.push('\n');
-    send.write_all(line.as_bytes()).await?;
+    (&conn).write_all(line.as_bytes()).await?;
     let mut reply = String::new();
-    BufReader::new(recv).read_line(&mut reply).await?;
+    BufReader::new(&conn).read_line(&mut reply).await?;
     Ok(Some(reply.trim_end().to_string()))
 }
 
 /// Listens for commands from later launches; each arrives on the returned channel.
-pub fn listen() -> io::Result<mpsc::Receiver<Request>> {
+/// Must be called inside the async runtime.
+pub async fn listen() -> io::Result<mpsc::Receiver<Request>> {
     let listener = ListenerOptions::new()
         .name(socket_name()?)
         .try_overwrite(true)
@@ -116,9 +118,9 @@ async fn serve(listener: Listener, tx: mpsc::Sender<Request>) {
         };
         let tx = tx.clone();
         tauri::async_runtime::spawn(async move {
-            let (recv, mut send) = conn.split();
+            let mut send = &conn;
             let mut line = String::new();
-            if BufReader::new(recv).read_line(&mut line).await.is_err() {
+            if BufReader::new(&conn).read_line(&mut line).await.is_err() {
                 return;
             }
             let Ok(command) = serde_json::from_str::<Command>(line.trim()) else {
@@ -157,14 +159,22 @@ mod tests {
     fn parses_commands() {
         assert_eq!(Command::parse(&args(&[])), Ok(Command::Open));
         assert_eq!(Command::parse(&args(&["picker"])), Ok(Command::Picker));
-        assert_eq!(Command::parse(&args(&["paste-plain"])), Ok(Command::PastePlain));
+        assert_eq!(
+            Command::parse(&args(&["paste-plain"])),
+            Ok(Command::PastePlain)
+        );
         assert_eq!(Command::parse(&args(&["--minimized"])), Ok(Command::Open));
         assert!(Command::parse(&args(&["nope"])).is_err());
     }
 
     #[test]
     fn commands_round_trip() {
-        for c in [Command::Open, Command::Picker, Command::Pause, Command::Status] {
+        for c in [
+            Command::Open,
+            Command::Picker,
+            Command::Pause,
+            Command::Status,
+        ] {
             let s = serde_json::to_string(&c).unwrap();
             assert_eq!(serde_json::from_str::<Command>(&s).unwrap(), c);
         }

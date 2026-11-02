@@ -307,6 +307,11 @@
     overflow: hidden;
   }
 
+  /* WebKitGTK windows aren't transparent, so the picker is square on Linux. */
+  :global([data-platform='linux']) .picker {
+    border-radius: 0;
+  }
+
   .search {
     display: flex;
     align-items: center;

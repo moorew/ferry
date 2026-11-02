@@ -35,8 +35,13 @@ export async function windowLabel(): Promise<string> {
 }
 
 export const api = {
-  listClips: (query: string, limit: number, offset: number) =>
-    call<ClipRow[]>('list_clips', { query, limit, offset }),
+  listClips: (query: string, limit: number, offset: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStartMs = today.getTime();
+    const yesterdayStartMs = new Date(today).setDate(today.getDate() - 1);
+    return call<ClipRow[]>('list_clips', { query, limit, offset, todayStartMs, yesterdayStartMs });
+  },
   getClip: (id: string) => call<ClipDetail>('get_clip', { id }),
   paste: (id: string, mode: PasteMode) => call<Toast | null>('paste', { id, mode }),
   copy: (id: string) => call<void>('copy', { id }),

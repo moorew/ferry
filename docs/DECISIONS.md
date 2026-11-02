@@ -7,6 +7,20 @@ written into SPEC.md).
 
 ---
 
+## D-020 · GNOME capture waits for the copy to settle, and fails closed on the hint · applied
+
+Found in the end-to-end test of the installed app on GNOME 46 and 50:
+
+- One copy in another app can arrive as several `owner-changed` events, and the first
+  can list fewer types than the last (a password manager's
+  `x-kde-passwordManagerHint` arrived in the second, 12 ms later). TailCopy now waits
+  150 ms after a change and reads only the last one. This also stops one copy being
+  stored twice. It stays well inside the 300 ms budget for a copy to appear.
+- When the hint is offered but its value can't be read (an empty transfer), TailCopy
+  treats the copy as secret. SPEC 9.4.3 says to skip when the value is `secret`; this
+  skips in that case too, so a broken or slow source never leaks a password into the
+  history.
+
 ## D-019 · Core data layer choices · applied
 
 Choices made where SPEC 6 is silent, in `tailcopy-core`:

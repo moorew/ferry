@@ -98,10 +98,12 @@
             <ShortcutInput label="Paste as plain text" value={settings.hotkeys.pastePlain} onchange={(v) => setShortcut('pastePlain', v)} />
           </div>
         {/if}
+        {#if !isGnome}
         <div class="item">
           <div><p class="name">Pause or resume</p><p class="desc">Stops saving what you copy until you resume.</p></div>
           <ShortcutInput label="Pause or resume" value={settings.hotkeys.pause} onchange={(v) => setShortcut('pause', v)} />
         </div>
+        {/if}
         {#if shortcutWarning}<p class="warning" role="alert">{shortcutWarning}</p>{/if}
       </section>
 

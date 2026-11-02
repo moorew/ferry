@@ -228,12 +228,12 @@ impl Gnome {
             ..Captured::default()
         };
         if offered(&PASSWORD_HINT) {
-            let hint = self
-                .ext
-                .get_content(PASSWORD_HINT)
-                .await
-                .unwrap_or_default();
-            if hint == b"secret" {
+            let hint = self.ext.get_content(PASSWORD_HINT).await;
+            tracing::debug!(?hint, "password manager hint");
+            let hint = hint.unwrap_or_default();
+            // Fail closed: an app that offers the hint but can't serve it is treated
+            // as marking the copy secret (D-020).
+            if hint.is_empty() || hint.trim_ascii() == b"secret" {
                 captured.marker = Marker::DontSave(PASSWORD_HINT.into());
                 return Ok(captured);
             }
@@ -265,6 +265,11 @@ impl Gnome {
             captured.png = get("image/png").await;
         }
         Ok(captured)
+    }
+
+    /// What the clipboard offers right now.
+    pub async fn mimetypes(&self) -> Result<Vec<String>> {
+        Ok(self.ext.get_mime_types().await?)
     }
 
     /// Background write of one format (SPEC 9.4.3): plain text for text and rich clips.

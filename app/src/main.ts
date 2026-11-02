@@ -9,5 +9,7 @@ if (!target) throw new Error('missing #app');
 
 windowLabel().then((label) => {
   document.documentElement.dataset.window = label;
+  const ua = navigator.userAgent;
+  document.documentElement.dataset.platform = /Windows/.test(ua) ? 'windows' : /Mac/.test(ua) ? 'macos' : 'linux';
   mount(label === 'picker' ? Picker : Manager, { target });
 });
