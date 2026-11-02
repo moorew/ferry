@@ -7,6 +7,22 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+blake3 = "1.8.7"
+html2text = "0.17.4"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp"] }
+nucleo-matcher = "0.3.1"
+rmp-serde = "1.3.1"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_bytes = "0.11.19"
+thiserror = "2.0.21"
+toml_edit = "0.25.17"
+tracing = "0.1.44"
+uuid = { version = "1.29.0", features = ["v7"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+proptest = "1.12.0"
+tempfile = "3.27.0"
