@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ferry Picker</title>
+<style>
+  :root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
+  body { margin: 0; padding: 8px; }
+  input { width: 100%; box-sizing: border-box; font-size: 16px; padding: 6px 8px; }
+  ol { list-style: none; margin: 8px 0 0; padding: 0; }
+  li { height: 36px; line-height: 36px; padding: 0 8px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  li.sel { background: color-mix(in srgb, CanvasText 12%, Canvas); }
+  small { opacity: .6; margin-left: 8px; }
+  footer { position: fixed; bottom: 6px; font-size: 12px; opacity: .6; }
+</style>
+</head>
+<body>
+<input id="q" placeholder="Spike picker: Enter pastes, Shift+Enter pastes plain, Ctrl+T checks the offer, Esc hides" autofocus>
+<ol id="list"></ol>
+<footer id="status"></footer>
+<script>
+  const { invoke } = window.__TAURI__.core;
+  const { listen } = window.__TAURI__.event;
+  let clips = [], sel = 0;
+  const list = document.getElementById('list');
+  const status = document.getElementById('status');
+
+  function render() {
+    list.replaceChildren(...clips.map((c, i) => {
+      const li = document.createElement('li');
+      li.textContent = c.preview || '(no text)';
+      const meta = document.createElement('small');
+      meta.textContent = `${c.formats.join(', ')}${c.source_app ? ' · ' + c.source_app : ''}`;
+      li.append(meta);
+      if (i === sel) li.className = 'sel';
+      return li;
+    }));
+  }
+
+  listen('clips', e => { clips = e.payload; sel = 0; render(); });
+  listen('verified', () => { status.textContent = 'Offer checked; see the terminal'; });
+  window.addEventListener('focus', () => { document.getElementById('q').focus(); invoke('picker_focused'); });
+  window.addEventListener('blur', () => invoke('hide_picker'));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'j')) { sel = Math.min(sel + 1, clips.length - 1); render(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'k')) { sel = Math.max(sel - 1, 0); render(); e.preventDefault(); }
+    else if (e.key === 'Enter' && clips.length) { invoke('choose', { index: sel, plain: e.shiftKey }); e.preventDefault(); }
+    else if (e.key === 'Escape') { invoke('hide_picker'); }
+    else if (e.ctrlKey && e.key === 't') { invoke('verify_offer'); e.preventDefault(); }
+  });
+</script>
+</body>
+</html>

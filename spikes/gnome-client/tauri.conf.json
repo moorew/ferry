@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ferry-gnome-client-spike",
+  "identifier": "io.github.moorew.ferry.spike",
+  "build": { "frontendDist": "ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "picker",
+        "title": "Ferry Picker",
+        "width": 640,
+        "height": 420,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true
+      }
+    ]
+  },
+  "bundle": { "active": false, "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"] }
+}
