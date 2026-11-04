@@ -2,7 +2,8 @@
    Mirrors tokens.json. Theme: follows the OS by default; force with
    <html data-theme="light"> or <html data-theme="dark">. */
 
-@font-face { font-family: "Bricolage Grotesque"; src: url("../fonts/variable/BricolageGrotesque.ttf") format("truetype"); font-weight: 200 800; font-display: swap; }
+/* Titles only ever use 800, so the static ExtraBold (91 KB) replaces the variable font (408 KB). */
+@font-face { font-family: "Bricolage Grotesque"; src: url("../fonts/static/BricolageGrotesque-ExtraBold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
 @font-face { font-family: "Figtree"; src: url("../fonts/variable/Figtree.ttf") format("truetype"); font-weight: 300 900; font-display: swap; }
 @font-face { font-family: "JetBrains Mono"; src: url("../fonts/variable/JetBrainsMono.ttf") format("truetype"); font-weight: 100 800; font-display: swap; }
 
