@@ -335,12 +335,15 @@ impl SimNode {
         );
     }
 
-    /// Replaces the data directory with `backup` (a restored or cloned install).
+    /// Starts again from a copy of `backup` (a restored or cloned install) on the
+    /// same tailnet node. The copy goes to a fresh directory: Windows won't overwrite
+    /// files SQLite still has mapped.
     pub async fn restore_from(&mut self, backup: &Path) {
         self.shut_down().await;
-        // Let the store thread drop the old connection before the files change.
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        copy_dir(backup, &self.dir);
+        let restored = self.dir.with_extension("restored");
+        let _ = std::fs::remove_dir_all(&restored);
+        copy_dir(backup, &restored);
+        self.dir = restored;
         let store = open_store(&self.dir, &self.name, self.role, self.skew_ms);
         self.store = spawn_store_thread(store);
         self.engine = Engine::start(
