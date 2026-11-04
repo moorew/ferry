@@ -1,32 +1,58 @@
-//! Is Tailscale running? Enough for first run and the status line until M2 adds the
-//! full tailnet adapter (SPEC 8).
+//! The one Tailscale client handle the app shares: sync's transport, the status line,
+//! first run and the Devices view all read the same cached status (SPEC 8).
 
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::path::PathBuf;
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
-#[derive(Clone)]
-struct Info {
-    state: &'static str,
-    hostname: Option<String>,
+use tailcopy_tailnet::{Backend, Error, Options, Status, Tailnet};
+
+static TAILNET: OnceLock<Tailnet> = OnceLock::new();
+static STALE: AtomicBool = AtomicBool::new(false);
+const MAX_AGE: Duration = Duration::from_secs(15);
+
+/// Sets up the shared handle from config. Later calls keep the first one; changing
+/// the CLI path or socket takes a restart.
+pub fn init(config: &tailcopy_core::Config) -> Tailnet {
+    TAILNET
+        .get_or_init(|| {
+            let t = &config.tailscale;
+            let backend = if cfg!(target_os = "linux") && !t.localapi_socket.is_empty() {
+                Backend::LocalApi {
+                    socket: PathBuf::from(&t.localapi_socket),
+                }
+            } else {
+                Backend::Cli {
+                    path: (!t.cli_path.is_empty()).then(|| PathBuf::from(&t.cli_path)),
+                }
+            };
+            Tailnet::new(Options {
+                backend,
+                capability: config.sync.capability.clone(),
+                relay_tag: config.sync.relay_tag.clone(),
+            })
+        })
+        .clone()
 }
 
-static CACHE: Mutex<Option<(Instant, Info)>> = Mutex::new(None);
-const TTL: Duration = Duration::from_secs(15);
-
-async fn info() -> Info {
-    if let Some((at, info)) = CACHE.lock().unwrap().as_ref()
-        && at.elapsed() < TTL
-    {
-        return info.clone();
-    }
-    let info = query().await;
-    *CACHE.lock().unwrap() = Some((Instant::now(), info.clone()));
-    info
+fn tailnet() -> &'static Tailnet {
+    TAILNET.get().expect("tailscale::init runs at startup")
 }
 
-/// Forgets the cached state so the next call asks Tailscale again.
+/// The latest status, or why there isn't one.
+pub async fn status() -> Result<std::sync::Arc<Status>, Error> {
+    let max_age = if STALE.swap(false, Ordering::Relaxed) {
+        Duration::ZERO
+    } else {
+        MAX_AGE
+    };
+    tailnet().status(max_age).await
+}
+
+/// Forgets the cached status so the next call asks Tailscale again.
 pub fn forget() {
-    *CACHE.lock().unwrap() = None;
+    STALE.store(true, Ordering::Relaxed);
 }
 
 /// Opens the Tailscale app, where it has one (Windows and macOS).
@@ -45,57 +71,20 @@ pub fn open_app() -> std::io::Result<()> {
 
 /// `running`, `stopped` or `missing`.
 pub async fn state() -> &'static str {
-    info().await.state
+    match status().await {
+        Ok(_) => "running",
+        Err(Error::Missing) => "missing",
+        Err(_) => "stopped",
+    }
 }
 
 /// This machine's name on the tailnet (`Self.HostName`), while Tailscale runs.
 pub async fn hostname() -> Option<String> {
-    info().await.hostname
-}
-
-fn cli() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
-    } else if cfg!(windows) {
-        r"C:\Program Files\Tailscale\tailscale.exe"
-    } else {
-        "tailscale"
-    }
-}
-
-async fn query() -> Info {
-    let mut cmd = tokio::process::Command::new(cli());
-    cmd.args(["status", "--json"]).kill_on_drop(true);
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-    let stopped = Info {
-        state: "stopped",
-        hostname: None,
-    };
-    match tokio::time::timeout(Duration::from_secs(3), cmd.output()).await {
-        Ok(Ok(out)) => {
-            let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) else {
-                return stopped;
-            };
-            if json.get("BackendState").and_then(|v| v.as_str()) != Some("Running") {
-                return stopped;
-            }
-            Info {
-                state: "running",
-                hostname: json
-                    .pointer("/Self/HostName")
-                    .and_then(|v| v.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(str::to_owned),
-            }
-        }
-        Ok(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => Info {
-            state: "missing",
-            hostname: None,
-        },
-        _ => stopped,
-    }
+    status()
+        .await
+        .ok()?
+        .self_node
+        .as_ref()
+        .map(|n| n.host_name.clone())
+        .filter(|s| !s.is_empty())
 }

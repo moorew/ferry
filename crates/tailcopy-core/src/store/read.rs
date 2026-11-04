@@ -40,6 +40,8 @@ pub struct DisplayRow {
     pub look: Look,
     /// Reads better in a monospace font.
     pub mono: bool,
+    /// When this device first held the member shown, by its own clock.
+    pub received_ms: Option<u64>,
 }
 
 impl DisplayRow {
@@ -162,7 +164,7 @@ fn kind(r: &Row<'_>, idx: usize) -> rusqlite::Result<ClipKind> {
 const DISPLAY_SQL: &str = "
 WITH live AS (
   SELECT id, group_key, kind, preview, origin, created_hlc, sort_hlc, byte_size, local_only,
-    source_app, use_count,
+    source_app, use_count, received_ms,
     ROW_NUMBER() OVER (PARTITION BY group_key ORDER BY sort_hlc DESC, id DESC) AS rn,
     MAX(pinned) OVER (PARTITION BY group_key) AS any_pinned,
     COUNT(*) OVER (PARTITION BY group_key) AS members
@@ -175,7 +177,7 @@ SELECT id, group_key, kind, preview,
      ORDER BY l.sort_hlc DESC, l.id DESC LIMIT 1),
   any_pinned, origin, created_hlc, sort_hlc, byte_size, local_only, source_app, members,
   (SELECT f.blob_hash FROM formats f WHERE f.clip_id = live.id AND f.mime = 'image/png'),
-  use_count
+  use_count, received_ms
 FROM live
 WHERE rn = 1 AND (?1 IS NULL OR (sort_hlc, id) < (?1, ?2))
 ORDER BY sort_hlc DESC, id DESC
@@ -207,6 +209,7 @@ fn display_row(r: &Row<'_>) -> rusqlite::Result<DisplayRow> {
         use_count: r.get(14)?,
         look,
         mono,
+        received_ms: r.get::<_, Option<i64>>(15)?.map(|v| v as u64),
     })
 }
 

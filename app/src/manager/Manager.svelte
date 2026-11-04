@@ -136,6 +136,7 @@
           <StatusCard
             paused={status.paused}
             ready={status.captureReady}
+            synced={status.syncedWith > 0 ? status.syncedWith : null}
             pausedUntilMs={status.pausedUntilMs}
             onpause={(minutes) => api.setPaused(true, minutes)}
             onresume={() => api.setPaused(false)}

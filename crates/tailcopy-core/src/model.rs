@@ -43,7 +43,7 @@ fn uuid_v7_at(now_ms: u64) -> String {
 macro_rules! string_id {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         #[serde(transparent)]
         pub struct $name(pub String);
 
@@ -177,9 +177,17 @@ pub enum OpBody {
     ClipDeleted {
         clip_id: ClipId,
     },
+    /// Clears every clip the clearing device had seen (`seen`) and created at or
+    /// before `before_hlc`, except the pinned clips it kept (`spared`) unless
+    /// `include_pinned` (SPEC 6.4 rule 4, D-018). `seen` is `None` only in clears
+    /// written before D-018, which keep the old rule.
     HistoryCleared {
         before_hlc: u64,
         include_pinned: bool,
+        #[serde(default)]
+        seen: Option<VersionVector>,
+        #[serde(default)]
+        spared: Vec<ClipId>,
     },
 }
 
@@ -261,8 +269,9 @@ pub const MAX_LABEL_CHARS: usize = 120;
 pub const MAX_PREVIEW_CHARS: usize = 500;
 
 /// What kind of node a device is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Role {
+    #[default]
     Device,
     Relay,
 }
@@ -303,6 +312,47 @@ pub struct DeviceInfo {
     pub os: Option<String>,
 }
 
+/// A device's name and role as gossiped in the `Devices` frame (SPEC 7.3). Last
+/// writer wins by `updated_hlc`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceName {
+    pub device_id: DeviceId,
+    pub display_name: String,
+    pub role: Role,
+    pub updated_hlc: u64,
+}
+
+/// What a peer told us about itself, or what the tailnet says about it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PeerSeen {
+    pub device_id: DeviceId,
+    pub display_name: String,
+    pub role: Option<Role>,
+    pub ts_node_id: Option<String>,
+    pub ts_hostname: Option<String>,
+    pub ip: Option<String>,
+    pub os: Option<String>,
+    pub now_ms: u64,
+}
+
+/// Per-device sync switches (D-023).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SyncFlags {
+    /// Our clips reach this device with their content.
+    pub send: bool,
+    /// Clips that this device made are kept with their content.
+    pub receive: bool,
+}
+
+impl Default for SyncFlags {
+    fn default() -> Self {
+        Self {
+            send: true,
+            receive: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,7 +390,9 @@ mod tests {
             },
             OpBody::HistoryCleared {
                 before_hlc: 42,
-                include_pinned: true,
+                include_pinned: false,
+                seen: Some(BTreeMap::from([(origin.clone(), 5)])),
+                spared: vec![clip.clone()],
             },
         ];
         bodies

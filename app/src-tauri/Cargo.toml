@@ -1,7 +1,7 @@
 [package]
 name = "tailcopy"
 description = "Keyboard-first clipboard manager that syncs over your tailnet"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -17,6 +17,8 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 tailcopy-core.workspace = true
 tailcopy-platform.workspace = true
+tailcopy-sync.workspace = true
+tailcopy-tailnet.workspace = true
 ammonia = "4.2.4"
 directories = "6.0.0"
 interprocess = { version = "2.4.7", features = ["tokio"] }

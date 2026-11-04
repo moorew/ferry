@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use proptest::prelude::*;
 use tailcopy_core::hlc::pack;
-use tailcopy_core::merge::{self, ClipState};
+use tailcopy_core::merge;
 use tailcopy_core::model::{FormatRef, blake3_hash, mime};
 use tailcopy_core::store::ClipRow;
 use tailcopy_core::{
@@ -22,12 +22,22 @@ const CLIPS: u8 = 6;
 
 #[derive(Clone, Debug)]
 enum Act {
-    Add { clip: u8, content: u8, stub: bool },
+    Add {
+        clip: u8,
+        content: u8,
+        stub: bool,
+    },
     Use(u8),
     Pin(u8, bool),
     Label(u8, u8),
     Delete(u8),
-    Clear { include_pinned: bool, back_ms: u8 },
+    /// `seen_mask` bit o: the clearer had all of origin o so far, else half of it.
+    Clear {
+        include_pinned: bool,
+        back_ms: u8,
+        seen_mask: u8,
+        spared_mask: u8,
+    },
 }
 
 fn act() -> impl Strategy<Value = Act> {
@@ -38,8 +48,14 @@ fn act() -> impl Strategy<Value = Act> {
         3 => (0..CLIPS, any::<bool>()).prop_map(|(c, p)| Act::Pin(c, p)),
         1 => (0..CLIPS, 0..3u8).prop_map(|(c, l)| Act::Label(c, l)),
         1 => (0..CLIPS).prop_map(Act::Delete),
-        1 => (any::<bool>(), 0..4u8)
-            .prop_map(|(include_pinned, back_ms)| Act::Clear { include_pinned, back_ms }),
+        1 => (any::<bool>(), 0..4u8, 0..8u8, any::<u8>()).prop_map(
+            |(include_pinned, back_ms, seen_mask, spared_mask)| Act::Clear {
+                include_pinned,
+                back_ms,
+                seen_mask,
+                spared_mask,
+            }
+        ),
     ]
 }
 
@@ -103,9 +119,27 @@ fn build_ops(events: &[(usize, u64, Act)]) -> Vec<Op> {
             Act::Clear {
                 include_pinned,
                 back_ms,
+                seen_mask,
+                spared_mask,
             } => OpBody::HistoryCleared {
                 before_hlc: hlc.saturating_sub(pack(u64::from(*back_ms), 0)),
                 include_pinned: *include_pinned,
+                seen: Some(
+                    (0..3)
+                        .map(|o| {
+                            let held = if seen_mask & (1 << o) != 0 {
+                                seq[o]
+                            } else {
+                                seq[o] / 2
+                            };
+                            (DeviceId::from(ORIGINS[o]), held)
+                        })
+                        .collect(),
+                ),
+                spared: (0..CLIPS)
+                    .filter(|c| spared_mask & (1 << c) != 0)
+                    .map(clip_id)
+                    .collect(),
             },
         };
         ops.push(Op {
@@ -222,19 +256,6 @@ impl Node {
     }
 }
 
-/// A clip whose content one node stubbed while it was deleted by a clear, and which
-/// a late `PinSet` (hlc before the clear) later made live again (SPEC 6.4 rule 4).
-fn revived_by_late_pin(id: &ClipId, ops: &[Op], state: &ClipState) -> bool {
-    state.visible()
-        && ops.iter().any(|op| {
-            matches!(op.body, OpBody::HistoryCleared { before_hlc, include_pinned: false }
-                if state.created_hlc <= before_hlc)
-        })
-        && ops
-            .iter()
-            .any(|op| op.body.clip_id() == Some(id) && matches!(op.body, OpBody::PinSet { .. }))
-}
-
 fn run(events: Vec<(usize, u64, Act)>, seed: u64) -> Result<(), TestCaseError> {
     let ops = build_ops(&events);
     let mut rng = Rng(seed | 1);
@@ -278,7 +299,6 @@ fn run(events: Vec<(usize, u64, Act)>, seed: u64) -> Result<(), TestCaseError> {
     // Visible state against the merge of the full op set.
     let truth = merge::materialize(&ops);
     let stub_sets: Vec<BTreeSet<ClipId>> = nodes.iter().map(Node::stubs).collect();
-    let mut diverged = BTreeSet::new();
     for node in &nodes[..3] {
         let visible = node.visible();
         for (id, state) in &truth {
@@ -290,17 +310,7 @@ fn run(events: Vec<(usize, u64, Act)>, seed: u64) -> Result<(), TestCaseError> {
                     prop_assert_eq!(row.sort_hlc, state.sort_hlc);
                     prop_assert_eq!(row.group_key, state.group_key);
                 }
-                None if state.visible() => {
-                    // Allowed only where this node stubbed the content while the clip
-                    // was deleted, before a late pin revived it.
-                    prop_assert!(
-                        revived_by_late_pin(id, &ops, state),
-                        "{} should be visible",
-                        id
-                    );
-                    diverged.insert(id.clone());
-                }
-                None => {}
+                None => prop_assert!(!state.visible(), "{} should be visible", id),
             }
         }
         for id in visible.keys() {
@@ -321,7 +331,7 @@ fn run(events: Vec<(usize, u64, Act)>, seed: u64) -> Result<(), TestCaseError> {
             prop_assert_eq!(v.get(id), views[0].get(id), "{} differs", id);
         }
     }
-    if diverged.is_empty() {
+    {
         let rows: Vec<_> = nodes[..3]
             .iter()
             .map(|n| n.store.view().all_rows().unwrap())
@@ -357,9 +367,9 @@ proptest! {
 }
 
 #[test]
-fn late_pin_before_clear_is_the_only_divergence() {
-    // Clip added, then a clear without pins, then a pin stamped before the clear
-    // arrives late. The node that applied the clear first already stubbed the content.
+fn late_pin_before_clear_no_longer_diverges() {
+    // D-018: a pin stamped before a clear, arriving after it, used to revive the clip
+    // on nodes that hadn't stubbed it yet. The clear now names what it spared.
     let events = vec![
         (
             0,
@@ -377,23 +387,21 @@ fn late_pin_before_clear_is_the_only_divergence() {
             Act::Clear {
                 include_pinned: false,
                 back_ms: 0,
+                seen_mask: 0b001,
+                spared_mask: 0,
             },
         ),
     ];
     let ops = build_ops(&events);
     let truth = merge::materialize(&ops);
-    assert!(truth[&clip_id(0)].visible());
+    assert!(!truth[&clip_id(0)].visible());
 
     let mut early = Node::new();
     early.apply(&[ops[0].clone(), ops[2].clone()]).unwrap();
     early.apply(&[ops[1].clone()]).unwrap();
-    assert!(
-        early.visible().is_empty(),
-        "content was stubbed while deleted"
-    );
-
     let mut late = Node::new();
     late.apply(&[ops[1].clone(), ops[0].clone()]).unwrap();
     late.apply(&[ops[2].clone()]).unwrap();
-    assert!(late.visible()[&clip_id(0)].pinned);
+    assert!(early.visible().is_empty());
+    assert!(late.visible().is_empty());
 }

@@ -10,6 +10,9 @@ publish.workspace = true
 tailcopy-core.workspace = true
 tailcopy-sync.workspace = true
 tailcopy-tailnet.workspace = true
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [lints]
 workspace = true

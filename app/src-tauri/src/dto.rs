@@ -82,6 +82,8 @@ pub struct ClipRow {
     pub copies: u32,
     /// Pastes and copies from TailCopy, on every device.
     pub use_count: u32,
+    /// When this device got it, by its own clock (arrival tint).
+    pub received_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -96,8 +98,6 @@ pub struct ClipDetail {
     pub looks_like_code: bool,
     /// When it was copied, by the clock of the device that copied it.
     pub copied_ms: u64,
-    /// When this device got it, by this device's clock.
-    pub received_ms: Option<u64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -130,6 +130,19 @@ pub struct Status {
     pub tailscale_name: Option<String>,
     /// "system", "light" or "dark", for the windows' `data-theme`.
     pub theme: &'static str,
+    pub device_id: String,
+    /// Devices with an open, caught-up sync session.
+    pub synced_with: usize,
+    pub peers: Vec<PeerLine>,
+}
+
+/// One peer in `tailcopy status` and the status card.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PeerLine {
+    pub name: String,
+    pub connected: bool,
+    pub last_sync_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -200,6 +213,7 @@ pub fn row(r: &DisplayRow, me: &DeviceId, devices: &HashMap<DeviceId, DeviceInfo
             .map(|h| thumb_url(&hash_hex(h), false)),
         copies: r.members,
         use_count: r.use_count,
+        received_ms: r.received_ms,
     }
 }
 
@@ -298,6 +312,8 @@ pub struct Sync {
     pub port: u16,
     pub relay: String,
     pub strict_same_login: bool,
+    pub images: bool,
+    pub max_image_bytes: u64,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -354,6 +370,8 @@ impl Settings {
                 port: c.sync.port,
                 relay: c.sync.relay.clone(),
                 strict_same_login: c.sync.strict_same_login,
+                images: c.sync.images,
+                max_image_bytes: c.sync.max_image_bytes,
             },
             linux: Linux {
                 paste_keystroke: c
@@ -397,6 +415,9 @@ impl Settings {
             })
             .collect();
         c.sync.strict_same_login = self.sync.strict_same_login;
+        c.sync.relay = self.sync.relay.trim().to_string();
+        c.sync.images = self.sync.images;
+        c.sync.max_image_bytes = self.sync.max_image_bytes.clamp(64 * 1024, 1 << 30);
         c.linux.paste_keystroke = self
             .linux
             .paste_keystroke

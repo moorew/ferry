@@ -3,9 +3,11 @@
 //! The store materializes the `clips` table with [`clip_state`], one clip at a time;
 //! [`materialize`] recomputes everything from scratch so tests can check the two agree.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{ClipId, ClipKind, DeviceId, FormatRef, Hash32, MAX_LABEL_CHARS, Op, OpBody};
+use crate::model::{
+    ClipId, ClipKind, DeviceId, FormatRef, Hash32, MAX_LABEL_CHARS, Op, OpBody, VersionVector,
+};
 
 /// A `HistoryCleared` op, flattened.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,21 +16,45 @@ pub struct Clear {
     pub origin: DeviceId,
     pub before_hlc: u64,
     pub include_pinned: bool,
+    /// What the clearing device held; `None` for a clear from before D-018.
+    pub seen: Option<VersionVector>,
+    /// Pinned clips the clear kept.
+    pub spared: BTreeSet<ClipId>,
 }
 
 impl Clear {
     pub fn from_op(op: &Op) -> Option<Clear> {
-        match op.body {
+        match &op.body {
             OpBody::HistoryCleared {
                 before_hlc,
                 include_pinned,
+                seen,
+                spared,
             } => Some(Clear {
                 hlc: op.hlc,
                 origin: op.origin.clone(),
-                before_hlc,
-                include_pinned,
+                before_hlc: *before_hlc,
+                include_pinned: *include_pinned,
+                seen: seen.clone(),
+                spared: spared.iter().cloned().collect(),
             }),
             _ => None,
+        }
+    }
+
+    /// Whether this clear deletes the clip added by `added`. `pinned_then` is only
+    /// asked for clears from before D-018, whose rule depends on the pin state as of
+    /// the clear (SPEC 6.4 rule 4 as first written).
+    fn deletes(&self, added: &Op, clip_id: &ClipId, pinned_then: impl FnOnce() -> bool) -> bool {
+        if added.hlc > self.before_hlc {
+            return false;
+        }
+        match &self.seen {
+            Some(seen) => {
+                let held = seen.get(&added.origin).is_some_and(|&s| added.seq <= s);
+                held && (self.include_pinned || !self.spared.contains(clip_id))
+            }
+            None => self.include_pinned || !pinned_then(),
         }
     }
 }
@@ -136,9 +162,6 @@ pub fn clip_state<'a>(
     }
 
     for clear in clears {
-        if created_hlc > clear.before_hlc {
-            continue;
-        }
         let pinned_then = || {
             lww(pins
                 .iter()
@@ -146,7 +169,7 @@ pub fn clip_state<'a>(
                 .map(|p| (p.0, p.1, p.2)))
             .is_some_and(|w| w.2)
         };
-        if clear.include_pinned || !pinned_then() {
+        if clear.deletes(added, clip_id, pinned_then) {
             deleted = Some(deleted.map_or(clear.hlc, |d| d.min(clear.hlc)));
         }
     }
@@ -349,6 +372,8 @@ mod tests {
             OpBody::HistoryCleared {
                 before_hlc: 50,
                 include_pinned: false,
+                seen: None,
+                spared: vec![],
             },
         );
         assert!(l.state("pinned_before").visible());
@@ -376,6 +401,8 @@ mod tests {
             OpBody::HistoryCleared {
                 before_hlc: 30,
                 include_pinned: true,
+                seen: None,
+                spared: vec![],
             },
         );
         l.push(
@@ -384,6 +411,8 @@ mod tests {
             OpBody::HistoryCleared {
                 before_hlc: 40,
                 include_pinned: false,
+                seen: None,
+                spared: vec![],
             },
         );
         assert!(!l.state("c").visible());
@@ -442,6 +471,44 @@ mod tests {
         assert!(materialize(&l.ops).is_empty());
         l.add("a", 10, "c");
         assert!(l.state("c").pinned);
+    }
+
+    fn clear(seen: &[(&str, u64)], spared: &[&str]) -> OpBody {
+        OpBody::HistoryCleared {
+            before_hlc: 1000,
+            include_pinned: false,
+            seen: Some(seen.iter().map(|(o, s)| (DeviceId::from(*o), *s)).collect()),
+            spared: spared.iter().map(|&c| ClipId::from(c)).collect(),
+        }
+    }
+
+    #[test]
+    fn clear_keeps_what_it_spared_and_what_it_never_saw() {
+        let mut l = Log::new();
+        l.add("a", 10, "kept"); // seq 1
+        l.add("a", 11, "gone"); // seq 2
+        l.add("a", 12, "unseen"); // seq 3
+        l.push("b", 50, clear(&[("a", 2)], &["kept"]));
+        assert!(l.state("kept").visible());
+        assert_eq!(l.state("gone").deleted_hlc, Some(50));
+        assert!(l.state("unseen").visible());
+    }
+
+    #[test]
+    fn late_pin_cannot_undo_a_clear() {
+        // D-018: a pin stamped before the clear but unseen by it changes nothing.
+        let mut l = Log::new();
+        l.add("a", 10, "c"); // seq 1
+        l.push("b", 50, clear(&[("a", 1)], &[]));
+        l.push(
+            "a",
+            20,
+            OpBody::PinSet {
+                clip_id: "c".into(),
+                pinned: true,
+            },
+        );
+        assert!(!l.state("c").visible());
     }
 
     #[test]

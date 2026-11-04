@@ -81,7 +81,6 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
                 .map(|d| (d.device_id.clone(), d))
                 .collect();
             let detail = view.get_clip(&id)?;
-            let received_ms = detail.as_ref().and_then(|d| d.clip.received_ms);
             let text = view.plain_text(&id)?;
             let html = view
                 .read_format(&id, "text/html")?
@@ -97,7 +96,6 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
             Ok(Some(ClipDetail {
                 looks_like_code: text.as_deref().is_some_and(dto::looks_like_code),
                 copied_ms: tailcopy_core::hlc::wall_ms(row.created_hlc),
-                received_ms,
                 row: dto::row(&row, &me, &devices),
                 text,
                 html,
@@ -241,10 +239,11 @@ pub async fn get_status(app: AppHandle) -> CmdResult<Status> {
 
 pub async fn build_status(app: &AppHandle) -> Status {
     let state = app.state::<AppState>();
-    let (counts, this_device) = state
+    let (counts, this_device, device_id) = state
         .db
         .run(|core| {
             let me = core.store.device_id().clone();
+            let device_id = me.0.clone();
             let this_device = core
                 .store
                 .view()
@@ -253,9 +252,24 @@ pub async fn build_status(app: &AppHandle) -> Status {
                 .iter()
                 .find(|d| d.device_id == me)
                 .map(dto::device);
-            (core.index.counts(), this_device)
+            (core.index.counts(), this_device, device_id)
         })
         .await;
+    let peers = state
+        .sync
+        .get()
+        .map(|e| {
+            e.snapshot()
+                .peers
+                .into_iter()
+                .map(|p| dto::PeerLine {
+                    name: p.display_name,
+                    connected: p.connected && p.caught_up,
+                    last_sync_ms: p.last_sync_ms,
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     let session = state.session;
     let paused_until_ms = *state.paused_until.lock().unwrap();
     #[cfg_attr(windows, allow(unused_mut))]
@@ -283,6 +297,9 @@ pub async fn build_status(app: &AppHandle) -> Status {
         this_device,
         tailscale_name: crate::tailscale::hostname().await,
         theme: state.config().general.theme.as_str(),
+        device_id,
+        synced_with: peers.iter().filter(|p| p.connected).count(),
+        peers,
     };
     #[cfg(target_os = "linux")]
     {
@@ -403,8 +420,9 @@ pub async fn diagnostics(app: AppHandle) -> CmdResult<String> {
     let status = build_status(&app).await;
     let state = app.state::<AppState>();
     let config = state.config();
-    Ok(format!(
-        "TailCopy {}\nos: {} {}\nsession: {}\ncapture ready: {}\npaused: {}\ntailscale: {}\nextension: {}\naccessibility: {}\nitems: {} ({} pinned)\nretention: {} items or {} days\nprivacy rules: {}\nstrict same login: {}\n",
+    let devices = crate::sync::devices(&app).await;
+    let mut out = format!(
+        "TailCopy {}\nos: {} {}\nsession: {}\ncapture ready: {}\npaused: {}\ntailscale: {}\nextension: {}\naccessibility: {}\nitems: {} ({} pinned)\nretention: {} items or {} days\nprivacy rules: {}\nstrict same login: {}\nsync: {}{}\nlive mirror: {}\nimages sync: {} (up to {} bytes)\nrelay: {}\n",
         status.version,
         std::env::consts::OS,
         std::env::consts::ARCH,
@@ -423,7 +441,62 @@ pub async fn diagnostics(app: AppHandle) -> CmdResult<String> {
         config.retention.max_age_days,
         config.privacy.rules.len(),
         config.sync.strict_same_login,
-    ))
+        devices.sync,
+        devices
+            .sync_detail
+            .map(|d| format!(" ({d})"))
+            .unwrap_or_default(),
+        config.general.live_mirror,
+        config.sync.images,
+        config.sync.max_image_bytes,
+        if config.sync.relay.is_empty() {
+            "none"
+        } else {
+            "set"
+        },
+    );
+    for d in &devices.devices {
+        out.push_str(&format!(
+            "peer: {} role={} online={} connected={} caught_up={} path={} send={} receive={}{}\n",
+            d.tailscale_name.as_deref().unwrap_or(&d.name),
+            d.role,
+            d.online,
+            d.connected,
+            d.caught_up,
+            d.path.unwrap_or("-"),
+            d.send,
+            d.receive,
+            d.error
+                .as_deref()
+                .map(|e| format!(" error={e}"))
+                .unwrap_or_default(),
+        ));
+    }
+    out.push_str(&format!(
+        "tailnet peers without TailCopy: {}\nrefused: {}\n",
+        devices.others.len(),
+        devices.rejected.join(", ")
+    ));
+    Ok(out)
+}
+
+/// Devices on the tailnet and their sync state (SPEC 10.7 `get_devices`).
+#[tauri::command]
+pub async fn get_devices(app: AppHandle) -> CmdResult<crate::sync::Devices> {
+    Ok(crate::sync::devices(&app).await)
+}
+
+/// Per-device Send and Receive switches (D-023).
+#[tauri::command]
+pub async fn set_device_sync(
+    app: AppHandle,
+    id: String,
+    send: bool,
+    receive: bool,
+) -> CmdResult<()> {
+    crate::sync::set_flags(&app, &id, tailcopy_core::SyncFlags { send, receive })
+        .await
+        .map_err(err)
 }
 
 /// A warning about a proposed shortcut, or None if it looks fine (SPEC 10.3).

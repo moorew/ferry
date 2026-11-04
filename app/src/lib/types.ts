@@ -42,6 +42,8 @@ export interface ClipRow {
   copies: number;
   /** Pastes and copies from TailCopy, on every device. */
   useCount: number;
+  /** When this device got it, by its own clock. */
+  receivedMs: number | null;
 }
 
 export interface ClipDetail extends ClipRow {
@@ -53,8 +55,6 @@ export interface ClipDetail extends ClipRow {
   looksLikeCode: boolean;
   /** When it was copied, by the copying device's clock. */
   copiedMs: number;
-  /** When this device got it, by its own clock. */
-  receivedMs: number | null;
 }
 
 export interface Counts {
@@ -98,6 +98,40 @@ export interface Status {
   /** This machine's name on the tailnet, while Tailscale runs. */
   tailscaleName: string | null;
   theme: Theme;
+  deviceId: string;
+  /** Devices with an open, caught-up sync session. */
+  syncedWith: number;
+  peers: { name: string; connected: boolean; lastSyncMs: number | null }[];
+}
+
+export type SyncPath = 'direct' | 'peer-relay' | 'derp' | 'idle';
+
+/** A device that runs TailCopy, as the Tailnet settings show it. */
+export interface PeerDevice extends DeviceRef {
+  id: string;
+  role: 'device' | 'relay';
+  os: string | null;
+  tailscaleName: string | null;
+  online: boolean;
+  connected: boolean;
+  caughtUp: boolean;
+  path: SyncPath | null;
+  pathDetail: string | null;
+  lastSeenMs: number | null;
+  lastSyncMs: number | null;
+  send: boolean;
+  receive: boolean;
+  error: string | null;
+}
+
+export interface Devices {
+  sync: 'starting' | 'listening' | 'unavailable';
+  syncDetail: string | null;
+  devices: PeerDevice[];
+  /** Your other tailnet devices that haven't answered as TailCopy. */
+  others: { name: string; os: string; online: boolean }[];
+  /** Tailnet node names refused by the sync authorization check. */
+  rejected: string[];
 }
 
 export type RuleMode = 'dont_save' | 'save_dont_sync';
@@ -138,6 +172,8 @@ export interface Settings {
     port: number;
     relay: string;
     strictSameLogin: boolean;
+    images: boolean;
+    maxImageBytes: number;
   };
   linux: {
     pasteKeystroke: { app: string; keystroke: string }[];

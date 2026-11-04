@@ -333,7 +333,12 @@ pub enum OpBody {
     PinSet      { clip_id: ClipId, pinned: bool },
     LabelSet    { clip_id: ClipId, label: Option<String> },   // max 120 chars
     ClipDeleted { clip_id: ClipId },
-    HistoryCleared { before_hlc: u64, include_pinned: bool },
+    HistoryCleared {
+        before_hlc: u64,
+        include_pinned: bool,
+        #[serde(default)] seen: Option<VersionVector>,   // what the clearing device held (D-018)
+        #[serde(default)] spared: Vec<ClipId>,           // pinned clips it kept
+    },
 }
 ```
 
@@ -348,9 +353,9 @@ Visible state is a pure function of the set of ops held. Applying an op MUST be 
 3. **Pin and label** are last-writer-wins on `(hlc, origin)`, compared lexicographically, over every `PinSet` or `LabelSet` held for the clip.
 4. **Deleted** if and only if either:
     - any `ClipDeleted` exists for the clip, or
-    - some `HistoryCleared` C has `created_hlc <= C.before_hlc`, and either `C.include_pinned` is true or the clip was not pinned as of `C.hlc` (the winning `PinSet` among those with `hlc < C.hlc` is absent or false).
+    - some `HistoryCleared` C has `created_hlc <= C.before_hlc`, C had seen the clip (its `ClipAdded` has `seq <= C.seen[origin]`), and either `C.include_pinned` is true or the clip is not in `C.spared`. The clearing device fills `spared` with the pinned clips it keeps, so a pin or clip arriving later can't change what a clear removed (D-018). A clear without `seen` (written before D-018) uses the old test: the clip was not pinned as of `C.hlc` (the winning `PinSet` among those with `hlc < C.hlc` is absent or false).
 
-    A deleted clip ignores `ClipUsed`, `PinSet` and `LabelSet` for display. Recompute the flag whenever a `ClipDeleted`, `HistoryCleared` or `PinSet` arrives.
+    A deleted clip ignores `ClipUsed`, `PinSet` and `LabelSet` for display. Recompute the flag whenever a `ClipDeleted` or `HistoryCleared` arrives (and a `PinSet`, while old-style clears exist).
 5. **Keep every clear.** Never collapse `HistoryCleared` ops; an earlier `include_pinned` clear must still apply.
 6. **Ops for unknown clips** (a `PinSet` that arrives before its `ClipAdded`) are stored and take effect when the clip arrives. No node deletes ops, so the `ClipAdded` always exists somewhere and eventually arrives.
 7. **Display grouping.** Live clips with the same `group_key` show as one row: the member with the highest `sort_hlc`, marked pinned if any member is pinned. Pinning or unpinning the row applies to every member. Deleting the row emits `ClipDeleted` for every member. Pasting the row emits `ClipUsed` for the member shown.

@@ -9,6 +9,7 @@
   // detail card. Below about 900 px the card wraps under the list.
   import { onMount } from 'svelte';
   import { api, on } from '../lib/api';
+  import { arrived, windowShown } from '../lib/arrivals.svelte';
   import type { ClipDetail, ClipRow, Settings, Status } from '../lib/types';
   import { bytes, firstLine, isMac, longTime, lookIcon, lookName, mod, relativeTime, rowLabel, timeGroup } from '../lib/format';
   import { collapse, duration } from '../lib/motion';
@@ -245,6 +246,7 @@
 
   onMount(() => {
     api.getSettings().then((s) => (settings = s));
+    window.addEventListener('focus', windowShown);
     const unlisten = [
       on('clips-changed', () => load()),
       on('status-changed', () => api.getSettings().then((s) => (settings = s))),
@@ -254,6 +256,7 @@
       clearTimeout(toastTimer);
       clearTimeout(copiedTimer);
       unlisten.forEach((u) => u.then((f) => f()));
+      window.removeEventListener('focus', windowShown);
     };
   });
 </script>
@@ -321,6 +324,7 @@
             swatch={row.look === 'colour' ? row.preview.trim() : null}
             pinned={row.pinned}
             copies={row.copies}
+            arrived={arrived(row)}
             selected={chosen.has(row.id)}
             ariaLabel={rowLabel(row.kind, row.device, row.sortMs, row.label ?? row.preview)}
             onclick={(e) => click(e, row)}

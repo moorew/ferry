@@ -8,5 +8,15 @@ publish.workspace = true
 
 [dependencies]
 tailcopy-core.workspace = true
+tailcopy-sync.workspace = true
+anyhow = "1.0.100"
+async-trait = "0.1.92"
+tempfile = "3.27.0"
+tokio = { version = "1.54.1", features = ["rt", "time", "sync", "macros"] }
+
+[dev-dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros"] }
+
 [lints]
 workspace = true

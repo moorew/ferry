@@ -9,10 +9,11 @@ Everything you copy, one shortcut away. No account, no cloud, no tracking.</p>
 
 ## Status
 
-**v0.1** is a complete clipboard manager **on one device**. TailCopy's other half,
-syncing your history between your own devices over your
-[Tailscale](https://tailscale.com) tailnet, is the next milestone. Until then, nothing
-you copy leaves the device it was copied on.
+**v0.2** adds sync: every device signed in to your own
+[Tailscale](https://tailscale.com) account that runs TailCopy shares one history,
+directly over your tailnet, with nothing in between. What you copy never leaves your
+tailnet, and only your own devices can connect. Sync is new, so please report
+anything that goes missing or arrives twice.
 
 TailCopy is an independent project built on Tailscale. It isn't made by or affiliated
 with Tailscale Inc.
@@ -69,8 +70,35 @@ TailCopy and follow the short setup. Nothing needs a terminal.
 
 Each release has a `SHA256SUMS` file to check the downloads against.
 
-Tailscale isn't needed in v0.1. If it's running, TailCopy shows this device's
-Tailscale name, ready for sync.
+Install TailCopy on each device and sign in to Tailscale with the same account
+everywhere; the devices find each other by themselves. Without Tailscale, TailCopy
+still keeps your history on the device you're using.
+
+On Windows, the first time TailCopy starts syncing, Windows Firewall may ask whether
+TailCopy can accept connections. Allow it for private networks so your other devices
+can reach this one. If you don't, this device still syncs by connecting out to the
+others; it just can't be reached first.
+
+## Sync
+
+- **Your devices only.** TailCopy listens only on your Tailscale addresses, and every
+  connection is checked with Tailscale before anything is read: only untagged devices
+  signed in to your own Tailscale login can sync. Other people on a shared tailnet are
+  refused, even when the tailnet policy allows everything.
+- **Live:** copy on one device and it's in the picker on the others a moment later,
+  and on their clipboards too (Settings > Tailnet > Put arrivals on the
+  clipboard). Something you copied more recently is never overwritten, and catching up
+  after sleep never touches the clipboard.
+- **Catches up:** a device that was off gets everything it missed, in order, when it's
+  back. Pins, labels, deletes and clears sync the same way.
+- **Per device:** Settings > Tailnet lists your devices, how they're connected
+  (direct or relayed), and Send and Receive switches for each.
+- **What stays put:** passwords and secrets are never stored, apps you mark "keep on
+  this device" stay local, and images over 10 MB (adjustable) stay on the device they
+  were copied on. On Ubuntu, clips that arrive go on the clipboard as plain text or an
+  image; formatted text still pastes formatted from the picker.
+- It uses port 7441 on your tailnet. If your tailnet policy isn't allow-all, allow
+  your devices to reach each other on `tcp:7441`.
 
 ## Using it
 
@@ -130,11 +158,9 @@ tailcopy status       print the status as JSON
 
 ## What's next
 
-Milestone 2 is sync: every device on your tailnet that runs TailCopy shares one
-history, directly over WireGuard, with nothing in between. Items copied elsewhere
-show which device they came from and how long they took to arrive. After that come
-the optional self-hosted relay (for devices that were asleep), signed updates, and a
-listing on extensions.gnome.org. The full plan is in [SPEC.md](SPEC.md).
+The optional self-hosted relay (so devices that were asleep catch up even when your
+other devices are off), signed updates, and a listing on extensions.gnome.org. The
+full plan is in [SPEC.md](SPEC.md).
 
 ## Building from source
 
