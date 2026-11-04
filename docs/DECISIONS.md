@@ -7,6 +7,52 @@ written into SPEC.md).
 
 ---
 
+## D-021 · The "Lilac utility" redesign changes SPEC 10 · landed
+
+Owner decision (3 November): every recommendation below accepted; logo Option A;
+items arriving from other devices never toast (tray dot only). SPEC 10.1 to 10.5 and
+M2's scope updated.
+
+The design handoff (`design/HANDOFF.md`, 3 November) replaces the look in SPEC 10.4 and
+D-016 and touches the keyboard map and picker. Recon: `docs/DESIGN-PHASE0.md`.
+Changes the spec needs, with what I recommend where the two disagree:
+
+1. **Look (10.4, D-016):** lilac/aubergine palette, one violet accent, six device
+   colours, Bricolage Grotesque, Figtree and JetBrains Mono, logo Option A. Supersedes
+   D-016's black and white and Commissioner. Apply as designed.
+2. **Picker window (10.1, 10.4):** 960 × 640, resizable, remembers its size, 46 px
+   rows, radius 22, 140 ms open, instead of 640 × 420 fixed, 36 px rows, radius 12,
+   80 to 120 ms. Apply as designed, unless you want it smaller than the manager.
+3. **Keyboard (10.3):** the handoff's map differs from the spec in four places.
+   Recommend keeping the spec on three of them:
+   - Picker shortcut **Ctrl+1**: browsers, editors and terminals all use Ctrl+1 to
+     switch tabs, so a global binding takes that over everywhere. Keep Ctrl+Alt+V /
+     Cmd+Shift+V.
+   - Paste a row with bare **1 to 9**: focus sits in the search field, so a digit has
+     to type a digit. Keep Ctrl/Cmd+1 to 9.
+   - **Delete** to delete: Delete deletes forward in the search field. Keep
+     Ctrl/Cmd+Shift+Backspace.
+   - **Esc clears the search, then closes**: adopt.
+4. **"Pasted into {app}" toast:** the picker hides before pasting, so a success toast
+   needs an OS notification (SPEC 1.1 allows those only when something is wrong) or a
+   new overlay window. Recommend no success toast; keep notifications for failures
+   ("Copied. Press Ctrl V" when paste can't happen). In-window toasts in the manager
+   (Delete with Undo, Copied) are fine.
+5. **Tray "new" dot and the arrival badge (10.4 "Never: badges"):** the spec's ban
+   was aimed at nags. A violet dot that clears when the picker opens is the quiet sync
+   signal the design is built around. Recommend allowing it and rewording 10.4 to ban
+   promotional badges.
+6. **"Password skipped" rows:** SPEC 9.7 says secrets are never stored. Even a
+   contentless row records that you copied a password, from which app and when.
+   Recommend dropping this row state.
+7. **Per-device Send and Receive toggles, and an image sync limit (default 10 MB):**
+   new sync behaviour not in SPEC 7 or 11. Both fit M2. Recommend adding them to M2's
+   scope; the sync limit would make over-limit images local-only (6.3).
+8. **Extra kinds (code, link, colour):** derived for display and filtering only; the
+   stored and synced kinds stay text, rich and image. "File" is out of scope (2.3).
+9. **Library sidebar (10.5):** adds Code and Links to All, Pinned, Images, Formatted.
+   Apply.
+
 ## D-020 · GNOME capture waits for the copy to settle, and fails closed on the hint · applied
 
 Found in the end-to-end test of the installed app on GNOME 46 and 50:
@@ -72,7 +118,7 @@ so no quarantine command. Unsigned Windows installers keep the SmartScreen "Run
 anyway" click, which the owner accepts. The tailnet test tool leaves the installers;
 its job moves to the Devices view in M2. SPEC 9.4.6 and 17 updated.
 
-## D-016 · Commissioner, black and white · landed
+## D-016 · Commissioner, black and white · superseded by D-021
 
 Owner decision: the app UI and the wordmark use Commissioner (Google Fonts, SIL Open
 Font License), bundled with the app so nothing is fetched at runtime (SPEC 16). The

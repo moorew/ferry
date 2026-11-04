@@ -784,9 +784,9 @@ Windows Terminal and macOS terminals accept the default.
 
 | Window | Spec |
 | --- | --- |
-| Picker | Frameless, 640 × 420, not resizable, always on top, hidden at launch, with its webview kept loaded while hidden. Title `TailCopy Picker`. Centred on the active monitor (option: near the cursor on Windows and macOS) |
+| Picker | Frameless, 960 × 640 by default, resizable, remembers its size, always on top, hidden at launch, with its webview kept loaded while hidden. Title `TailCopy Picker`. Centred on the monitor that has the cursor |
 | Manager | Normal window, 960 × 640, minimum 720 × 480. Holds History, Devices, Settings and First run routes |
-| Tray / menu bar | Icon with a status dot. Menu: Open picker, Pause capture, Devices, Settings, Quit |
+| Tray / menu bar | Icon with states idle, syncing (three frames), paused, offline and new (a violet dot for items from other devices, cleared when the picker opens). Menu: Open picker, Pause capture, Devices, Settings, Quit |
 
 On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on vanilla GNOME without it, the manager is reachable from the app grid and `tailcopy`.
 
@@ -798,7 +798,7 @@ On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on va
 - Preview pane (Tab): full text with monospace when it looks like code, rendered sanitized HTML for rich clips (no scripts, no remote images), image at fit size. Missing blobs show a spinner, then the offline message.
 - Choose: Enter pastes with all formats, Shift+Enter pastes plain text. The picker hides immediately; paste happens after focus returns.
 - States: empty history ("Copy something to get started"), no results, paused banner, "Tailscale not running" banner (subtle, one line), degraded-mode banner.
-- Esc or losing focus hides the picker and resets the query.
+- Esc clears the query; Esc on an empty query, or losing focus, hides the picker and resets it.
 
 ### 10.3 Keyboard map (all rebindable)
 
@@ -819,29 +819,28 @@ On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on va
 | Delete item | Ctrl+Shift+Backspace | Cmd+Shift+Backspace |
 | Open manager | Ctrl+O | Cmd+O |
 | Settings | Ctrl+, | Cmd+, |
-| Close | Esc | Esc |
+| Clear search, then close | Esc | Esc |
 
 Ctrl+Backspace and Cmd+Backspace keep their normal text-editing meaning in the search field. First run checks the picker shortcut for conflicts. On layouts where Ctrl+Alt acts as AltGr, Ctrl+Alt+V can type a character; offer an alternative.
 
-### 10.4 Visual tokens
+### 10.4 Visual design
+
+The look is defined in `design/HANDOFF.md` ("Lilac utility", D-021), with every value in
+`design/tokens/tokens.json` (and `tokens.css` for the webviews). In short:
 
 | Token | Value |
 | --- | --- |
-| Font | Commissioner (bundled, SIL OFL; no network fetch), for the app and the wordmark; `system-ui` as fallback |
-| Sizes | Rows 14 px, metadata 12 px, search 16 px |
-| Row height | 36 px; 10 rows visible |
-| Radius | Window 12 px, rows 8 px |
-| Borders | 1 px hairline, 8% foreground on background |
-| Shadow | One soft shadow on the picker |
-| Colour | Black and white with neutral greys, following OS light/dark; colour only for state (errors, paused). The icon and wordmark are black and white |
-| Materials | Mica (Windows 11), vibrancy (macOS), solid (Linux) |
-| Motion | 80 to 120 ms fade and scale on open, none on close; honour reduced motion |
+| Fonts | Bricolage Grotesque (titles only), Figtree (UI), JetBrains Mono (code); bundled, SIL OFL, no network fetch |
+| Colour | Lilac paper and aubergine ink in light mode, deep night purple in dark; one violet accent that only means "live"; six device colours, never the only signal. Follows the OS, or System / Light / Dark in Settings |
+| Shape | Rows 46 px in the picker, 56 px in the manager; radius window 22, row 14, control 12 |
+| Materials | Mica (Windows 11), vibrancy (macOS), solid (Linux; WebKitGTK has no transparent windows, so the picker is square there) |
+| Motion | Motion tokens in the handoff (open 140 ms fade and scale); reduced motion means fades only, max 120 ms |
 
-Never: upgrade prompts, badges, onboarding carousels, what's-new popups, rating nags.
+Never: upgrade prompts, promotional badges, onboarding carousels, what's-new popups, rating nags. Status marks (the tray's new dot, the arrival badge) are allowed. No success notifications: a paste that works says nothing; a paste that can't happen says "Copied. Press Ctrl V".
 
 ### 10.5 Manager window
 
-- **History:** sidebar (All, Pinned, Images, Rich text, one entry per device), list with multi-select, detail pane, bulk delete, pin, label, clear history (with "include pinned" checkbox and confirmation).
+- **History:** sidebar (All, Pinned, Code, Links, Images, Formatted, with live counts; one entry per device), list with multi-select, detail pane, bulk delete, pin, label, clear history (with "include pinned" checkbox and confirmation).
 - **Devices:** one row per known device: name, role, online, path (direct or DERP region), last sync, ops pending, TailCopy version. Banner if Tailscale isn't running or this device has no peers.
 - **Settings:** general (device name, start at login, live mirror), shortcuts, retention, size caps, privacy rules, paste overrides (Linux), sync (port, pinned relay address, capability name), diagnostics (open log folder, copy redacted diagnostics), about.
 - **First run:** 1) Tailscale check, 2) GNOME extension setup if applicable (9.4.6), 3) macOS Accessibility permission if applicable, 4) choose picker shortcut, 5) show discovered devices. Each step can be skipped and revisited.
@@ -1026,7 +1025,7 @@ Capture, store, display grouping, retention, picker (search, tokens, preview), p
 
 ### M2: Tailnet sync
 
-Tailnet adapter, discovery, authorization, protocol, sessions, catch-up, blobs, live mirror, Devices view, simulation harness.
+Tailnet adapter, discovery, authorization, protocol, sessions, catch-up, blobs, live mirror, Devices view, per-device Send and Receive toggles, an image sync limit (default 10 MB; larger images stay local-only), simulation harness.
 
 **Gate:** smoke items 8 to 11 pass between Windows and Ubuntu; harness green; a two-day soak with zero lost clips; latency budgets met.
 

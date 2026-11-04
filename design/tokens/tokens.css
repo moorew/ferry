@@ -1,0 +1,168 @@
+/* TailCopy design tokens, Lilac utility direction.
+   Mirrors tokens.json. Theme: follows the OS by default; force with
+   <html data-theme="light"> or <html data-theme="dark">. */
+
+@font-face { font-family: "Bricolage Grotesque"; src: url("../fonts/variable/BricolageGrotesque.ttf") format("truetype"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Figtree"; src: url("../fonts/variable/Figtree.ttf") format("truetype"); font-weight: 300 900; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("../fonts/variable/JetBrainsMono.ttf") format("truetype"); font-weight: 100 800; font-display: swap; }
+
+:root {
+  /* colour, light */
+  --tc-bg: #F3EFF8;
+  --tc-surface: #FCFAFE;
+  --tc-sunk: #EAE3F3;
+  --tc-raised: #FFFFFF;
+  --tc-tile: #EAE3F3;
+  --tc-line: #E0D6EC;
+  --tc-line-strong: #CBBCDD;
+  --tc-ink: #2A1838;
+  --tc-ink-2: #66547A;
+  --tc-ink-3: #6E5C82;            /* tertiary: timestamps, placeholders */
+  --tc-accent: #7B52F0;
+  --tc-on-accent: #FFFFFF;
+  --tc-accent-ink: #5B33C2;
+  --tc-accent-soft: #E7DEFD;
+  --tc-selected: #2A1838;
+  --tc-on-selected: #F9F6FD;
+  --tc-on-selected-2: #CFC4E0;
+  --tc-selected-tile: #3D2752;
+  --tc-hover: #EAE3F3;
+  --tc-danger: #B42A55;
+  --tc-glyph-on-device: #2A1838;
+
+  /* device palette, both themes, assigned in join order */
+  --tc-device-1: #9B7BF2; /* violet */
+  --tc-device-2: #9DB2F5; /* periwinkle */
+  --tc-device-3: #E59BDD; /* orchid */
+  --tc-device-4: #C4B1F5; /* lavender */
+  --tc-device-5: #D9A8C4; /* mauve */
+  --tc-device-6: #B07CC6; /* plum */
+
+  /* mark */
+  --tc-mark-sheet: #7B52F0;
+  --tc-mark-clip: #2A1838;
+  --tc-mark-lines: #FCFAFE;
+  --tc-mark-dot-2: #C4B1F5;
+
+  /* type */
+  --tc-font-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --tc-font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --tc-font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --tc-tracking-display: -0.02em;
+  --tc-tracking-section: 0.08em;
+
+  /* shape and space */
+  --tc-r-keycap: 6px;
+  --tc-r-dot: 3px;
+  --tc-r-tile: 10px;
+  --tc-r-control: 12px;
+  --tc-r-row: 14px;
+  --tc-r-card: 20px;
+  --tc-r-window: 22px;
+  --tc-r-pill: 999px;
+  --tc-sidebar: 248px;
+  --tc-detail-min: 340px;
+  --tc-control: 40px;
+  --tc-control-sm: 32px;
+
+  /* elevation */
+  --tc-shadow-card: 0 1px 2px rgba(42,24,56,.06), 0 6px 16px rgba(42,24,56,.07);
+  --tc-shadow-pop: 0 24px 64px rgba(42,24,56,.20), 0 2px 6px rgba(42,24,56,.08);
+  --tc-shadow-toast: 0 12px 32px rgba(42,24,56,.25);
+  --tc-focus: 0 0 0 2px var(--tc-surface), 0 0 0 4px var(--tc-accent);
+
+  /* motion */
+  --tc-ease-out: cubic-bezier(.2,.8,.2,1);
+  --tc-ease-in: cubic-bezier(.4,0,1,1);
+  --tc-ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --tc-dur-fast: 120ms;
+  --tc-dur-base: 200ms;
+  --tc-dur-enter: 140ms;
+  --tc-dur-exit: 100ms;
+  --tc-dur-arrive: 420ms;
+  --tc-dur-spring: 240ms;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tc-bg: #17121F;
+    --tc-surface: #1F1829;
+    --tc-sunk: #120E19;
+    --tc-raised: #282034;
+    --tc-tile: #282034;
+    --tc-line: #352B44;
+    --tc-line-strong: #463A58;
+    --tc-ink: #F2EDF9;
+    --tc-ink-2: #BDB0D1;
+    --tc-ink-3: #A091B6;
+    --tc-accent: #A989FF;
+    --tc-on-accent: #17121F;
+    --tc-accent-ink: #C2ABFF;
+    --tc-accent-soft: #352659;
+    --tc-selected: #F2EDF9;
+    --tc-on-selected: #17121F;
+    --tc-on-selected-2: #4A3D5E;
+    --tc-selected-tile: #DCD2EA;
+    --tc-hover: #282034;
+    --tc-danger: #F08AAE;
+    --tc-glyph-on-device: #17121F;
+    --tc-mark-sheet: #A989FF;
+    --tc-mark-clip: #F2EDF9;
+    --tc-mark-lines: #17121F;
+    --tc-mark-dot-2: #5B3FA8;
+    --tc-shadow-card: 0 1px 2px rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.25);
+    --tc-shadow-pop: 0 24px 64px rgba(0,0,0,.50), 0 0 0 1px rgba(255,255,255,.04);
+    --tc-shadow-toast: 0 12px 32px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --tc-bg: #17121F;
+  --tc-surface: #1F1829;
+  --tc-sunk: #120E19;
+  --tc-raised: #282034;
+  --tc-tile: #282034;
+  --tc-line: #352B44;
+  --tc-line-strong: #463A58;
+  --tc-ink: #F2EDF9;
+  --tc-ink-2: #BDB0D1;
+  --tc-ink-3: #A091B6;
+  --tc-accent: #A989FF;
+  --tc-on-accent: #17121F;
+  --tc-accent-ink: #C2ABFF;
+  --tc-accent-soft: #352659;
+  --tc-selected: #F2EDF9;
+  --tc-on-selected: #17121F;
+  --tc-on-selected-2: #4A3D5E;
+  --tc-selected-tile: #DCD2EA;
+  --tc-hover: #282034;
+  --tc-danger: #F08AAE;
+  --tc-glyph-on-device: #17121F;
+  --tc-mark-sheet: #A989FF;
+  --tc-mark-clip: #F2EDF9;
+  --tc-mark-lines: #17121F;
+  --tc-mark-dot-2: #5B3FA8;
+  --tc-shadow-card: 0 1px 2px rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.25);
+  --tc-shadow-pop: 0 24px 64px rgba(0,0,0,.50), 0 0 0 1px rgba(255,255,255,.04);
+  --tc-shadow-toast: 0 12px 32px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tc-dur-arrive: 120ms;
+    --tc-dur-spring: 120ms;
+    --tc-dur-base: 120ms;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--tc-bg);
+  color: var(--tc-ink);
+  font: 400 14px/1.43 var(--tc-font-ui);
+  -webkit-font-smoothing: antialiased;
+}

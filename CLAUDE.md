@@ -86,3 +86,10 @@ file are enough for `check`/`clippy`, never for linking.
   GNOME 49+ `dbus-run-session -- gnome-shell --devkit --wayland`
 - A development build must be listed in the extension's `allowed-clients` key:
   `gsettings --schemadir <ext>/schemas set org.gnome.shell.extensions.tailcopy allowed-clients "['/abs/path/to/tailcopy']"`
+
+## Design
+- Source of truth: design/HANDOFF.md. Tokens: design/tokens/tokens.json (and tokens.css for web views).
+- Never hardcode a colour, radius, font size or duration. Add a token first if one is missing, and say so.
+- Icons come from design/assets/icons (24 grid, 1.75 stroke, currentColor). Do not mix in another icon set.
+- Device colour is never the only signal: the device name is always shown with it.
+- Respect reduced motion (OS setting): fades only, max 120 ms.
