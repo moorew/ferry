@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn ip_addresses_are_mono_text() {
-        assert_eq!(look("100.66.95.52"), (Look::Text, true));
+        assert_eq!(look("100.88.12.34"), (Look::Text, true));
         assert_eq!(look("fd7a:115c:a1e0::1"), (Look::Text, true));
         assert_eq!(look("hello"), (Look::Text, false));
     }
