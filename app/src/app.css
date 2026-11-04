@@ -56,16 +56,20 @@ button {
   cursor: default;
 }
 
+/* Buttons (handoff section 4). Plain .btn is the secondary button; add .primary,
+   .accent (once per screen at most) or .danger, and .compact for 32 px. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: var(--tc-control-sm);
-  padding: 0 14px;
+  height: var(--tc-control);
+  padding: 0 16px;
+  border: 0;
   border-radius: var(--tc-r-control);
-  border: 1px solid var(--tc-line-strong);
-  background: transparent;
+  background: var(--tc-surface);
+  box-shadow: inset 0 0 0 1px var(--tc-line-strong);
+  color: var(--tc-ink);
   font-size: var(--tc-text-body);
   font-weight: 600;
   white-space: nowrap;
@@ -76,19 +80,42 @@ button {
   background: var(--tc-hover);
 }
 
+.btn:focus-visible {
+  box-shadow: var(--tc-focus);
+}
+
 .btn.primary {
   background: var(--tc-selected);
-  border-color: var(--tc-selected);
+  box-shadow: none;
   color: var(--tc-on-selected);
 }
 
 .btn.primary:hover {
   background: var(--tc-selected-tile);
-  border-color: var(--tc-selected-tile);
+}
+
+.btn.accent {
+  background: var(--tc-accent);
+  box-shadow: none;
+  color: var(--tc-on-accent);
+}
+
+.btn.accent:hover {
+  background: var(--tc-accent-ink);
+}
+
+.btn.primary:focus-visible,
+.btn.accent:focus-visible {
+  box-shadow: var(--tc-focus);
 }
 
 .btn.danger {
   color: var(--tc-danger);
+}
+
+.btn.compact {
+  height: var(--tc-control-sm);
+  padding: 0 12px;
 }
 
 .btn:disabled {
@@ -116,15 +143,22 @@ button {
 }
 
 kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--tc-r-keycap);
+  background: var(--tc-surface);
+  box-shadow:
+    inset 0 0 0 1px var(--tc-line-strong),
+    inset 0 -2px 0 var(--tc-line);
+  color: var(--tc-ink);
   font-family: var(--tc-font-ui);
   font-size: var(--tc-text-keycap);
   font-weight: 600;
-  padding: 1px 5px;
-  border-radius: var(--tc-r-keycap);
-  border: 1px solid var(--tc-line-strong);
-  box-shadow: inset 0 -2px 0 var(--tc-line);
-  color: var(--tc-ink-2);
-  background: var(--tc-surface);
+  line-height: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

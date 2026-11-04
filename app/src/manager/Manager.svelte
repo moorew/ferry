@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { api, on } from '../lib/api';
   import type { Status } from '../lib/types';
-  import Icon from '../components/Icon.svelte';
+  import Icon, { type IconName } from '../components/Icon.svelte';
+  import StatusCard from '../components/StatusCard.svelte';
   import Lockup from '../components/Lockup.svelte';
   import History from './History.svelte';
   import Settings from './Settings.svelte';
@@ -15,11 +16,11 @@
   let status = $state<Status | null>(null);
   let setupOpen = $state(false);
 
-  const filters: { id: Filter; label: string; icon: 'history' | 'pin' | 'image' | 'rich' }[] = [
+  const filters: { id: Filter; label: string; icon: IconName }[] = [
     { id: 'all', label: 'All', icon: 'history' },
     { id: 'pinned', label: 'Pinned', icon: 'pin' },
     { id: 'image', label: 'Images', icon: 'image' },
-    { id: 'rich', label: 'Formatted text', icon: 'rich' },
+    { id: 'rich', label: 'Formatted text', icon: 'rich-text' },
   ];
 
   function go(r: string | null) {
@@ -85,19 +86,12 @@
 
       <div class="side-foot">
         {#if status}
-          <button
-            class="capture"
-            class:paused={status.paused}
-            onclick={() => api.setPaused(!status!.paused)}
-            title={status.paused ? 'Resume capture' : 'Pause capture'}
-          >
-            <span class="dot"></span>
-            <span class="capture-text">
-              <strong>{status.paused ? 'Paused' : status.captureReady ? 'Capturing' : 'Not capturing'}</strong>
-              <span>{status.paused ? 'Click to resume' : status.captureReady ? 'Click to pause' : 'See Settings'}</span>
-            </span>
-            <Icon name={status.paused ? 'play' : 'pause'} />
-          </button>
+          <StatusCard
+            paused={status.paused}
+            ready={status.captureReady}
+            onpause={() => api.setPaused(true)}
+            onresume={() => api.setPaused(false)}
+          />
         {/if}
       </div>
     </nav>
@@ -176,53 +170,6 @@
 
   .side-foot {
     margin-top: auto;
-  }
-
-  .capture {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    border-radius: var(--tc-r-row);
-    border: 1px solid var(--tc-line-strong);
-    background: var(--tc-surface);
-    text-align: left;
-  }
-
-  .capture:hover {
-    background: var(--tc-hover);
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--tc-r-pill);
-    background: var(--tc-accent);
-    box-shadow: 0 0 0 4px var(--tc-accent-soft);
-    flex: none;
-  }
-
-  .paused .dot {
-    background: transparent;
-    border: 1.5px solid var(--tc-ink-2);
-    box-shadow: none;
-  }
-
-  .capture-text {
-    display: grid;
-    flex: 1;
-    line-height: 1.25;
-  }
-
-  .capture-text strong {
-    font-weight: 600;
-    font-size: var(--tc-text-body);
-  }
-
-  .capture-text span {
-    font-size: var(--tc-text-keycap);
-    color: var(--tc-ink-2);
   }
 
   .page {

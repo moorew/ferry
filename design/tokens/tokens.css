@@ -27,6 +27,7 @@
   --tc-selected: #2A1838;
   --tc-on-selected: #F9F6FD;
   --tc-on-selected-2: #CFC4E0;
+  --tc-on-selected-accent: #C2ABFF;
   --tc-selected-tile: #3D2752;
   --tc-hover: #EAE3F3;
   --tc-danger: #B42A55;
@@ -59,6 +60,7 @@
   --tc-text-setting: 15px;
   --tc-text-body: 14px;
   --tc-text-code: 13px;
+  --tc-text-small: 13px;          /* chips, toast and trail detail */
   --tc-text-meta: 12px;
   --tc-text-keycap: 11px;
 
@@ -71,6 +73,10 @@
   --tc-r-card: 20px;
   --tc-r-window: 22px;
   --tc-r-pill: 999px;
+  --tc-r-avatar-20: 6px;          /* device avatar radius by size */
+  --tc-r-avatar-24: 8px;
+  --tc-r-avatar-28: 9px;
+  --tc-r-avatar-40: 12px;
   --tc-sidebar: 248px;
   --tc-detail-min: 340px;
   --tc-control: 40px;
@@ -121,6 +127,7 @@
     --tc-selected: #F2EDF9;
     --tc-on-selected: #17121F;
     --tc-on-selected-2: #4A3D5E;
+    --tc-on-selected-accent: #5B33C2;
     --tc-selected-tile: #DCD2EA;
     --tc-hover: #282034;
     --tc-danger: #F08AAE;
@@ -154,6 +161,7 @@
   --tc-selected: #F2EDF9;
   --tc-on-selected: #17121F;
   --tc-on-selected-2: #4A3D5E;
+  --tc-on-selected-accent: #5B33C2;
   --tc-selected-tile: #DCD2EA;
   --tc-hover: #282034;
   --tc-danger: #F08AAE;

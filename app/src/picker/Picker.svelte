@@ -3,7 +3,7 @@
   import { api, on } from '../lib/api';
   import { duration, easing, reducedMotion } from '../lib/motion';
   import type { ClipDetail, ClipRow, Status } from '../lib/types';
-  import { firstLine, isMac, keycaps, mod, relativeTime, rowLabel } from '../lib/format';
+  import { firstLine, isMac, keycaps, kindIcon, mod, relativeTime, rowLabel } from '../lib/format';
   import Icon from '../components/Icon.svelte';
   import Preview from './Preview.svelte';
 
@@ -209,7 +209,7 @@
         <span class="token">{t}</span>
       {/each}
       {#if status?.paused}
-        <span class="state-chip"><Icon name="pause" size={12} />Paused</span>
+        <span class="state-chip"><Icon name="paused" size={14} />Paused</span>
       {/if}
     </header>
 
@@ -247,7 +247,7 @@
                 {#if row.kind === 'image' && row.thumbUrl}
                   <img src={row.thumbUrl} alt="" />
                 {:else}
-                  <Icon name={row.kind} />
+                  <Icon name={kindIcon(row.kind)} />
                 {/if}
               </span>
               <span class="main">
@@ -271,7 +271,7 @@
               <span class="meta">
                 {#if row.copies > 1}<span class="count" title="Copied {row.copies} times">×{row.copies}</span>{/if}
                 {#if row.device}<span class="chip">{row.device}</span>{/if}
-                {#if row.pinned}<span class="pin" title="Pinned"><Icon name="pin" size={13} /></span>{/if}
+                {#if row.pinned}<span class="pin" title="Pinned"><Icon name="pin" size={16} /></span>{/if}
                 <span class="time">{relativeTime(row.sortMs)}</span>
                 {#if i < 9}<span class="hint">{isMac ? '⌘' : ''}{i + 1}</span>{/if}
               </span>

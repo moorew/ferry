@@ -4,6 +4,15 @@
 export type ClipKind = 'text' | 'rich' | 'image';
 export type PasteMode = 'all' | 'plain';
 
+export type DeviceType = 'laptop' | 'desktop' | 'server' | 'board';
+
+/** A device as the UI draws it: name, colour (join order, 0 to 5) and glyph. */
+export interface DeviceRef {
+  name: string;
+  colorIndex: number;
+  type: DeviceType;
+}
+
 export interface ClipRow {
   id: string;
   kind: ClipKind;

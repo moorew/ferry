@@ -5,6 +5,7 @@
   import { bytes, isMac } from '../lib/format';
   import ShortcutInput from '../components/ShortcutInput.svelte';
   import Lockup from '../components/Lockup.svelte';
+  import Toggle from '../components/Toggle.svelte';
 
   let { status, onSetup }: { status: Status | null; onSetup: () => void } = $props();
 
@@ -88,11 +89,11 @@
         </div>
         <label class="item">
           <div><p class="name">Start at login</p><p class="desc">Keep TailCopy running in the background so your history is always there.</p></div>
-          <input type="checkbox" class="switch" bind:checked={settings.general.startAtLogin} onchange={save} />
+          <Toggle bind:checked={settings.general.startAtLogin} onchange={save} />
         </label>
         <label class="item">
           <div><p class="name">Paste for me</p><p class="desc">Choosing an item pastes it into the app you were using. Turn off to only copy it.</p></div>
-          <input type="checkbox" class="switch" bind:checked={settings.general.autoPaste} onchange={save} />
+          <Toggle bind:checked={settings.general.autoPaste} onchange={save} />
         </label>
       </section>
 
@@ -121,7 +122,7 @@
         <h2>Privacy</h2>
         <label class="item">
           <div><p class="name">Skip passwords</p><p class="desc">Never save items that password managers and other apps mark as secret.</p></div>
-          <input type="checkbox" class="switch" bind:checked={settings.privacy.respectOsMarkers} onchange={save} />
+          <Toggle bind:checked={settings.privacy.respectOsMarkers} onchange={save} />
         </label>
         <div class="item column">
           <div><p class="name">Apps to ignore</p><p class="desc">Matched against the app you copied from. "Don't save" ignores the copy completely; "Keep on this device" saves it but never syncs it.</p></div>
@@ -164,7 +165,7 @@
         <h2>Sync</h2>
         <label class="item">
           <div><p class="name">Only my devices</p><p class="desc">Sync only with devices signed in to your own Tailscale account. Other people on your tailnet can never connect, even if your tailnet allows everything.</p></div>
-          <input type="checkbox" class="switch" bind:checked={settings.sync.strictSameLogin} onchange={save} />
+          <Toggle bind:checked={settings.sync.strictSameLogin} onchange={save} />
         </label>
         <p class="soon">Syncing between your devices arrives in the next version. Your history stays on this device until then.</p>
       </section>
@@ -323,39 +324,6 @@
 
   .num {
     width: 86px;
-  }
-
-  .switch {
-    appearance: none;
-    flex: none;
-    width: var(--tc-toggle-w);
-    height: var(--tc-toggle-h);
-    margin: 0;
-    border-radius: var(--tc-r-pill);
-    background: var(--tc-line-strong);
-    position: relative;
-    transition: background var(--tc-dur-fast) var(--tc-ease-out);
-  }
-
-  .switch::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: calc(var(--tc-toggle-h) - 6px);
-    height: calc(var(--tc-toggle-h) - 6px);
-    border-radius: var(--tc-r-pill);
-    background: var(--tc-knob);
-    box-shadow: var(--tc-shadow-card);
-    transition: transform var(--tc-dur-fast) var(--tc-ease-out);
-  }
-
-  .switch:checked {
-    background: var(--tc-accent);
-  }
-
-  .switch:checked::after {
-    transform: translateX(calc(var(--tc-toggle-w) - var(--tc-toggle-h)));
   }
 
   .segmented {

@@ -78,10 +78,10 @@
       </p>
       <div class="check-row">
         {#if status.tailscale === 'running'}
-          <span class="ok"><Icon name="check" /></span>
+          <span class="ok"><Icon name="check" size={18} /></span>
           <p><strong>Tailscale is running.</strong> When sync arrives, your devices will find each other over your tailnet.</p>
         {:else}
-          <span class="info"><Icon name="info" /></span>
+          <span class="info"></span>
           <p>
             <strong>Tailscale isn't {status.tailscale === 'missing' ? 'installed' : 'running'}.</strong>
             TailCopy works without it; you'll need it later to sync between devices.
@@ -96,24 +96,24 @@
       </p>
       <div class="check-row">
         {#if ext === 'active'}
-          <span class="ok"><Icon name="check" /></span>
+          <span class="ok"><Icon name="check" size={18} /></span>
           <p><strong>The extension is on.</strong> You're ready for the next step.</p>
         {:else if ext === 'disabled'}
-          <span class="info"><Icon name="info" /></span>
+          <span class="info"></span>
           <p><strong>The extension is installed but off.</strong> Turn it on to continue.</p>
           <button class="btn primary" disabled={busy} onclick={() => act('enable-extension')}>Turn on</button>
         {:else if ext === 'needsRelogin'}
-          <span class="info"><Icon name="info" /></span>
+          <span class="info"></span>
           <p>
             <strong>Log out and back in once.</strong> GNOME only notices new extensions when you sign in.
             Setup picks up where you left off afterwards.
           </p>
           <button class="btn primary" disabled={busy} onclick={() => act('log-out')}>Log out now</button>
         {:else if ext === 'broken'}
-          <span class="warn"><Icon name="info" /></span>
+          <span class="warn"><Icon name="close" size={18} /></span>
           <p><strong>The extension didn't start.</strong> {status.extension?.message ?? ''}</p>
         {:else}
-          <span class="warn"><Icon name="info" /></span>
+          <span class="warn"><Icon name="close" size={18} /></span>
           <p><strong>The extension is missing.</strong> Reinstall TailCopy from its package to put it back.</p>
         {/if}
       </div>
@@ -125,10 +125,10 @@
       </p>
       <div class="check-row">
         {#if status.accessibility}
-          <span class="ok"><Icon name="check" /></span>
+          <span class="ok"><Icon name="check" size={18} /></span>
           <p><strong>Allowed.</strong> TailCopy can paste for you.</p>
         {:else}
-          <span class="info"><Icon name="info" /></span>
+          <span class="info"></span>
           <p>
             <strong>Not allowed yet.</strong> Click the button, then switch on TailCopy in
             Privacy &amp; Security &gt; Accessibility. This page updates by itself.
@@ -176,7 +176,7 @@
         onclick={next}
         disabled={(step === 'extension' && ext !== 'active') || (step === 'shortcut' && !settings?.hotkeys.picker)}
       >
-        Continue <Icon name="arrow" />
+        Continue <Icon name="chevron" size={18} />
       </button>
     {/if}
   </footer>

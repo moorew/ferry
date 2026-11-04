@@ -4,6 +4,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
   plugins: [svelte()],
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  // design/ (tokens, fonts, icons) sits beside app/, outside Vite's root.
+  server: { port: 1420, strictPort: true, fs: { allow: ['.', '../design'] } },
   build: { target: 'es2022', outDir: 'dist' },
 });

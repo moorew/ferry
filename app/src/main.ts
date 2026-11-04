@@ -21,5 +21,9 @@ windowLabel().then((label) => {
   document.documentElement.dataset.window = label;
   const ua = navigator.userAgent;
   document.documentElement.dataset.platform = /Windows/.test(ua) ? 'windows' : /Mac/.test(ua) ? 'macos' : 'linux';
+  if (import.meta.env.DEV && label === 'gallery') {
+    import('./gallery/Gallery.svelte').then((m) => mount(m.default, { target }));
+    return;
+  }
   mount(label === 'picker' ? Picker : Manager, { target });
 });

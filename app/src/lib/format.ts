@@ -1,3 +1,4 @@
+import type { IconName } from '../components/Icon.svelte';
 // Display helpers: relative time, sizes, shortcut labels, accessible row labels.
 
 export const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
@@ -50,6 +51,11 @@ export function keycaps(shortcut: string): string[] {
 /** The platform's modifier for in-app shortcuts. */
 export const mod = isMac ? 'Cmd' : 'Ctrl';
 
+/** The type tile's icon for a clip kind. */
+export function kindIcon(kind: string): IconName {
+  return kind === 'image' ? 'image' : kind === 'rich' ? 'rich-text' : 'text';
+}
+
 export function kindName(kind: string): string {
   return kind === 'image' ? 'Image' : kind === 'rich' ? 'Formatted text' : 'Text';
 }
@@ -58,4 +64,12 @@ export function kindName(kind: string): string {
 export function rowLabel(kind: string, device: string | null, sortMs: number, preview: string): string {
   const from = device ? ` from ${device}` : '';
   return `${kindName(kind)}${from}, ${relativeTime(sortMs)} ago: ${firstLine(preview)}`;
+}
+
+/** Trail latency (handoff 9): clocks drift, so tiny or negative reads as "<0.1s" and
+ * anything over a minute has no number (null). */
+export function trailLatency(ms: number): string | null {
+  if (ms < 100) return '<0.1s';
+  if (ms > 60_000) return null;
+  return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
 }

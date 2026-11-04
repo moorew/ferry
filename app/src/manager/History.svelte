@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, on } from '../lib/api';
   import type { ClipDetail, ClipRow } from '../lib/types';
-  import { bytes, firstLine, isMac, kindName, longTime, relativeTime, rowLabel } from '../lib/format';
+  import { bytes, firstLine, isMac, kindIcon, kindName, longTime, relativeTime, rowLabel } from '../lib/format';
   import Icon from '../components/Icon.svelte';
 
   type Filter = 'all' | 'pinned' | 'image' | 'rich';
@@ -169,8 +169,8 @@
     </label>
     {#if chosen.size > 1}
       <span class="selection">{chosen.size} selected</span>
-      <button class="btn" onclick={pin}><Icon name="pin" />{chosenRows.every((r) => r.pinned) ? 'Unpin' : 'Pin'}</button>
-      <button class="btn danger" onclick={remove}><Icon name="trash" />Delete</button>
+      <button class="btn" onclick={pin}><Icon name="pin" size={18} />{chosenRows.every((r) => r.pinned) ? 'Unpin' : 'Pin'}</button>
+      <button class="btn danger" onclick={remove}><Icon name="delete" size={18} />Delete</button>
     {/if}
     <button class="btn" onclick={() => (confirmClear = true)}>Clear history…</button>
   </header>
@@ -203,14 +203,14 @@
           onclick={(e) => click(e, row)}
         >
           <span class="glyph">
-            {#if row.kind === 'image' && row.thumbUrl}<img src={row.thumbUrl} alt="" />{:else}<Icon name={row.kind} />{/if}
+            {#if row.kind === 'image' && row.thumbUrl}<img src={row.thumbUrl} alt="" />{:else}<Icon name={kindIcon(row.kind)} />{/if}
           </span>
           <span class="text">
             {#if row.label}<strong>{row.label}</strong>{/if}
             <span>{firstLine(row.preview) || 'Blank'}</span>
           </span>
           {#if row.device}<span class="chip">{row.device}</span>{/if}
-          {#if row.pinned}<Icon name="pin" size={13} />{/if}
+          {#if row.pinned}<Icon name="pin" size={16} />{/if}
           <span class="time">{relativeTime(row.sortMs)}</span>
         </li>
       {:else}
@@ -223,9 +223,9 @@
     <section class="detail" aria-label="Details">
       {#if detail}
         <div class="detail-actions">
-          <button class="btn primary" onclick={copy}><Icon name="copy" />Copy</button>
-          <button class="btn" onclick={pin}><Icon name="pin" />{detail.pinned ? 'Unpin' : 'Pin'}</button>
-          <button class="btn danger" onclick={remove}><Icon name="trash" />Delete</button>
+          <button class="btn primary" onclick={copy}><Icon name="copy" size={18} />Copy</button>
+          <button class="btn" onclick={pin}><Icon name="pin" size={18} />{detail.pinned ? 'Unpin' : 'Pin'}</button>
+          <button class="btn danger" onclick={remove}><Icon name="delete" size={18} />Delete</button>
         </div>
         <label class="label-field">
           <span>Label</span>
