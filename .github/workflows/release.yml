@@ -4,8 +4,9 @@ name: TailCopy release
 # publishes them as a GitHub Release, with notes from docs/releases/<tag>.md and a
 # SHA256SUMS file. The tag must match the version in app/src-tauri/tauri.conf.json.
 #
-# macOS signing and notarization use these repository secrets when present, and fall
-# back to an ad-hoc signature without them:
+# macOS signing and notarization use these secrets from the `release` environment
+# (deployable only from v* tags) when present, and fall back to an ad-hoc signature
+# without them:
 #   APPLE_CERTIFICATE           base64 of the "Developer ID Application" .p12
 #   APPLE_CERTIFICATE_PASSWORD  its export password
 #   APPLE_SIGNING_IDENTITY      e.g. "Developer ID Application: Will Moore (TEAMID)"
@@ -71,6 +72,8 @@ jobs:
     needs: check
     name: macOS universal
     runs-on: macos-latest
+    # The signing secrets live in this environment, which only v* tags can use.
+    environment: release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
@@ -149,6 +152,7 @@ jobs:
     name: Release
     needs: [windows, macos, linux]
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: write
     steps:
