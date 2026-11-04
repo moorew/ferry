@@ -137,7 +137,7 @@
       <HistoryRow icon="code" mono title="docker compose -f stack.yml up -d" device={ubuntuDesk} app="Terminal" time="1h" selected />
       <HistoryRow icon="code" mono title="tailscale up --ssh --accept-routes" device={macMini} app="Ghostty" time="now" arrived />
       <HistoryRow icon="text" mono label="clippy" title="cargo clippy --workspace -- -D warnings" device={thinkpad} time="2d" pinned copies={2} />
-      <HistoryRow icon="text" mono title="100.66.95.52" device={devices[3]} app="Termius" time="3d" />
+      <HistoryRow icon="text" mono title="100.88.12.34" device={devices[3]} app="Termius" time="3d" />
     </div>
   </section>
 

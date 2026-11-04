@@ -1,10 +1,13 @@
 # M2 report: tailnet sync
 
+**Update, 4 November 2026:** the owner ran v0.2.0 across their Windows and Linux
+machines and reports that everything syncs. macOS remains untested on hardware.
+
 Status as of 3 November 2026. Branch `m2`, released as **v0.2.0** before the gate's
 hardware runs, by owner decision (D-025). The gate (SPEC 17) needs smoke items 8 to 11
-between Windows and Ubuntu, the harness green, a two-day soak with no lost clips and
-the latency budgets met. The harness is green; the rest needs your machines and is
-laid out below.
+between Windows and Ubuntu (venus or the Lenovo, and your Linux machine), the harness
+green, a two-day soak with no lost clips and the latency budgets met. The harness is
+green; the rest needs your machines and is laid out below.
 
 ## What shipped
 
@@ -70,7 +73,8 @@ Real-network latency, idle CPU and memory with sync on need your machines (below
 
 - **D-024** (proposed): Tailscale details found while building the adapter.
 - **Windows Firewall** (SPEC 8.3, M0 item 4 still open): binding the listener may show a
-  Firewall prompt. If it's refused, Windows still syncs by dialling out after 10 s.
+  Firewall prompt. If it's refused, that PC still syncs by dialling out after 10 s, but
+  only to a peer that accepts: two PCs that both refused can't connect to each other.
   Please note exactly what you see.
 - Discovery probes every same-login tailnet machine; on a tailnet with many machines
   that don't run TailCopy that's about one refused connection each per minute, and only
@@ -78,44 +82,54 @@ Real-network latency, idle CPU and memory with sync on need your machines (below
 - Old device ids (after a restored backup) stay in the devices table and can show as
   an extra, offline device in Settings.
 
-## Manual test steps (Windows venus ↔ Ubuntu Lenovo)
+## Manual test steps (venus and the Lenovo on Windows, plus the Linux machine)
 
-Install v0.2.0 on both from the release. Tailscale running and signed in to the same
-account on both.
+venus and the Lenovo both run Windows; the gate's Ubuntu side is your Linux machine
+(Ubuntu GNOME on Wayland for the live-mirror checks; the `.deb` targets Ubuntu).
+Install v0.2.0 on all three from the release. Tailscale running and signed in to the
+same account on each.
+
+Windows Firewall matters more with two Windows machines: a session needs one side to
+accept the connection. If both PCs refuse the prompt they can't reach each other
+directly, and only sync through the Linux machine (or a relay), which both dial out
+to. So allow it on at least one, and note what each shows.
 
 1. **Discovery.** Open Settings > Tailnet on each. Within about 10 s each lists the
-   other under Devices running TailCopy with "Synced · direct" (or relayed). Note any
-   Windows Firewall prompt (screenshot, which boxes were ticked, and the output of
-   `Get-NetConnectionProfile` in PowerShell).
-2. **Smoke 8: live.** Copy a line in Notepad on Windows. On Ubuntu the picker shows it
-   at the top with "From venus", and Ctrl+V in Text Editor pastes it (live mirror).
-   Then the other way round. Roughly how long did it take?
-3. **Smoke 9: sleep.** Copy something on the Lenovo, then suspend it. Copy 20
-   numbered lines on Windows. Wake the Lenovo: all 20 appear in its picker in order,
-   and Ctrl+V still pastes what you copied there before suspending (catch-up never
-   touches the clipboard).
-4. **Smoke 10: Tailscale restart.** `sudo systemctl restart tailscaled` on the Lenovo
-   (or quit and reopen Tailscale on Windows). Copy something on the other machine
-   within a minute; it arrives without doing anything else.
-5. **Smoke 11: delete and pin.** Delete a clip on Windows: gone on Ubuntu. Pin one on
-   Ubuntu: pinned on Windows.
-6. **Images.** Copy a screenshot on one; the thumbnail appears on the other, and
+   others under Devices running TailCopy with "Synced · direct" (or relayed). On each
+   PC note the Windows Firewall prompt (screenshot, which boxes were ticked, and the
+   output of `Get-NetConnectionProfile` in PowerShell).
+2. **Smoke 8: live.** Copy a line in Notepad on venus. On the Lenovo, Ctrl+V in Notepad
+   pastes it and the picker shows it at the top with "From venus". On Linux the picker
+   shows it too, and Ctrl+V in Text Editor pastes it. Then copy on Linux and paste on
+   both PCs. Roughly how long did each take?
+3. **Smoke 9: sleep.** Copy something on the Lenovo, then put it to sleep. Copy 20
+   numbered lines on venus. Wake the Lenovo: all 20 appear in its picker in order, and
+   Ctrl+V still pastes what you copied there before sleeping (catch-up never touches
+   the clipboard). Repeat with the Linux machine suspended.
+4. **Smoke 10: Tailscale restart.** Quit and reopen Tailscale on the Lenovo, and
+   `sudo systemctl restart tailscaled` on Linux. Copy something on venus within a
+   minute; it arrives on both without doing anything else.
+5. **Smoke 11: delete and pin.** Delete a clip on venus: gone on the other two. Pin one
+   on Linux: pinned on both PCs.
+6. **Forwarding.** Quit TailCopy on venus. Copy on the Lenovo, then quit TailCopy on the
+   Lenovo. Start venus again: the clip arrives from Linux, still marked "From Lenovo".
+7. **Images.** Copy a screenshot on one; the thumbnail appears on the others, and
    pasting it from the picker works. A clip that's still arriving pastes after a short
    wait or says "Not available yet (source offline)".
-7. **Switches.** Turn Receive off for venus on the Lenovo; copy on Windows: nothing new
-   shows on the Lenovo. Turn it back on.
-8. **Soak.** Use both normally for two days. Then send me Copy diagnostics from each
-   and both logs (Settings > About > Open log folder). Logs never contain clip content.
-   Anything missing on one side that's on the other is a bug I want to hear about, with
-   roughly when it was copied.
+8. **Switches.** Turn Receive off for venus on the Lenovo; copy on venus: nothing new
+   shows on the Lenovo, and Linux still gets it. Turn it back on.
+9. **Soak.** Use them normally for two days. Then send me Copy diagnostics from each and
+   all three logs (Settings > About > Open log folder). Logs never contain clip
+   content. Anything missing on one machine that's on another is a bug I want to hear
+   about, with roughly when it was copied.
 
-If you leave `venus-wsl` running `tailcopy-relay` (I can start it), it joins as a third
-peer, and you can test catch-up through the relay with both desktops taking turns
+If you leave `venus-wsl` running `tailcopy-relay` (I can start it), it joins as one
+more peer, and you can test catch-up through the relay with the desktops taking turns
 being off.
 
 ## What I need from you
 
-1. The runs above, with diagnostics and logs from both machines.
+1. The runs above, with diagnostics and logs from all three machines.
 2. Your call on D-024.
 3. Whether the first-run "Found your tailnet" screen and tray sync frames should come
    before M3.
