@@ -56,7 +56,21 @@ pub fn create_picker(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
+        .on_navigation(stays_in_app)
         .build()
+}
+
+/// The windows only ever show TailCopy's own pages. A link inside a copied web page
+/// must not turn the picker or the manager into someone else's site.
+fn stays_in_app(url: &tauri::Url) -> bool {
+    let host = url.host_str().unwrap_or_default();
+    let ok = url.scheme() == "tauri"
+        || host == "tauri.localhost"
+        || (cfg!(debug_assertions) && matches!(host, "localhost" | "127.0.0.1"));
+    if !ok {
+        tracing::warn!("blocked a window navigating away from TailCopy");
+    }
+    ok
 }
 
 /// Shows the manager, creating it the first time, optionally at a route.
@@ -69,6 +83,7 @@ pub fn show_manager(app: &AppHandle, route: Option<&str>) {
                 .inner_size(960.0, 640.0)
                 .min_inner_size(720.0, 480.0)
                 .visible(false)
+                .on_navigation(stays_in_app)
                 .build()
             {
                 Ok(w) => w,

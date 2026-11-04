@@ -4240,12 +4240,13 @@ dependencies = [
 
 [[package]]
 name = "tailcopy"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ammonia",
  "directories",
  "futures-util",
  "interprocess",
+ "libc",
  "serde",
  "serde_json",
  "tailcopy-core",
@@ -4262,6 +4263,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "widestring",
  "windows 0.62.2",
 ]
 
@@ -4294,6 +4296,7 @@ dependencies = [
  "enigo",
  "futures-util",
  "gtk",
+ "image",
  "objc2-app-kit",
  "objc2-foundation",
  "tailcopy-core",
