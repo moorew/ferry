@@ -1,0 +1,26 @@
+{
+  "Node": {
+    "ID": 7007007,
+    "StableID": "nRelay7CNTRL",
+    "Name": "tailcopy-relay.tail0000.ts.net.",
+    "User": 2002,
+    "Key": "nodekey:0000000000000000000000000000000000000000000000000000000000000007",
+    "Addresses": ["100.64.0.7/32", "fd7a:115c:a1e0::7/128"],
+    "AllowedIPs": ["100.64.0.7/32", "fd7a:115c:a1e0::7/128"],
+    "Endpoints": null,
+    "HomeDERP": 4,
+    "Hostinfo": {"OS": "linux", "Hostname": "tailcopy-relay"},
+    "Created": "2026-03-01T00:00:00Z",
+    "Cap": 142,
+    "Tags": ["tag:tailcopy-relay"],
+    "Online": true,
+    "ComputedName": "tailcopy-relay",
+    "ComputedNameWithHost": "tailcopy-relay"
+  },
+  "UserProfile": {
+    "ID": 2002,
+    "LoginName": "tagged-devices",
+    "DisplayName": "Tagged Devices"
+  },
+  "CapMap": null
+}

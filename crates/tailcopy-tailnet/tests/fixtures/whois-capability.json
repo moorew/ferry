@@ -1,0 +1,22 @@
+{
+  "Node": {
+    "ID": 1001001,
+    "StableID": "nSelfLaptop1CNTRL",
+    "Name": "laptop.tail0000.ts.net.",
+    "User": 1001,
+    "Addresses": ["100.64.0.1/32", "fd7a:115c:a1e0::1/128"],
+    "Hostinfo": {"OS": "linux", "Hostname": "laptop"},
+    "Online": true,
+    "ComputedName": "laptop"
+  },
+  "UserProfile": {
+    "ID": 1001,
+    "LoginName": "owner@example.com",
+    "DisplayName": "Owner Example"
+  },
+  "CapMap": {
+    "moorew.github.io/cap/tailcopy": [{"role": "peer"}],
+    "example.com/cap/viewer-only": [{"role": "viewer"}],
+    "example.com/cap/empty": null
+  }
+}

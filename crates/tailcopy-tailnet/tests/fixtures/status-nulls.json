@@ -1,0 +1,20 @@
+{
+  "Version": "1.102.4-tc0ffee0a1-g0123456789",
+  "BackendState": "Running",
+  "TailscaleIPs": null,
+  "Self": {
+    "ID": "nSelfLaptop1CNTRL",
+    "HostName": "laptop",
+    "DNSName": "",
+    "OS": "linux",
+    "UserID": 1001,
+    "TailscaleIPs": null,
+    "Tags": null,
+    "Online": true
+  },
+  "Health": null,
+  "CertDomains": null,
+  "Peer": null,
+  "User": null,
+  "ClientVersion": null
+}

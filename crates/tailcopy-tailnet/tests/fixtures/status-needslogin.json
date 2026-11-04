@@ -1,0 +1,30 @@
+{
+  "Version": "1.102.4-tc0ffee0a1-g0123456789",
+  "TUN": true,
+  "BackendState": "NeedsLogin",
+  "HaveNodeKey": false,
+  "AuthURL": "https://login.tailscale.com/a/000000000000",
+  "TailscaleIPs": null,
+  "Self": {
+    "ID": "",
+    "PublicKey": "nodekey:0000000000000000000000000000000000000000000000000000000000000000",
+    "HostName": "laptop",
+    "DNSName": "",
+    "OS": "linux",
+    "UserID": 0,
+    "TailscaleIPs": null,
+    "Addrs": [],
+    "CurAddr": "",
+    "Relay": "",
+    "PeerRelay": "",
+    "Online": false,
+    "Active": false
+  },
+  "Health": ["You are logged out. The last login error was: none"],
+  "MagicDNSSuffix": "",
+  "CurrentTailnet": null,
+  "CertDomains": null,
+  "Peer": null,
+  "User": null,
+  "ClientVersion": null
+}

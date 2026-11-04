@@ -7,6 +7,20 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-tailcopy-core.workspace = true
+tailcopy-sync.workspace = true
+anyhow = "1.0.100"
+async-trait = "0.1.92"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["process", "time"] }
+tracing = "0.1.44"
+
+[target.'cfg(unix)'.dependencies]
+reqwest = { version = "0.13.5", default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+
 [lints]
 workspace = true
