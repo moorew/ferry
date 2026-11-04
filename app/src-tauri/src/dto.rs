@@ -80,6 +80,8 @@ pub struct ClipRow {
     pub height: Option<u32>,
     pub thumb_url: Option<String>,
     pub copies: u32,
+    /// Pastes and copies from TailCopy, on every device.
+    pub use_count: u32,
 }
 
 #[derive(Serialize)]
@@ -92,8 +94,6 @@ pub struct ClipDetail {
     pub image_url: Option<String>,
     pub formats: Vec<String>,
     pub looks_like_code: bool,
-    /// Pastes and copies from TailCopy, on every device.
-    pub use_count: u32,
     /// When it was copied, by the clock of the device that copied it.
     pub copied_ms: u64,
     /// When this device got it, by this device's clock.
@@ -113,6 +113,8 @@ pub struct Status {
     pub version: &'static str,
     pub session: &'static str,
     pub paused: bool,
+    /// When a timed pause ends (Unix ms).
+    pub paused_until_ms: Option<u64>,
     pub capture_ready: bool,
     pub degraded_reason: Option<String>,
     pub tailscale: &'static str,
@@ -197,6 +199,7 @@ pub fn row(r: &DisplayRow, me: &DeviceId, devices: &HashMap<DeviceId, DeviceInfo
             .as_ref()
             .map(|h| thumb_url(&hash_hex(h), false)),
         copies: r.members,
+        use_count: r.use_count,
     }
 }
 

@@ -40,6 +40,8 @@ export interface ClipRow {
   thumbUrl: string | null;
   /** How many identical copies this row groups. */
   copies: number;
+  /** Pastes and copies from TailCopy, on every device. */
+  useCount: number;
 }
 
 export interface ClipDetail extends ClipRow {
@@ -49,8 +51,6 @@ export interface ClipDetail extends ClipRow {
   imageUrl: string | null;
   formats: string[];
   looksLikeCode: boolean;
-  /** Pastes and copies from TailCopy, on every device. */
-  useCount: number;
   /** When it was copied, by the copying device's clock. */
   copiedMs: number;
   /** When this device got it, by its own clock. */
@@ -81,6 +81,8 @@ export interface Status {
   version: string;
   session: Session;
   paused: boolean;
+  /** When a timed pause ends (Unix ms); null when paused until resumed. */
+  pausedUntilMs: number | null;
   /** Capture works on this session right now. */
   captureReady: boolean;
   /** One-line explanation when capture isn't ready. */

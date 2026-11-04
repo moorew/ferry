@@ -3,7 +3,7 @@
   import { api } from '../lib/api';
   import type { Settings, SetupStep, Status } from '../lib/types';
   import { isMac, keycaps } from '../lib/format';
-  import Mark from '../components/Mark.svelte';
+  import Character from '../components/Character.svelte';
   import Icon from '../components/Icon.svelte';
   import ShortcutInput from '../components/ShortcutInput.svelte';
 
@@ -70,7 +70,7 @@
 
   <div class="card">
     {#if step === 'welcome'}
-      <Mark size={56} />
+      <Character mood="happy" size={88} />
       <h1>Welcome to TailCopy</h1>
       <p class="lede">
         TailCopy keeps everything you copy, so you can find it and paste it again with one shortcut.
@@ -154,7 +154,7 @@
         {#if shortcutWarning}<p class="warning" role="alert">{shortcutWarning}</p>{/if}
       {/if}
     {:else}
-      <Mark size={56} />
+      <Character mood="happy" size={88} />
       <h1>You're set</h1>
       <p class="lede">
         Copy as usual. When you need something again, press

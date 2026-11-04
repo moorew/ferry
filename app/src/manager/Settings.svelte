@@ -1,13 +1,38 @@
+<script lang="ts" module>
+  export type Section = 'general' | 'shortcuts' | 'privacy' | 'tailnet' | 'storage' | 'about';
+</script>
+
 <script lang="ts">
+  // Settings (handoff section 5): its own section list, one section at a time. Every
+  // change saves at once.
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import type { RuleMode, Settings, Status } from '../lib/types';
   import { bytes, isMac } from '../lib/format';
-  import ShortcutInput from '../components/ShortcutInput.svelte';
+  import { t, type StringKey } from '../lib/strings';
+  import Button from '../components/Button.svelte';
+  import Character from '../components/Character.svelte';
+  import DeviceAvatar from '../components/DeviceAvatar.svelte';
+  import Icon, { type IconName } from '../components/Icon.svelte';
   import Lockup from '../components/Lockup.svelte';
+  import ShortcutInput from '../components/ShortcutInput.svelte';
   import Toggle from '../components/Toggle.svelte';
 
-  let { status, onSetup }: { status: Status | null; onSetup: () => void } = $props();
+  let {
+    status,
+    section = $bindable('general'),
+    onSetup,
+    onBack,
+  }: { status: Status | null; section?: Section; onSetup: () => void; onBack: () => void } = $props();
+
+  const sections: { id: Section; key: StringKey; icon: IconName }[] = [
+    { id: 'general', key: 'settings.section.general', icon: 'settings' },
+    { id: 'shortcuts', key: 'settings.section.shortcuts', icon: 'keyboard' },
+    { id: 'privacy', key: 'settings.section.privacy', icon: 'private' },
+    { id: 'tailnet', key: 'settings.section.tailnet', icon: 'devices' },
+    { id: 'storage', key: 'settings.section.storage', icon: 'history' },
+    { id: 'about', key: 'settings.section.about', icon: 'file' },
+  ];
 
   let settings = $state<Settings | null>(null);
   let saved = $state(false);
@@ -17,6 +42,8 @@
   let timer: ReturnType<typeof setTimeout>;
 
   const isGnome = $derived(status?.session === 'gnome');
+  const tailscaleUp = $derived(status?.tailscale === 'running');
+  const canOpenTailscale = $derived(status?.session === 'windows' || status?.session === 'macos');
 
   async function save() {
     if (!settings) return;
@@ -64,189 +91,301 @@
 </script>
 
 <div class="settings">
-  <header class="top">
-    <h1>Settings</h1>
-    <span class="saved" class:show={saved} role="status">Saved</span>
-  </header>
+  <aside>
+    <button class="nav back" onclick={onBack}><Icon name="history" />{t('settings.back')}</button>
+    <p class="title">{t('settings.title')}</p>
+    <nav aria-label={t('settings.title')}>
+      {#each sections as s (s.id)}
+        <button
+          class="nav"
+          class:active={section === s.id}
+          aria-current={section === s.id ? 'page' : undefined}
+          onclick={() => (section = s.id)}
+        >
+          <Icon name={s.icon} />{t(s.key)}
+        </button>
+      {/each}
+    </nav>
+  </aside>
 
-  {#if settings}
-    <div class="scroll">
-      <section>
-        <h2>General</h2>
-        <div class="item">
-          <div><p class="name">Device name</p><p class="desc">How this device appears on your other devices. Leave empty to use its Tailscale name.</p></div>
-          <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder={status?.tailscaleName ?? 'This device'} />
-        </div>
-        <div class="item">
-          <div><p class="name">Appearance</p><p class="desc">System follows your light or dark setting.</p></div>
-          <div class="segmented" role="radiogroup" aria-label="Appearance">
-            {#each [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as [value, text] (value)}
-              <label class:on={settings.general.theme === value}>
-                <input type="radio" name="theme" {value} bind:group={settings.general.theme} onchange={save} />{text}
-              </label>
-            {/each}
-          </div>
-        </div>
-        <label class="item">
-          <div><p class="name">Start at login</p><p class="desc">Keep TailCopy running in the background so your history is always there.</p></div>
-          <Toggle bind:checked={settings.general.startAtLogin} onchange={save} />
-        </label>
-        <label class="item">
-          <div><p class="name">Skip single characters</p><p class="desc">Don't keep copies that are one character, like a stray letter or a space.</p></div>
-          <Toggle bind:checked={settings.general.skipSingleCharacters} onchange={save} />
-        </label>
-        <label class="item">
-          <div><p class="name">Paste for me</p><p class="desc">Choosing an item pastes it into the app you were using. Turn off to only copy it.</p></div>
-          <Toggle bind:checked={settings.general.autoPaste} onchange={save} />
-        </label>
-      </section>
+  <main>
+    <header>
+      <h1>{t(sections.find((s) => s.id === section)!.key)}</h1>
+      <span class="saved" class:show={saved} role="status">{t('settings.saved')}</span>
+    </header>
 
-      <section>
-        <h2>Shortcuts</h2>
-        <div class="item">
-          <div><p class="name">Open TailCopy</p><p class="desc">Shows your history over any app.</p></div>
-          <ShortcutInput label="Open TailCopy" value={settings.hotkeys.picker} onchange={(v) => setShortcut('picker', v)} />
-        </div>
-        {#if !isMac}
-          <div class="item">
-            <div><p class="name">Paste as plain text</p><p class="desc">Pastes what's on the clipboard without its formatting.</p></div>
-            <ShortcutInput label="Paste as plain text" value={settings.hotkeys.pastePlain} onchange={(v) => setShortcut('pastePlain', v)} />
+    {#if settings}
+      {#if section === 'general'}
+        <div class="group">
+          <div class="set">
+            <div class="st"><b>{t('settings.appearance')}</b><span>{t('settings.appearance.desc')}</span></div>
+            <div class="segmented" role="radiogroup" aria-label={t('settings.appearance')}>
+              {#each ['system', 'light', 'dark'] as const as value (value)}
+                <label class:on={settings.general.theme === value}>
+                  <input type="radio" name="theme" {value} bind:group={settings.general.theme} onchange={save} />{t(`settings.appearance.${value}`)}
+                </label>
+              {/each}
+            </div>
           </div>
-        {/if}
-        {#if !isGnome}
-        <div class="item">
-          <div><p class="name">Pause or resume</p><p class="desc">Stops saving what you copy until you resume.</p></div>
-          <ShortcutInput label="Pause or resume" value={settings.hotkeys.pause} onchange={(v) => setShortcut('pause', v)} />
+          <label class="set">
+            <div class="st"><b>{t('settings.start_at_login')}</b><span>{t('settings.start_at_login.desc')}</span></div>
+            <Toggle bind:checked={settings.general.startAtLogin} onchange={save} />
+          </label>
+          <label class="set">
+            <div class="st"><b>{t('settings.auto_paste')}</b><span>{t('settings.auto_paste.desc')}</span></div>
+            <Toggle bind:checked={settings.general.autoPaste} onchange={save} />
+          </label>
+          <label class="set">
+            <div class="st"><b>{t('settings.skip_single')}</b><span>{t('settings.skip_single.desc')}</span></div>
+            <Toggle bind:checked={settings.general.skipSingleCharacters} onchange={save} />
+          </label>
         </div>
-        {/if}
+      {:else if section === 'shortcuts'}
+        <div class="group">
+          <div class="set">
+            <div class="st"><b>{t('settings.shortcut.picker')}</b><span>{t('settings.shortcut.picker.desc')}</span></div>
+            <ShortcutInput label={t('settings.shortcut.picker')} value={settings.hotkeys.picker} onchange={(v) => setShortcut('picker', v)} />
+          </div>
+          {#if !isMac}
+            <div class="set">
+              <div class="st"><b>{t('settings.shortcut.plain')}</b><span>{t('settings.shortcut.plain.desc')}</span></div>
+              <ShortcutInput label={t('settings.shortcut.plain')} value={settings.hotkeys.pastePlain} onchange={(v) => setShortcut('pastePlain', v)} />
+            </div>
+          {/if}
+          {#if !isGnome}
+            <div class="set">
+              <div class="st"><b>{t('settings.shortcut.pause')}</b><span>{t('settings.shortcut.pause.desc')}</span></div>
+              <ShortcutInput label={t('settings.shortcut.pause')} value={settings.hotkeys.pause} onchange={(v) => setShortcut('pause', v)} />
+            </div>
+          {/if}
+        </div>
         {#if shortcutWarning}<p class="warning" role="alert">{shortcutWarning}</p>{/if}
-      </section>
-
-      <section>
-        <h2>Privacy</h2>
-        <label class="item">
-          <div><p class="name">Skip passwords</p><p class="desc">Never save items that password managers and other apps mark as secret.</p></div>
-          <Toggle bind:checked={settings.privacy.respectOsMarkers} onchange={save} />
-        </label>
-        <div class="item column">
-          <div><p class="name">Apps to ignore</p><p class="desc">Matched against the app you copied from. "Don't save" ignores the copy completely; "Keep on this device" saves it but never syncs it.</p></div>
-          <ul class="rules">
-            {#each settings.privacy.rules as rule, i (rule.match + i)}
-              <li>
-                <span>{rule.match}</span>
-                <select class="field" bind:value={rule.mode} onchange={save} aria-label="What to do with {rule.match}">
-                  <option value={'dont_save' satisfies RuleMode}>Don't save</option>
-                  <option value={'save_dont_sync' satisfies RuleMode}>Keep on this device</option>
-                </select>
-                <button class="btn" onclick={() => removeRule(i)} aria-label="Remove {rule.match}">Remove</button>
-              </li>
-            {/each}
-          </ul>
-          <form class="add" onsubmit={(e) => { e.preventDefault(); addRule(); }}>
-            <input class="field" bind:value={newRule} placeholder="App name, process or bundle id" aria-label="App to ignore" />
-            <button class="btn" type="submit" disabled={!newRule.trim()}>Add</button>
-          </form>
-        </div>
-      </section>
-
-      <section>
-        <h2>History and storage</h2>
-        <div class="item">
-          <div><p class="name">Keep up to</p><p class="desc">Older items are removed first. Pinned items are always kept.</p></div>
-          <div class="pair">
-            <input class="field num" type="number" min="50" max="100000" bind:value={settings.retention.maxItems} onchange={save} aria-label="Maximum items" /> items
-            <span class="or">or</span>
-            <input class="field num" type="number" min="1" max="3650" bind:value={settings.retention.maxAgeDays} onchange={save} aria-label="Maximum days" /> days
+        {#if isGnome}
+          <div class="group">
+            <div class="set column">
+              <div class="st"><b>{t('settings.linux_paste')}</b><span>{t('settings.linux_paste.desc')}</span></div>
+              <ul class="rules">
+                {#each settings.linux.pasteKeystroke as o, i (o.app + i)}
+                  <li>
+                    <span>{o.app}</span>
+                    <select class="field" bind:value={o.keystroke} onchange={save} aria-label="{t('settings.linux_paste')}: {o.app}">
+                      <option value="ctrl-v">Ctrl+V</option>
+                      <option value="ctrl-shift-v">Ctrl+Shift+V</option>
+                      <option value="shift-insert">Shift+Insert</option>
+                    </select>
+                  </li>
+                {/each}
+              </ul>
+            </div>
           </div>
-        </div>
-        <div class="item">
-          <div><p class="name">Largest items to sync</p><p class="desc">Bigger items stay on this device and show a "not synced" mark.</p></div>
-          <p class="value">Text {bytes(settings.limits.maxTextBytes)}, images {bytes(settings.limits.maxImageBytes)}</p>
-        </div>
-      </section>
-
-      <section>
-        <h2>Sync</h2>
-        <label class="item">
-          <div><p class="name">Only my devices</p><p class="desc">Sync only with devices signed in to your own Tailscale account. Other people on your tailnet can never connect, even if your tailnet allows everything.</p></div>
-          <Toggle bind:checked={settings.sync.strictSameLogin} onchange={save} />
-        </label>
-        <p class="soon">Syncing between your devices arrives in the next version. Your history stays on this device until then.</p>
-      </section>
-
-      {#if isGnome}
-        <section>
-          <h2>Pasting on Linux</h2>
-          <div class="item column">
-            <div><p class="name">Paste keystroke by app</p><p class="desc">Terminals use Ctrl+Shift+V. Add an app's id to change how TailCopy pastes into it.</p></div>
+        {/if}
+      {:else if section === 'privacy'}
+        <div class="group">
+          <label class="set">
+            <div class="st"><b>{t('settings.secrets')}</b><span>{t('settings.secrets.desc')}</span></div>
+            <Toggle bind:checked={settings.privacy.respectOsMarkers} onchange={save} />
+          </label>
+          <div class="set column">
+            <div class="st"><b>{t('settings.apps')}</b><span>{t('settings.apps.desc')}</span></div>
             <ul class="rules">
-              {#each settings.linux.pasteKeystroke as o, i (o.app + i)}
+              {#each settings.privacy.rules as rule, i (rule.match + i)}
                 <li>
-                  <span>{o.app}</span>
-                  <select class="field" bind:value={o.keystroke} onchange={save} aria-label="Keystroke for {o.app}">
-                    <option value="ctrl-v">Ctrl+V</option>
-                    <option value="ctrl-shift-v">Ctrl+Shift+V</option>
-                    <option value="shift-insert">Shift+Insert</option>
+                  <span>{rule.match}</span>
+                  <select class="field" bind:value={rule.mode} onchange={save} aria-label={rule.match}>
+                    <option value={'dont_save' satisfies RuleMode}>{t('settings.apps.dont_save')}</option>
+                    <option value={'save_dont_sync' satisfies RuleMode}>{t('settings.apps.local')}</option>
                   </select>
+                  <Button compact onclick={() => removeRule(i)} aria-label="{t('settings.apps.remove')} {rule.match}">{t('settings.apps.remove')}</Button>
                 </li>
               {/each}
             </ul>
+            <form class="add" onsubmit={(e) => { e.preventDefault(); addRule(); }}>
+              <input class="field" bind:value={newRule} placeholder={t('settings.apps.placeholder')} aria-label={t('settings.apps')} />
+              <Button compact type="submit" disabled={!newRule.trim()}>{t('settings.apps.add')}</Button>
+            </form>
+          </div>
+        </div>
+      {:else if section === 'tailnet'}
+        {#if tailscaleUp && status?.thisDevice}
+          <div class="banner">
+            <DeviceAvatar device={status.thisDevice} size={40} />
+            <div class="st">
+              <b>{t('tailnet.connected', { device: status.thisDevice.name })}</b>
+              <span class="accent">{t('settings.tailnet.running_alone')}</span>
+            </div>
+            <label class="name-field">
+              {t('settings.device_name')}
+              <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder={status.tailscaleName ?? status.thisDevice.name} />
+            </label>
+          </div>
+        {:else}
+          <div class="offline">
+            <Character mood="offline" size={96} />
+            <div>
+              <h2>{t('state.offline.title')}</h2>
+              <p>{t('state.offline.body')}</p>
+              <div class="buttons">
+                {#if canOpenTailscale}<Button variant="primary" onclick={() => api.openTailscale()}>{t('state.offline.open')}</Button>{/if}
+                <Button onclick={() => api.recheckTailscale()}>{t('state.offline.retry')}</Button>
+              </div>
+            </div>
+          </div>
+          <div class="group">
+            <div class="set">
+              <div class="st"><b>{t('settings.device_name')}</b></div>
+              <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder={status?.thisDevice?.name ?? ''} aria-label={t('settings.device_name')} />
+            </div>
+          </div>
+        {/if}
+
+        <section>
+          <h2 class="label">{t('settings.tailnet.devices')}</h2>
+          <div class="group">
+            <div class="set"><div class="st"><span>{t('settings.tailnet.devices_soon')}</span></div></div>
           </div>
         </section>
-      {/if}
 
-      <section>
-        <h2>Help</h2>
-        <div class="item">
-          <div><p class="name">Setup</p><p class="desc">Go through the first-run steps again{isGnome ? ', including the GNOME extension' : isMac ? ', including the Accessibility permission' : ''}.</p></div>
-          <button class="btn" onclick={onSetup}>Run setup again</button>
-        </div>
-        <div class="item">
-          <div><p class="name">Diagnostics</p><p class="desc">A summary for bug reports. It never includes anything you copied.</p></div>
-          <div class="pair">
-            <button class="btn" onclick={() => api.openLogFolder()}>Open log folder</button>
-            <button class="btn" onclick={copyDiagnostics}>{diagnosticsCopied ? 'Copied' : 'Copy diagnostics'}</button>
+        <section>
+          <h2 class="label">{t('settings.tailnet.what_syncs')}</h2>
+          <div class="group">
+            <div class="set">
+              <div class="st"><b>{t('settings.tailnet.secrets')}</b><span>{t('sync.secrets')}</span></div>
+              <span class="static">{t('settings.tailnet.always_skipped')}</span>
+            </div>
+            <label class="set">
+              <div class="st"><b>{t('settings.tailnet.only_mine')}</b><span>{t('settings.tailnet.only_mine.desc')}</span></div>
+              <Toggle bind:checked={settings.sync.strictSameLogin} onchange={save} />
+            </label>
+          </div>
+        </section>
+      {:else if section === 'storage'}
+        <div class="group">
+          <div class="set">
+            <div class="st"><b>{t('settings.keep')}</b><span>{t('settings.keep.desc')}</span></div>
+            <div class="pair">
+              <input class="field num" type="number" min="50" max="100000" bind:value={settings.retention.maxItems} onchange={save} aria-label={t('settings.keep.items')} />
+              {t('settings.keep.items')}
+              <span class="or">{t('settings.keep.or')}</span>
+              <input class="field num" type="number" min="1" max="3650" bind:value={settings.retention.maxAgeDays} onchange={save} aria-label={t('settings.keep.days')} />
+              {t('settings.keep.days')}
+            </div>
+          </div>
+          <div class="set">
+            <div class="st"><b>{t('settings.limits')}</b><span>{t('settings.limits.desc')}</span></div>
+            <span class="static">{t('settings.limits.value', { text: bytes(settings.limits.maxTextBytes), image: bytes(settings.limits.maxImageBytes) })}</span>
           </div>
         </div>
-      </section>
-
-      <section class="about">
-        <div>
-          <Lockup height={32} />
-          <p class="name version">Version {status?.version ?? ''}</p>
-          <p class="desc">Your clipboard history, on your devices, over your own tailnet. No accounts, no cloud, no tracking.</p>
-          <p class="desc">Free and open source. Set in Bricolage Grotesque, Figtree and JetBrains Mono (SIL Open Font License).</p>
+      {:else}
+        <div class="group">
+          <div class="set about">
+            <Lockup height={32} />
+            <b>{t('settings.about.version', { version: status?.version ?? '' })}</b>
+            <span>{t('settings.about.tagline')}</span>
+            <span>{t('settings.about.fonts')}</span>
+          </div>
+          <div class="set">
+            <div class="st">
+              <b>{t('settings.setup')}</b>
+              <span>{t(isGnome ? 'settings.setup.desc_gnome' : isMac ? 'settings.setup.desc_mac' : 'settings.setup.desc')}</span>
+            </div>
+            <Button compact onclick={onSetup}>{t('settings.setup.run')}</Button>
+          </div>
+          <div class="set">
+            <div class="st"><b>{t('settings.diagnostics')}</b><span>{t('settings.diagnostics.desc')}</span></div>
+            <div class="pair">
+              <Button compact onclick={() => api.openLogFolder()}>{t('settings.diagnostics.logs')}</Button>
+              <Button compact onclick={copyDiagnostics}>{diagnosticsCopied ? t('settings.diagnostics.copied') : t('settings.diagnostics.copy')}</Button>
+            </div>
+          </div>
         </div>
-      </section>
-    </div>
-  {/if}
+      {/if}
+    {/if}
+  </main>
 </div>
 
 <style>
   .settings {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: var(--tc-sidebar) minmax(0, 1fr);
     height: 100vh;
   }
 
-  .scroll {
-    flex: 1;
-    min-height: 0;
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 22px 14px;
+    background: var(--tc-sunk);
+    overflow-y: auto;
   }
 
-  .top {
+  .title {
+    margin: 12px 0 10px;
+    padding: 0 12px;
+    font-family: var(--tc-font-display);
+    font-size: var(--tc-text-card);
+    font-weight: 800;
+    letter-spacing: var(--tc-tracking-display);
+  }
+
+  nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 24px;
-    border-bottom: 1px solid var(--tc-line);
+    width: 100%;
+    height: var(--tc-control);
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--tc-r-control);
+    background: transparent;
+    color: var(--tc-ink);
+    font-size: var(--tc-text-body);
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .nav:hover {
+    background: var(--tc-hover);
+  }
+
+  .nav.active {
+    background: var(--tc-selected);
+    color: var(--tc-on-selected);
+  }
+
+  .back {
+    color: var(--tc-ink-2);
+  }
+
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+    max-width: 920px;
+    overflow-y: auto;
+    padding: 28px 32px 40px;
+    background: var(--tc-bg);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   h1 {
     margin: 0;
-    font-size: var(--tc-text-page);
     font-family: var(--tc-font-display);
+    font-size: var(--tc-text-page);
     font-weight: 800;
+    line-height: 1;
     letter-spacing: var(--tc-tracking-display);
   }
 
@@ -261,73 +400,128 @@
     opacity: 1;
   }
 
-  .scroll {
-    overflow-y: auto;
-    padding: 8px 24px 40px;
-  }
-
   section {
-    max-width: 760px;
-    padding: 18px 0;
-    border-bottom: 1px solid var(--tc-line);
-  }
-
-  h2 {
-    margin: 0 0 10px;
-    font-size: var(--tc-text-keycap);
-    font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--tc-ink-3);
-  }
-
-  .item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 10px 0;
-  }
-
-  .item.column {
     flex-direction: column;
-    align-items: stretch;
     gap: 10px;
   }
 
-  .name {
+  .label {
     margin: 0;
-    font-weight: 500;
-  }
-
-  .desc {
-    margin: 2px 0 0;
+    padding: 0 4px;
     font-size: var(--tc-text-meta);
-    color: var(--tc-ink-2);
-    max-width: 56ch;
-  }
-
-  .value {
-    margin: 0;
-    font-size: var(--tc-text-meta);
+    font-weight: 600;
+    letter-spacing: var(--tc-tracking-section);
+    text-transform: uppercase;
     color: var(--tc-ink-2);
   }
 
-  .pair {
+  .group {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--tc-r-card);
+    background: var(--tc-surface);
+    box-shadow: var(--tc-shadow-card);
+  }
+
+  .set {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 16px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--tc-line);
+  }
+
+  .set:first-child {
+    border-top: 0;
+  }
+
+  .set.column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .st {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .st b {
+    font-size: var(--tc-text-setting);
+    font-weight: 600;
+  }
+
+  .st span {
+    font-size: var(--tc-text-small);
+    line-height: 1.4;
+    color: var(--tc-ink-2);
+  }
+
+  .st .accent {
+    color: var(--tc-accent-ink);
+  }
+
+  .static {
     flex: none;
+    font-size: var(--tc-text-small);
+    font-weight: 600;
+    color: var(--tc-ink-2);
+  }
+
+  .banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    border-radius: var(--tc-r-card);
+    background: var(--tc-accent-soft);
+  }
+
+  .name-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
   }
 
-  .or {
-    color: var(--tc-ink-3);
-    margin: 0 4px;
+  .name-field .field {
+    width: 200px;
+    height: 38px;
   }
 
-  .num {
-    width: 86px;
+  .offline {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    border-radius: var(--tc-r-card);
+    background: var(--tc-surface);
+    box-shadow: var(--tc-shadow-card);
+  }
+
+  .offline h2 {
+    margin: 0 0 6px;
+    font-family: var(--tc-font-display);
+    font-size: var(--tc-text-state);
+    font-weight: 800;
+    letter-spacing: var(--tc-tracking-display);
+  }
+
+  .offline p {
+    margin: 0 0 14px;
+    max-width: 48ch;
+    color: var(--tc-ink-2);
+  }
+
+  .buttons {
+    display: flex;
+    gap: 10px;
   }
 
   .segmented {
@@ -366,12 +560,29 @@
     pointer-events: none;
   }
 
+  .pair {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    font-size: var(--tc-text-small);
+  }
+
+  .or {
+    margin: 0 4px;
+    color: var(--tc-ink-3);
+  }
+
+  .num {
+    width: 86px;
+  }
+
   .rules {
-    list-style: none;
-    margin: 0;
-    padding: 0;
     display: grid;
     gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .rules li {
@@ -397,25 +608,19 @@
   }
 
   .warning {
-    margin: 4px 0 0;
-    font-size: var(--tc-text-meta);
+    margin: 0;
+    font-size: var(--tc-text-small);
     color: var(--tc-danger);
   }
 
-  .soon {
-    margin: 6px 0 0;
-    font-size: var(--tc-text-meta);
-    color: var(--tc-ink-2);
-  }
-
   .about {
-    display: flex;
-    gap: 16px;
+    flex-direction: column;
     align-items: flex-start;
-    border-bottom: 0;
+    gap: 6px;
   }
 
-  .version {
-    margin-top: 10px;
+  .about span {
+    font-size: var(--tc-text-small);
+    color: var(--tc-ink-2);
   }
 </style>

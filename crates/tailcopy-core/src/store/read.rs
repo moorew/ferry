@@ -34,6 +34,8 @@ pub struct DisplayRow {
     pub members: u32,
     /// Hash of the PNG format, for the thumbnail.
     pub image_hash: Option<Hash32>,
+    /// Pastes and copies of the member shown, on every device.
+    pub use_count: u32,
     /// Derived from kind and preview, never stored (see [`crate::look`]).
     pub look: Look,
     /// Reads better in a monospace font.
@@ -160,7 +162,7 @@ fn kind(r: &Row<'_>, idx: usize) -> rusqlite::Result<ClipKind> {
 const DISPLAY_SQL: &str = "
 WITH live AS (
   SELECT id, group_key, kind, preview, origin, created_hlc, sort_hlc, byte_size, local_only,
-    source_app,
+    source_app, use_count,
     ROW_NUMBER() OVER (PARTITION BY group_key ORDER BY sort_hlc DESC, id DESC) AS rn,
     MAX(pinned) OVER (PARTITION BY group_key) AS any_pinned,
     COUNT(*) OVER (PARTITION BY group_key) AS members
@@ -172,7 +174,8 @@ SELECT id, group_key, kind, preview,
      WHERE l.group_key = live.group_key AND l.deleted_hlc IS NULL AND l.label IS NOT NULL
      ORDER BY l.sort_hlc DESC, l.id DESC LIMIT 1),
   any_pinned, origin, created_hlc, sort_hlc, byte_size, local_only, source_app, members,
-  (SELECT f.blob_hash FROM formats f WHERE f.clip_id = live.id AND f.mime = 'image/png')
+  (SELECT f.blob_hash FROM formats f WHERE f.clip_id = live.id AND f.mime = 'image/png'),
+  use_count
 FROM live
 WHERE rn = 1 AND (?1 IS NULL OR (sort_hlc, id) < (?1, ?2))
 ORDER BY sort_hlc DESC, id DESC
@@ -201,6 +204,7 @@ fn display_row(r: &Row<'_>) -> rusqlite::Result<DisplayRow> {
             .map(|b| hash_from_slice(&b))
             .transpose()
             .map_err(|_| conversion_err(13, "hash is not 32 bytes"))?,
+        use_count: r.get(14)?,
         look,
         mono,
     })

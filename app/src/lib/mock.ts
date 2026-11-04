@@ -44,8 +44,8 @@ const seed: ClipDetail[] = rowsSeed.map(([kind, look, preview, origin, app, ago]
     mono: look === 'code' || look === 'colour' || /^[\d.:]+$/.test(preview),
     origin,
     preview,
-    pinned: i === 3 || i === 8,
-    label: i === 8 ? 'clippy' : null,
+    pinned: [3, 5, 6, 8, 9].includes(i),
+    label: ({ 5: 'Brand violet', 6: 'Launch notes', 8: 'Lint everything', 9: 'App capabilities' } as Record<number, string>)[i] ?? null,
     device: origin === thinkpad ? null : origin.name,
     sourceApp: app,
     sortMs: copied,
@@ -60,14 +60,16 @@ const seed: ClipDetail[] = rowsSeed.map(([kind, look, preview, origin, app, ago]
     imageUrl: isImage ? thumb(preview) : null,
     formats: isImage ? ['image/png'] : kind === 'rich' ? ['text/plain', 'text/html'] : ['text/plain'],
     looksLikeCode: look === 'code',
-    useCount: i % 4,
+    useCount: [2, 0, 1, 14, 0, 9, 18, 3, 31, 22, 0][i] ?? 0,
     copiedMs: copied,
     receivedMs: origin === thinkpad ? copied : copied + 400,
   };
 });
 
-let clips = [...seed];
+const params = new URLSearchParams(location.search);
+let clips = params.get('empty') === '1' ? [] : [...seed];
 let paused = false;
+let pausedUntil: number | null = null;
 
 const settings: Settings = {
   general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system', skipSingleCharacters: true },
@@ -99,9 +101,10 @@ function status(): Status {
     version: '0.1.0',
     session: 'gnome',
     paused,
+    pausedUntilMs: pausedUntil,
     captureReady: true,
     degradedReason: null,
-    tailscale: 'running',
+    tailscale: params.get('tailscale') === 'stopped' ? 'stopped' : 'running',
     extension: { state: 'active', message: null },
     accessibility: null,
     firstRunDone: new URLSearchParams(location.search).get('firstrun') !== '1',
@@ -179,6 +182,7 @@ export const mock = {
         return r(structuredClone(settings));
       case 'set_paused':
         paused = a.paused;
+        pausedUntil = a.paused && a.minutes ? Date.now() + (a.minutes as number) * 60_000 : null;
         emit('status-changed', status());
         return r(undefined);
       case 'get_status':

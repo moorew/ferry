@@ -5,6 +5,7 @@
   import { t } from '../lib/strings';
   import Badge from '../components/Badge.svelte';
   import Button from '../components/Button.svelte';
+  import Character from '../components/Character.svelte';
   import Chip from '../components/Chip.svelte';
   import DeviceAvatar from '../components/DeviceAvatar.svelte';
   import DeviceStack from '../components/DeviceStack.svelte';
@@ -121,7 +122,7 @@
     <h2>Status card</h2>
     <StatusCard paused={false} synced={3} onpause={noop} onresume={noop} />
     <StatusCard paused={false} onpause={noop} onresume={noop} />
-    <StatusCard paused pausedFor="1 hour" resumesAt="8:41 PM" onpause={noop} onresume={noop} />
+    <StatusCard paused pausedUntilMs={Date.now() + 3_600_000} onpause={noop} onresume={noop} />
     <StatusCard paused onpause={noop} onresume={noop} />
     <StatusCard paused={false} ready={false} onpause={noop} onresume={noop} />
   </section>
@@ -153,6 +154,15 @@
     <TrailCard from={macMini} here={thinkpad} latencyMs={-30} />
     <TrailCard from={macMini} here={thinkpad} latencyMs={180_000} />
     <TrailCard from={null} here={thinkpad} />
+  </section>
+
+  <section class="card span3">
+    <h2>Character</h2>
+    <div class="wrap center">
+      <Character mood="happy" />
+      <Character mood="resting" />
+      <Character mood="offline" />
+    </div>
   </section>
 
   <section class="card span3">

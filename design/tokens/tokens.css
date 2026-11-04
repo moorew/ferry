@@ -14,6 +14,7 @@
   --tc-sunk: #EAE3F3;
   --tc-raised: #FFFFFF;
   --tc-knob: #FFFFFF;
+  --tc-card-wash: rgb(255 255 255 / 40%);   /* code blocks and buttons on device-colour cards */
   --tc-tile: #EAE3F3;
   --tc-line: #E0D6EC;
   --tc-line-strong: #CBBCDD;

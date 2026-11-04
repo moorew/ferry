@@ -51,7 +51,7 @@ export const api = {
   clearHistory: (includePinned: boolean) => call<void>('clear_history', { includePinned }),
   getSettings: () => call<Settings>('get_settings'),
   setSettings: (settings: Settings) => call<Settings>('set_settings', { settings }),
-  setPaused: (paused: boolean) => call<void>('set_paused', { paused }),
+  setPaused: (paused: boolean, minutes?: number) => call<void>('set_paused', { paused, minutes: minutes ?? null }),
   getStatus: () => call<Status>('get_status'),
   runSetupStep: (step: SetupStep, action: string) =>
     call<Status>('run_first_run_step', { step, action }),
@@ -61,4 +61,6 @@ export const api = {
   openLogFolder: () => call<void>('open_log_folder'),
   diagnostics: () => call<string>('diagnostics'),
   checkShortcut: (shortcut: string) => call<string | null>('check_shortcut', { shortcut }),
+  openTailscale: () => call<void>('open_tailscale'),
+  recheckTailscale: () => call<void>('recheck_tailscale'),
 };

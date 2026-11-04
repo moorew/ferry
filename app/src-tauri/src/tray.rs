@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tauri::image::Image;
-use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 
@@ -101,13 +101,24 @@ fn icon(app: &AppHandle, state: TrayState) -> Image<'static> {
 }
 
 struct Items {
-    pause: CheckMenuItem<Wry>,
+    pause: Submenu<Wry>,
+    resume: MenuItem<Wry>,
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open TailCopy", true, None::<&str>)?;
     let history = MenuItem::with_id(app, "history", "History…", true, None::<&str>)?;
-    let pause = CheckMenuItem::with_id(app, "pause", "Pause capture", true, false, None::<&str>)?;
+    let pause = Submenu::with_items(
+        app,
+        "Pause capture",
+        true,
+        &[
+            &MenuItem::with_id(app, "pause-15", "For 15 minutes", true, None::<&str>)?,
+            &MenuItem::with_id(app, "pause-60", "For 1 hour", true, None::<&str>)?,
+            &MenuItem::with_id(app, "pause", "Until I resume", true, None::<&str>)?,
+        ],
+    )?;
+    let resume = MenuItem::with_id(app, "resume", "Resume capture", false, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit TailCopy", true, None::<&str>)?;
     let menu = Menu::with_items(
@@ -117,6 +128,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             &history,
             &PredefinedMenuItem::separator(app)?,
             &pause,
+            &resume,
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &quit,
@@ -124,6 +136,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     )?;
     app.manage(Items {
         pause: pause.clone(),
+        resume: resume.clone(),
     });
     let state = current(app);
     TrayIconBuilder::with_id(TRAY)
@@ -139,10 +152,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
             "history" => picker::show_manager(app, Some("history")),
             "settings" => picker::show_manager(app, Some("settings")),
-            "pause" => {
-                let paused = !app.state::<AppState>().is_paused();
-                crate::state::set_paused(app, paused);
-            }
+            "pause" => crate::state::set_paused(app, true),
+            "pause-15" => crate::state::pause_for(app, 15),
+            "pause-60" => crate::state::pause_for(app, 60),
+            "resume" => crate::state::set_paused(app, false),
             "quit" => app.exit(0),
             _ => {}
         })
@@ -167,7 +180,9 @@ pub fn refresh(app: &AppHandle) {
         let _ = tray.set_tooltip(Some(state.tooltip()));
     }
     if let Some(items) = app.try_state::<Items>() {
-        let _ = items.pause.set_checked(state == TrayState::Paused);
+        let paused = state == TrayState::Paused;
+        let _ = items.pause.set_enabled(!paused);
+        let _ = items.resume.set_enabled(paused);
     }
 }
 

@@ -24,6 +24,25 @@ async fn info() -> Info {
     info
 }
 
+/// Forgets the cached state so the next call asks Tailscale again.
+pub fn forget() {
+    *CACHE.lock().unwrap() = None;
+}
+
+/// Opens the Tailscale app, where it has one (Windows and macOS).
+pub fn open_app() -> std::io::Result<()> {
+    if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+            .args(["-a", "Tailscale"])
+            .spawn()?;
+    } else if cfg!(windows) {
+        std::process::Command::new(r"C:\Program Files\Tailscale\tailscale-ipn.exe").spawn()?;
+    } else {
+        return Err(std::io::ErrorKind::Unsupported.into());
+    }
+    Ok(())
+}
+
 /// `running`, `stopped` or `missing`.
 pub async fn state() -> &'static str {
     info().await.state

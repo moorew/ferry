@@ -81,9 +81,7 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
                 .map(|d| (d.device_id.clone(), d))
                 .collect();
             let detail = view.get_clip(&id)?;
-            let (use_count, received_ms) = detail
-                .as_ref()
-                .map_or((0, None), |d| (d.clip.use_count, d.clip.received_ms));
+            let received_ms = detail.as_ref().and_then(|d| d.clip.received_ms);
             let text = view.plain_text(&id)?;
             let html = view
                 .read_format(&id, "text/html")?
@@ -98,7 +96,6 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
                 .map(|h| dto::thumb_url(&hash_hex(h), true));
             Ok(Some(ClipDetail {
                 looks_like_code: text.as_deref().is_some_and(dto::looks_like_code),
-                use_count,
                 copied_ms: tailcopy_core::hlc::wall_ms(row.created_hlc),
                 received_ms,
                 row: dto::row(&row, &me, &devices),
@@ -229,8 +226,11 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> CmdResult<Setti
 }
 
 #[tauri::command]
-pub async fn set_paused(app: AppHandle, paused: bool) -> CmdResult<()> {
-    crate::state::set_paused(&app, paused);
+pub async fn set_paused(app: AppHandle, paused: bool, minutes: Option<u32>) -> CmdResult<()> {
+    match minutes {
+        Some(m) if paused && m > 0 => crate::state::pause_for(&app, m.min(24 * 60)),
+        _ => crate::state::set_paused(&app, paused),
+    }
     Ok(())
 }
 
@@ -257,6 +257,7 @@ pub async fn build_status(app: &AppHandle) -> Status {
         })
         .await;
     let session = state.session;
+    let paused_until_ms = *state.paused_until.lock().unwrap();
     #[cfg_attr(windows, allow(unused_mut))]
     let mut status = Status {
         version: env!("CARGO_PKG_VERSION"),
@@ -267,6 +268,7 @@ pub async fn build_status(app: &AppHandle) -> Status {
             tailcopy_platform::Session::Degraded => "degraded",
         },
         paused: state.is_paused(),
+        paused_until_ms,
         capture_ready: state
             .capture_ready
             .load(std::sync::atomic::Ordering::Relaxed),
@@ -381,6 +383,19 @@ pub async fn open_log_folder(app: AppHandle, state: State<'_, AppState>) -> CmdR
     app.opener()
         .open_path(state.data_dir.join("logs").to_string_lossy(), None::<&str>)
         .map_err(err)
+}
+
+#[tauri::command]
+pub async fn open_tailscale() -> CmdResult<()> {
+    crate::tailscale::open_app().map_err(err)
+}
+
+/// "Try again" on the Tailscale-not-running state: ask Tailscale now.
+#[tauri::command]
+pub async fn recheck_tailscale(app: AppHandle) -> CmdResult<()> {
+    crate::tailscale::forget();
+    crate::state::status_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]

@@ -99,6 +99,8 @@ pub fn run(initial: Command, autostart: bool) {
             commands::picker_focused,
             commands::open_log_folder,
             commands::diagnostics,
+            commands::open_tailscale,
+            commands::recheck_tailscale,
             commands::check_shortcut,
         ])
         .on_window_event(|window, event| {

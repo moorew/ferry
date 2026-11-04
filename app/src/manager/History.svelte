@@ -14,6 +14,7 @@
   import { duration } from '../lib/motion';
   import { t, type StringKey } from '../lib/strings';
   import Button from '../components/Button.svelte';
+  import Character from '../components/Character.svelte';
   import Chip from '../components/Chip.svelte';
   import HistoryRow from '../components/HistoryRow.svelte';
   import IconButton from '../components/IconButton.svelte';
@@ -185,7 +186,7 @@
     flushDeletes();
     pendingDelete = new Set([...pendingDelete, ...ids]);
     const first = visible.findIndex((r) => chosen.has(r.id));
-    const next = visible.slice(first).find((r) => !chosen.has(r.id)) ?? visible.findLast((r) => !chosen.has(r.id));
+    const next = visible.slice(first).find((r) => !chosen.has(r.id)) ?? [...visible].reverse().find((r) => !chosen.has(r.id));
     chosen = new Set(next ? [next.id] : []);
     showToast(
       ids.length === 1 ? t('toast.deleted') : t('toast.deleted_n', { n: ids.length }),
@@ -325,10 +326,22 @@
           />
         {/each}
       {:else}
-        <p class="empty">{query ? t('history.no_matches', { query }) : t('history.empty_filter')}</p>
+        {#if !query && !chip && filter.kind === 'all'}
+          <div class="first">
+            <Character mood="resting" />
+            <h2>{t('state.empty.title')}</h2>
+            <p>{t('state.empty.body')}</p>
+            {#if settings?.hotkeys.picker}
+              <p class="hint">{t('state.empty.open')} <Keycap keys={settings.hotkeys.picker} /></p>
+            {/if}
+          </div>
+        {:else}
+          <p class="empty">{query ? t('history.no_matches', { query }) : t('history.empty_filter')}</p>
+        {/if}
       {/each}
     </div>
 
+    {#if visible.length}
     <aside class="detail" aria-label="Selected item">
       {#if detail}
         <div class="actions">
@@ -391,6 +404,7 @@
         <p class="muted">{t('history.select_hint')}</p>
       {/if}
     </aside>
+    {/if}
   </div>
 
   {#if toast}
@@ -534,6 +548,38 @@
 
   .group:first-child {
     padding-top: 4px;
+  }
+
+  .first {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin: auto;
+    padding: 36px;
+    text-align: center;
+  }
+
+  .first h2 {
+    margin: 0;
+    font-family: var(--tc-font-display);
+    font-size: var(--tc-text-state);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: var(--tc-tracking-display);
+  }
+
+  .first p {
+    max-width: 400px;
+    margin: 0;
+    font-size: var(--tc-text-setting);
+    line-height: 1.5;
+    color: var(--tc-ink-2);
+  }
+
+  .first .hint {
+    margin: 0;
+    font-size: var(--tc-text-small);
   }
 
   .empty {

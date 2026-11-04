@@ -10,10 +10,11 @@
   import StatusCard from '../components/StatusCard.svelte';
   import Lockup from '../components/Lockup.svelte';
   import History, { type Filter } from './History.svelte';
-  import Settings from './Settings.svelte';
+  import Pinned from './Pinned.svelte';
+  import Settings, { type Section } from './Settings.svelte';
   import FirstRun from './FirstRun.svelte';
 
-  type Route = { page: 'history'; filter: Filter } | { page: 'settings' };
+  type Route = { page: 'history'; filter: Filter } | { page: 'settings'; section: Section };
 
   let route = $state<Route>({ page: 'history', filter: { kind: 'all' } });
   let status = $state<Status | null>(null);
@@ -29,15 +30,13 @@
   ];
 
   function isActive(kind: Filter['kind'], device?: string): boolean {
-    return (
-      route.page === 'history' &&
-      route.filter.kind === kind &&
-      (kind !== 'device' || route.filter.device === device)
-    );
+    if (route.page !== 'history') return false;
+    const f = route.filter;
+    return f.kind === kind && (f.kind !== 'device' || f.device === device);
   }
 
   function go(r: string | null) {
-    if (r === 'settings') route = { page: 'settings' };
+    if (r === 'settings') route = { page: 'settings', section: 'general' };
     else if (r === 'setup') setupOpen = true;
     else if (r) route = { page: 'history', filter: { kind: 'all' } };
   }
@@ -79,7 +78,15 @@
 
 {#if setupOpen && status}
   <FirstRun {status} onDone={() => { setupOpen = false; refresh(); }} />
+{:else if route.page === 'settings'}
+  <Settings
+    {status}
+    bind:section={route.section}
+    onSetup={() => (setupOpen = true)}
+    onBack={() => (route = { page: 'history', filter: { kind: 'all' } })}
+  />
 {:else}
+  {@const filter = route.filter}
   <div class="shell">
     <aside class="side">
       <div class="brand"><Lockup height={26} /></div>
@@ -118,9 +125,7 @@
       <div class="foot">
         <button
           class="nav"
-          class:active={route.page === 'settings'}
-          aria-current={route.page === 'settings' ? 'page' : undefined}
-          onclick={() => (route = { page: 'settings' })}
+          onclick={() => (route = { page: 'settings', section: 'general' })}
         >
           <Icon name="settings" />{t('nav.settings')}
         </button>
@@ -128,7 +133,8 @@
           <StatusCard
             paused={status.paused}
             ready={status.captureReady}
-            onpause={() => api.setPaused(true)}
+            pausedUntilMs={status.pausedUntilMs}
+            onpause={(minutes) => api.setPaused(true, minutes)}
             onresume={() => api.setPaused(false)}
           />
         {/if}
@@ -136,10 +142,10 @@
     </aside>
 
     <main class="page">
-      {#if route.page === 'history'}
-        <History filter={route.filter} {status} />
+      {#if filter.kind === 'pinned'}
+        <Pinned />
       {:else}
-        <Settings {status} onSetup={() => (setupOpen = true)} />
+        <History {filter} {status} />
       {/if}
     </main>
   </div>

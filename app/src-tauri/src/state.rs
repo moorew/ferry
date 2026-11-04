@@ -36,6 +36,10 @@ pub struct AppState {
     pub data_dir: PathBuf,
     pub session: Session,
     pub paused: AtomicBool,
+    /// Unix ms when a timed pause ends; `None` while running or paused until resumed.
+    pub paused_until: Mutex<Option<u64>>,
+    /// Bumped on every pause change, so a stale resume timer does nothing.
+    pause_epoch: AtomicU32,
     pub capture_ready: AtomicBool,
     /// The window or app focused when the picker opened.
     #[cfg(not(target_os = "linux"))]
@@ -67,6 +71,8 @@ impl AppState {
             data_dir,
             session,
             paused: AtomicBool::new(false),
+            paused_until: Mutex::new(None),
+            pause_epoch: AtomicU32::new(0),
             capture_ready: AtomicBool::new(matches!(session, Session::Windows | Session::MacOs)),
             #[cfg(not(target_os = "linux"))]
             previous: Mutex::new(None),
@@ -266,10 +272,36 @@ pub fn status_changed(app: &AppHandle) {
     });
 }
 
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
+}
+
+/// Pauses until resumed, or resumes.
 pub fn set_paused(app: &AppHandle, paused: bool) {
-    app.state::<AppState>()
-        .paused
-        .store(paused, Ordering::Relaxed);
+    let state = app.state::<AppState>();
+    state.pause_epoch.fetch_add(1, Ordering::Relaxed);
+    *state.paused_until.lock().unwrap() = None;
+    state.paused.store(paused, Ordering::Relaxed);
     tracing::info!(paused, "capture paused state changed");
     status_changed(app);
+}
+
+/// Pauses for a while, then resumes by itself (handoff section 5, "Pause").
+pub fn pause_for(app: &AppHandle, minutes: u32) {
+    let state = app.state::<AppState>();
+    let epoch = state.pause_epoch.fetch_add(1, Ordering::Relaxed) + 1;
+    let length = std::time::Duration::from_secs(u64::from(minutes) * 60);
+    *state.paused_until.lock().unwrap() = Some(now_ms() + length.as_millis() as u64);
+    state.paused.store(true, Ordering::Relaxed);
+    tracing::info!(minutes, "capture paused for a while");
+    status_changed(app);
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(length).await;
+        if app.state::<AppState>().pause_epoch.load(Ordering::Relaxed) == epoch {
+            set_paused(&app, false);
+        }
+    });
 }
