@@ -181,7 +181,7 @@ The UI thread never waits on disk or network. Every Tauri command is async and b
 
 ### 5.2 CLI
 
-The same `tailcopy` binary accepts subcommands. If an instance is running, the subcommand is sent over the local socket (name `tailcopy-<username>`) and the process exits.
+The same `tailcopy` binary accepts subcommands. If an instance is running, the subcommand is sent over the local socket and the process exits. Only the user can reach that socket: on Unix it is `tailcopy.sock` in a directory only the user can enter (`$XDG_RUNTIME_DIR/tailcopy`, or `tailcopy-<uid>` in the temporary directory); on Windows it is the pipe `tailcopy-<username>` with an access list that names only its owner (D-026).
 
 | Command | Effect |
 | --- | --- |
@@ -365,7 +365,7 @@ Visible state is a pure function of the set of ops held. Applying an op MUST be 
 **Ops are never deleted.** That keeps every node's log a gapless prefix of each origin's log, keeps version vectors exact, and means a clip deleted while a device was offline for a year is still deleted when it returns. Content is removed by rewriting the op that carries it instead.
 
 - **Retention is local policy.** Defaults: the desktop keeps 1,000 unpinned clips or 30 days, whichever is smaller; the relay keeps 10,000 or 90 days. Age runs from `sort_hlc`, so a recently pasted old item stays. Pinned clips are kept forever.
-- **Trimming** removes the clip's row, formats and unreferenced blobs, and rewrites its `ClipAdded` op in place as a stub (`trimmed = true`, preview and formats cleared). Trimming emits no ops.
+- **Trimming** removes the clip's row, formats and unreferenced blobs, and rewrites its `ClipAdded` op in place as a stub (`trimmed = true`, preview and formats cleared, and `group_key` replaced by BLAKE3 of the clip id so no hash of the content remains). Trimming emits no ops.
 - **Deleting** (a `ClipDeleted` or a clear) removes the clip's formats immediately, plus any blobs no live clip still references, and stubs the `ClipAdded` the same way, so deleted text doesn't linger in the log. The row stays with `deleted_hlc` for 30 days, then is dropped.
 - **Stubs are ordinary log entries.** They are gossiped like any op. A receiver that gets a stub records the clip as known but not shown. A full `ClipAdded` arriving later for an `(origin, seq)` already held as a stub is ignored, so a new device that first syncs from a peer with short retention gets stubs for that peer's trimmed clips even if the relay still has them. Accepted for v1; document it in `docs/ARCHITECTURE.md`.
 - **Storage cost:** a stub or small op is roughly 100 bytes, so the log should grow by a few MB per device per year of heavy use. Measure this in M2 and record it in the report.
@@ -515,7 +515,9 @@ Run `whois` on the remote address of every inbound connection, and on the addres
 
 Reject everything else and log the peer's node name.
 
-**Strict mode (default on).** `sync.strict_same_login = true` limits both directions to rule 1: only untagged devices signed in to this device's own Tailscale login can sync. Rules 2 and 3 apply only when the user turns strict mode off, which is required for a tagged relay. Settings shows the mode, and the Devices view lists rejected peers by node name so the user can see what was refused.
+**Own address.** Before whois, refuse any connection whose remote address is one of this device's own Tailscale addresses. Whois describes this node there, which would pass rule 1, but the caller is a local process, not another device (D-026).
+
+**Strict mode (default on).** `sync.strict_same_login = true` limits both directions to rule 1: only untagged devices signed in to this device's own Tailscale login can sync. Rules 2 and 3 apply only when the user turns strict mode off, which is required for a tagged relay. Settings shows the mode, and the Devices view lists rejected peers by node name so the user can see what was refused. Turning strict mode on ends every open session, so peers admitted under rules 2 and 3 have to pass the stricter check to reconnect.
 
 ### 8.6 Policy snippet for README
 
@@ -873,7 +875,7 @@ Events: `clips-changed` (debounced 50 ms), `devices-changed`, `status-changed`, 
 
 ## 11. Configuration
 
-`config.toml` in the platform config directory (`directories::ProjectDirs::from("io.github", "moorew", "TailCopy")`). Unknown keys and comments are preserved on save (`toml_edit`). TailCopy's config is the source of truth for shortcuts on every platform. Example with defaults:
+`config.toml` in the platform config directory (`directories::ProjectDirs::from("io.github", "moorew", "TailCopy")`). Unknown keys and comments are preserved on save (`toml_edit`). If the file can't be read, TailCopy keeps a copy as `config.toml.bad`, starts with capture paused and says why, so the user's privacy rules are never silently dropped (D-026). The data and config directories are created owner-only on Unix. TailCopy's config is the source of truth for shortcuts on every platform. Example with defaults:
 
 ```toml
 [general]
