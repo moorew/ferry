@@ -69,7 +69,7 @@ updated.
   and it needs a core filter for "not this device".
 - **No "Password skipped" rows** (D-021).
 - **"$" prompt in code previews** is not drawn: the look heuristics can't tell a shell
-  command from SQL reliably, and a wrong prompt would be pasted into people's heads.
+  command from SQL reliably, and a prompt on the wrong item would mislead.
 - The sidebar shows the lockup rather than the board's mark plus Bricolage text,
   per Phase 2.
 - Arrival tint and "Just arrived" need sync, so they stay off until M2.

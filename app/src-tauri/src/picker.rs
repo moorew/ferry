@@ -11,11 +11,45 @@ use crate::state::{AppState, clips_changed};
 pub const PICKER: &str = "picker";
 pub const MANAGER: &str = "manager";
 
+/// Default and smallest picker size, logical px (handoff tokens `size.picker`).
+const PICKER_SIZE: (f64, f64) = (960.0, 640.0);
+const PICKER_MIN: (f64, f64) = (640.0, 420.0);
+
+fn size_file(app: &AppHandle) -> std::path::PathBuf {
+    app.state::<AppState>().data_dir.join("picker-size")
+}
+
+/// The size the picker had when it was last hidden ("960x640").
+fn saved_size(app: &AppHandle) -> (f64, f64) {
+    std::fs::read_to_string(size_file(app))
+        .ok()
+        .and_then(|s| {
+            let (w, h) = s.trim().split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        })
+        .map_or(PICKER_SIZE, |(w, h): (f64, f64)| {
+            (w.max(PICKER_MIN.0), h.max(PICKER_MIN.1))
+        })
+}
+
+fn save_size(app: &AppHandle, window: &WebviewWindow) {
+    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
+        return;
+    };
+    let logical = size.to_logical::<f64>(scale);
+    let text = format!("{}x{}", logical.width.round(), logical.height.round());
+    if saved_size(app) != (logical.width.round(), logical.height.round()) {
+        let _ = std::fs::write(size_file(app), text);
+    }
+}
+
 pub fn create_picker(app: &AppHandle) -> tauri::Result<WebviewWindow> {
+    let (width, height) = saved_size(app);
     WebviewWindowBuilder::new(app, PICKER, WebviewUrl::App("index.html".into()))
         .title(PICKER_TITLE)
-        .inner_size(640.0, 420.0)
-        .resizable(false)
+        .inner_size(width, height)
+        .min_inner_size(PICKER_MIN.0, PICKER_MIN.1)
+        .resizable(true)
         .decorations(false)
         .transparent(true)
         .shadow(true)
@@ -63,6 +97,7 @@ pub fn picker_visible(app: &AppHandle) -> bool {
 
 pub fn hide_picker(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(PICKER) {
+        save_size(app, &w);
         let _ = w.hide();
     }
 }

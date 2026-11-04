@@ -1,16 +1,32 @@
 <script lang="ts">
+  // The quick picker (SPEC 10.2, handoff section 5 "Quick picker"): search, chips, a
+  // keyboard-driven list with pinned items first, an optional preview, and a footer
+  // whose hints are also buttons.
   import { onMount, tick } from 'svelte';
   import { api, on } from '../lib/api';
   import { duration, easing, reducedMotion } from '../lib/motion';
   import type { ClipDetail, ClipRow, Status } from '../lib/types';
-  import { firstLine, isMac, keycaps, kindIcon, mod, relativeTime, rowLabel } from '../lib/format';
+  import { firstLine, isMac, lookIcon, mod, relativeTime, rowLabel } from '../lib/format';
+  import { t, type StringKey } from '../lib/strings';
+  import DeviceDot from '../components/DeviceDot.svelte';
   import Icon from '../components/Icon.svelte';
+  import Keycap from '../components/Keycap.svelte';
   import Preview from './Preview.svelte';
 
   const PAGE = 60;
   const VISIBLE = 10;
 
+  const chips: { key: StringKey; token: string }[] = [
+    { key: 'history.chip.all', token: '' },
+    { key: 'history.chip.text', token: 'is:text' },
+    { key: 'history.chip.links', token: 'is:link' },
+    { key: 'history.chip.code', token: 'is:code' },
+    { key: 'history.chip.images', token: 'is:image' },
+    { key: 'library.pinned', token: 'is:pinned' },
+  ];
+
   let query = $state('');
+  let chip = $state('');
   let rows = $state<ClipRow[]>([]);
   let selected = $state(0);
   let previewOpen = $state(false);
@@ -19,27 +35,42 @@
   let editingLabel = $state(false);
   let labelDraft = $state('');
   let exhausted = $state(false);
+  /** Rows fetched from the unfiltered list, for paging past the pinned block. */
+  let listOffset = 0;
 
   let input: HTMLInputElement;
   let shell: HTMLDivElement;
-  let list = $state<HTMLOListElement>();
+  let list = $state<HTMLDivElement>();
   let labelInput = $state<HTMLInputElement>();
   let requestId = 0;
 
   const current = $derived(rows[selected]);
   const tokens = $derived(
-    query
-      .split(/\s+/)
-      .filter((w) => /^(is:(pinned|image|rich|text)|from:\S+|today|yesterday)$/i.test(w)),
+    query.split(/\s+/).filter((w) => /^(is:(pinned|image|rich|text|code|link)|from:\S+|today|yesterday)$/i.test(w)),
   );
+  // Pinned items lead when nothing is typed and no chip narrows the list.
+  const pinnedFirst = $derived(!query.trim() && !chip);
 
   async function load(reset = true) {
     const id = ++requestId;
-    const offset = reset ? 0 : rows.length;
-    const page = await api.listClips(query, PAGE, offset);
-    if (id !== requestId) return;
-    rows = reset ? page : [...rows, ...page];
-    exhausted = page.length < PAGE;
+    if (reset) listOffset = 0;
+    const q = [chip, query].filter(Boolean).join(' ');
+    if (pinnedFirst) {
+      const [pinned, page] = await Promise.all([
+        reset ? api.listClips('is:pinned', PAGE, 0) : Promise.resolve([]),
+        api.listClips('', PAGE, listOffset),
+      ]);
+      if (id !== requestId) return;
+      listOffset += page.length;
+      exhausted = page.length < PAGE;
+      const rest = page.filter((r) => !r.pinned);
+      rows = reset ? [...pinned, ...rest] : [...rows, ...rest];
+    } else {
+      const page = await api.listClips(q, PAGE, reset ? 0 : rows.length);
+      if (id !== requestId) return;
+      rows = reset ? page : [...rows, ...page];
+      exhausted = page.length < PAGE;
+    }
     if (reset) selected = 0;
   }
 
@@ -77,6 +108,12 @@
     api.hidePicker();
   }
 
+  function setChip(token: string) {
+    chip = token;
+    load();
+    input.focus();
+  }
+
   async function togglePin() {
     if (!current) return;
     await api.setPinned([current.id], !current.pinned);
@@ -92,7 +129,7 @@
   }
 
   async function saveLabel() {
-    if (!current) return;
+    if (!current || !editingLabel) return;
     const label = labelDraft.trim().slice(0, 120);
     editingLabel = false;
     await api.setLabel(current.id, label || null);
@@ -105,6 +142,11 @@
     await api.delete([current.id]);
     await load();
     select(Math.min(keep, rows.length - 1));
+  }
+
+  function togglePreview() {
+    previewOpen = !previewOpen;
+    input.focus();
   }
 
   function onKey(e: KeyboardEvent) {
@@ -127,8 +169,14 @@
     else if (k === 'PageUp') select(selected - VISIBLE);
     else if (k === 'Enter') choose(current, e.shiftKey);
     else if (k === 'Tab') previewOpen = !previewOpen;
-    else if (k === 'Escape') hide();
-    else if (primary && /^[1-9]$/.test(k)) choose(rows[Number(k) - 1], e.shiftKey);
+    else if (k === 'Escape') {
+      // Esc clears the search first, then closes (SPEC 10.3).
+      if (query || chip) {
+        query = '';
+        chip = '';
+        load();
+      } else hide();
+    } else if (primary && /^[1-9]$/.test(k)) choose(rows[Number(k) - 1], e.shiftKey);
     else if (primary && e.shiftKey && k === 'Backspace') remove();
     else if (primary && k.toLowerCase() === 'p') togglePin();
     else if (primary && k.toLowerCase() === 'l') startLabel();
@@ -144,6 +192,7 @@
 
   function onShown() {
     query = '';
+    chip = '';
     selected = 0;
     previewOpen = false;
     editingLabel = false;
@@ -194,105 +243,113 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="picker" class:with-preview={previewOpen} bind:this={shell}>
-    <header class="search">
-      <Icon name="search" />
-      <input
-        bind:this={input}
-        bind:value={query}
-        oninput={() => load()}
-        placeholder="Search clipboard history"
-        aria-label="Search clipboard history"
-        spellcheck="false"
-        autocomplete="off"
-      />
-      {#each tokens as t (t)}
-        <span class="token">{t}</span>
-      {/each}
-      {#if status?.paused}
-        <span class="state-chip"><Icon name="paused" size={14} />Paused</span>
-      {/if}
-    </header>
-
-    {#if status && !status.captureReady && status.degradedReason}
-      <p class="banner">{status.degradedReason}</p>
+  <header class="search">
+    <Icon name="search" />
+    <input
+      bind:this={input}
+      bind:value={query}
+      oninput={() => load()}
+      placeholder={t('picker.search.placeholder')}
+      aria-label={t('picker.search.placeholder')}
+      spellcheck="false"
+      autocomplete="off"
+    />
+    {#each tokens as token (token)}
+      <span class="token">{token}</span>
+    {/each}
+    {#if status?.paused}
+      <span class="state"><Icon name="paused" size={16} />{t('status.paused_title')}</span>
     {/if}
+    <span class="scope">{t('picker.scope.all')}</span>
+  </header>
 
-    <div class="body">
-      {#if rows.length === 0}
-        <div class="empty">
-          {#if query}
-            <p class="empty-title">No matches</p>
-            <p>Try fewer words, or <kbd>is:image</kbd> <kbd>is:pinned</kbd> <kbd>today</kbd>.</p>
-          {:else}
-            <p class="empty-title">Copy something to get started</p>
-            <p>Everything you copy shows up here, newest first.</p>
-          {/if}
-        </div>
-      {:else}
-        <ol class="rows" bind:this={list} role="listbox" aria-label="Clipboard history">
-          {#each rows as row, i (row.id)}
-            <!-- Keys are handled for the whole listbox in onKey. -->
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <li
-              data-index={i}
-              class="row"
-              class:selected={i === selected}
-              role="option"
-              aria-selected={i === selected}
-              aria-label={rowLabel(row.kind, row.device, row.sortMs, row.label ?? row.preview)}
-              onmousemove={() => (selected = i)}
-              onclick={() => choose(row, false)}
-            >
-              <span class="glyph">
-                {#if row.kind === 'image' && row.thumbUrl}
-                  <img src={row.thumbUrl} alt="" />
-                {:else}
-                  <Icon name={kindIcon(row.kind)} />
-                {/if}
-              </span>
-              <span class="main">
-                {#if editingLabel && i === selected}
-                  <input
-                    class="label-edit"
-                    bind:this={labelInput}
-                    bind:value={labelDraft}
-                    maxlength="120"
-                    placeholder="Label"
-                    aria-label="Label"
-                    onblur={saveLabel}
-                  />
-                {:else if row.label}
-                  <span class="label">{row.label}</span>
-                  <span class="preview muted">{firstLine(row.preview)}</span>
-                {:else}
-                  <span class="preview">{firstLine(row.preview) || 'Blank'}</span>
-                {/if}
-              </span>
-              <span class="meta">
-                {#if row.copies > 1}<span class="count" title="Copied {row.copies} times">×{row.copies}</span>{/if}
-                {#if row.device}<span class="chip">{row.device}</span>{/if}
-                {#if row.pinned}<span class="pin" title="Pinned"><Icon name="pin" size={16} /></span>{/if}
-                <span class="time">{relativeTime(row.sortMs)}</span>
-                {#if i < 9}<span class="hint">{isMac ? '⌘' : ''}{i + 1}</span>{/if}
-              </span>
-            </li>
-          {/each}
-        </ol>
-        {#if previewOpen}
-          <Preview clip={detail} />
+  <div class="chips" role="group" aria-label="Filter">
+    {#each chips as c (c.key)}
+      <button type="button" class="chip" class:on={chip === c.token} aria-pressed={chip === c.token} onclick={() => setChip(c.token)}>
+        {t(c.key)}
+      </button>
+    {/each}
+  </div>
+
+  {#if status && !status.captureReady && status.degradedReason}
+    <p class="banner">{status.degradedReason}</p>
+  {/if}
+
+  <div class="body">
+    {#if rows.length === 0}
+      <div class="empty">
+        {#if query}
+          <p class="empty-title">{t('picker.empty.title', { query })}</p>
+          <p>{t('picker.empty.body')}</p>
+        {:else if chip}
+          <p class="empty-title">{t('history.empty_filter')}</p>
+        {:else}
+          <p class="empty-title">{t('state.empty.title')}</p>
+          <p>{t('state.empty.body')}</p>
         {/if}
+      </div>
+    {:else}
+      <div class="rows" bind:this={list} role="listbox" aria-label="Clipboard history">
+        {#each rows as row, i (row.id)}
+          <!-- Keys are handled for the whole listbox in onKey. -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div
+            data-index={i}
+            class="row"
+            class:selected={i === selected}
+            role="option"
+            tabindex="-1"
+            aria-selected={i === selected}
+            aria-label={rowLabel(row.kind, row.device, row.sortMs, row.label ?? row.preview)}
+            onmousemove={() => (selected = i)}
+            onclick={() => choose(row, false)}
+          >
+            <span class="tile" style:background={row.look === 'colour' ? row.preview.trim() : null}>
+              {#if row.kind === 'image' && row.thumbUrl}
+                <img src={row.thumbUrl} alt="" />
+              {:else}
+                <Icon name={lookIcon(row.look)} size={18} />
+              {/if}
+            </span>
+            <span class="main" class:mono={row.mono}>
+              {#if editingLabel && i === selected}
+                <input
+                  class="label-edit"
+                  bind:this={labelInput}
+                  bind:value={labelDraft}
+                  maxlength="120"
+                  placeholder={t('detail.label')}
+                  aria-label={t('detail.label')}
+                  onblur={saveLabel}
+                />
+              {:else}
+                {#if row.label}<strong>{row.label}</strong>{/if}{row.kind === 'image' && row.width
+                  ? t('row.image', { w: row.width, h: row.height ?? 0 })
+                  : firstLine(row.preview) || t('row.blank')}
+              {/if}
+            </span>
+            {#if row.pinned}<span class="pin" title={t('badge.pinned')}><Icon name="pin" size={16} /></span>{/if}
+            {#if row.copies > 1}<span class="count">×{row.copies}</span>{/if}
+            {#if row.device}<span class="device"><DeviceDot colorIndex={row.origin.colorIndex} />{row.device}</span>{/if}
+            <span class="time">{relativeTime(row.sortMs)}</span>
+            <span class="num">{i < 9 ? i + 1 : ''}</span>
+          </div>
+        {/each}
+      </div>
+      {#if previewOpen}
+        <Preview clip={detail} here={status?.thisDevice ?? null} />
       {/if}
-    </div>
+    {/if}
+  </div>
 
-    <footer class="keys">
-      <span><kbd>↵</kbd> Paste</span>
-      <span><kbd>⇧</kbd><kbd>↵</kbd> Plain text</span>
-      <span><kbd>Tab</kbd> Preview</span>
-      <span>{#each keycaps(`${mod}+P`) as k (k)}<kbd>{k}</kbd>{/each} Pin</span>
-      <span>{#each keycaps(`${mod}+L`) as k (k)}<kbd>{k}</kbd>{/each} Label</span>
-      <span class="spacer"></span>
-      <span><kbd>Esc</kbd> Close</span>
-    </footer>
+  <footer class="keys">
+    <button type="button" onclick={() => choose(current, false)}><kbd>↵</kbd>{t('picker.hint.paste')}</button>
+    <button type="button" onclick={() => choose(current, true)}><kbd>⇧</kbd><kbd>↵</kbd>{t('picker.hint.plain')}</button>
+    <button type="button" class:on={previewOpen} aria-pressed={previewOpen} onclick={togglePreview}><kbd>Tab</kbd>{t('picker.hint.preview')}</button>
+    <button type="button" onclick={togglePin}><Keycap keys="{mod}+P" />{t('detail.pin')}</button>
+    <button type="button" onclick={startLabel}><Keycap keys="{mod}+L" />{t('detail.label')}</button>
+    <button type="button" class="close" onclick={hide}><kbd>Esc</kbd>{t('picker.hint.close')}</button>
+  </footer>
 </div>
 
 <style>
@@ -307,7 +364,7 @@
     display: flex;
     flex-direction: column;
     background: var(--tc-surface);
-    border: 1px solid var(--tc-line-strong);
+    box-shadow: inset 0 0 0 1px var(--tc-line);
     border-radius: var(--tc-r-window);
     overflow: hidden;
   }
@@ -320,10 +377,10 @@
   .search {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 14px;
-    height: 52px;
-    border-bottom: 1px solid var(--tc-line);
+    gap: 12px;
+    flex: none;
+    height: 64px;
+    padding: 0 20px;
     color: var(--tc-ink-2);
   }
 
@@ -336,6 +393,7 @@
     background: transparent;
     font-size: var(--tc-text-search);
     color: var(--tc-ink);
+    caret-color: var(--tc-accent);
   }
 
   .search input::placeholder {
@@ -343,31 +401,70 @@
   }
 
   .token {
-    font-size: var(--tc-text-keycap);
-    font-weight: 500;
-    padding: 2px 7px;
+    padding: 2px 8px;
     border-radius: var(--tc-r-pill);
+    background: var(--tc-accent-soft);
+    color: var(--tc-accent-ink);
+    font-size: var(--tc-text-meta);
+    font-weight: 700;
+  }
+
+  .state,
+  .scope {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
+    white-space: nowrap;
+  }
+
+  .state {
+    font-weight: 700;
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex: none;
+    padding: 0 20px 12px;
+    border-bottom: 1px solid var(--tc-line);
+    overflow-x: auto;
+  }
+
+  .chip {
+    height: 30px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: var(--tc-r-pill);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--tc-line-strong);
+    color: var(--tc-ink);
+    font-size: var(--tc-text-small);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .chip:hover {
+    background: var(--tc-hover);
+  }
+
+  .chip.on {
     background: var(--tc-selected);
+    box-shadow: none;
     color: var(--tc-on-selected);
   }
 
-  .state-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--tc-text-keycap);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--tc-ink-2);
+  .chip:focus-visible {
+    box-shadow: var(--tc-focus);
   }
 
   .banner {
     margin: 0;
-    padding: 6px 14px;
+    padding: 8px 20px;
     font-size: var(--tc-text-meta);
     color: var(--tc-ink-2);
-    background: var(--tc-surface);
+    background: var(--tc-bg);
     border-bottom: 1px solid var(--tc-line);
   }
 
@@ -375,29 +472,31 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .with-preview .body {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
   }
 
   .rows {
-    list-style: none;
-    margin: 0;
-    padding: 6px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
   }
 
   .row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    flex: none;
     height: var(--tc-row-picker);
-    padding: 0 8px;
-    border-radius: var(--tc-r-row);
-    font-size: var(--tc-text-body);
+    padding: 0 12px;
+    border-radius: var(--tc-r-control);
+    color: var(--tc-ink);
   }
 
   .row.selected {
@@ -405,115 +504,114 @@
     color: var(--tc-on-selected);
   }
 
-  .glyph {
+  .tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex: none;
-    width: 24px;
-    height: 24px;
-    display: grid;
-    place-items: center;
-    color: var(--tc-ink-2);
+    width: var(--tc-row-tile-picker);
+    height: var(--tc-row-tile-picker);
+    border-radius: var(--tc-r-avatar-28);
+    background: var(--tc-tile);
+    overflow: hidden;
   }
 
-  .selected .glyph {
-    color: inherit;
+  .selected .tile {
+    background: var(--tc-selected-tile);
   }
 
-  .glyph img {
-    width: 24px;
-    height: 24px;
+  .tile img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: var(--tc-r-keycap);
-    border: 1px solid var(--tc-line);
   }
 
   .main {
     flex: 1;
     min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    overflow: hidden;
-  }
-
-  .preview,
-  .label {
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--tc-text-body);
   }
 
-  .label {
-    font-weight: 600;
-    flex: none;
-    max-width: 45%;
+  .main.mono {
+    font-family: var(--tc-font-mono);
   }
 
-  .muted {
-    opacity: 0.6;
+  .main strong {
+    margin-right: 6px;
+    font-family: var(--tc-font-ui);
+    font-weight: 700;
   }
 
   .label-edit {
     width: 100%;
-    height: 26px;
+    height: 30px;
     padding: 0 8px;
+    border: 0;
     border-radius: var(--tc-r-keycap);
-    border: 1px solid currentColor;
-    background: transparent;
+    background: var(--tc-surface);
+    color: var(--tc-ink);
+    font-family: var(--tc-font-ui);
     outline: none;
-    font-weight: 600;
-  }
-
-  .meta {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: var(--tc-text-meta);
-    color: var(--tc-ink-3);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .selected .meta {
-    color: inherit;
-    opacity: 0.75;
-  }
-
-  .chip {
-    padding: 1px 7px;
-    border-radius: var(--tc-r-pill);
-    border: 1px solid currentColor;
-    font-size: var(--tc-text-keycap);
-    font-weight: 500;
+    box-shadow: inset 0 0 0 1.5px var(--tc-accent);
   }
 
   .pin {
-    display: inline-grid;
+    display: inline-flex;
+    color: var(--tc-ink-2);
+  }
+
+  .count,
+  .time,
+  .num,
+  .device {
+    flex: none;
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
+    white-space: nowrap;
+  }
+
+  .count,
+  .num {
+    font-weight: 700;
+  }
+
+  .device {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .time {
-    min-width: 28px;
+    width: 34px;
     text-align: right;
   }
 
-  .hint {
-    min-width: 18px;
+  .num {
+    width: 16px;
     text-align: right;
-    font-size: var(--tc-text-keycap);
-    font-weight: 600;
   }
 
-  .count {
-    font-size: var(--tc-text-keycap);
-    font-weight: 600;
+  .selected .pin,
+  .selected .count,
+  .selected .time,
+  .selected .num,
+  .selected .device {
+    color: var(--tc-on-selected-2);
   }
 
   .empty {
-    display: grid;
-    place-content: center;
-    text-align: center;
-    gap: 4px;
-    color: var(--tc-ink-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     padding: 24px;
+    text-align: center;
+    color: var(--tc-ink-2);
+    font-size: var(--tc-text-small);
   }
 
   .empty p {
@@ -521,31 +619,43 @@
   }
 
   .empty-title {
-    font-size: var(--tc-text-setting);
-    font-weight: 500;
     color: var(--tc-ink);
+    font-size: var(--tc-text-setting);
+    font-weight: 700;
   }
 
   .keys {
     display: flex;
-    gap: 14px;
     align-items: center;
+    gap: 6px;
+    flex: none;
+    height: 52px;
     padding: 0 14px;
-    height: 34px;
     border-top: 1px solid var(--tc-line);
-    font-size: var(--tc-text-keycap);
-    color: var(--tc-ink-2);
-    white-space: nowrap;
-    overflow: hidden;
   }
 
-  .keys span {
+  .keys button {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 6px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: var(--tc-r-keycap);
+    background: transparent;
+    color: var(--tc-ink-2);
+    font-size: var(--tc-text-meta);
   }
 
-  .spacer {
-    flex: 1;
+  .keys button:hover,
+  .keys button.on {
+    background: var(--tc-hover);
+  }
+
+  .keys button:focus-visible {
+    box-shadow: var(--tc-focus);
+  }
+
+  .keys .close {
+    margin-left: auto;
   }
 </style>

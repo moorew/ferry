@@ -4,6 +4,10 @@
 export const strings = {
   'picker.search.placeholder': 'Search clipboard history',
   'picker.scope.all': 'All devices',
+  'picker.hint.paste': 'Paste',
+  'picker.hint.plain': 'Plain text',
+  'picker.hint.preview': 'Preview',
+  'picker.hint.close': 'Close',
   'picker.empty.title': 'Nothing matches “{query}”',
   'picker.empty.body': 'Try fewer words, or switch the filter back to All.',
   'row.arrived': 'Just arrived',
