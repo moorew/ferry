@@ -47,6 +47,34 @@ pub struct General {
     pub live_mirror: bool,
     /// `false`: choosing an item only copies it.
     pub auto_paste: bool,
+    pub theme: Theme,
+}
+
+/// Light or dark appearance; `System` follows the OS.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Theme {
+    System,
+    Light,
+    Dark,
+}
+
+impl Theme {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Theme::System => "system",
+            Theme::Light => "light",
+            Theme::Dark => "dark",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "system" => Some(Theme::System),
+            "light" => Some(Theme::Light),
+            "dark" => Some(Theme::Dark),
+            _ => None,
+        }
+    }
 }
 
 /// Empty string means unbound.
@@ -198,6 +226,7 @@ impl Config {
                 start_at_login: true,
                 live_mirror: true,
                 auto_paste: true,
+                theme: Theme::System,
             },
             hotkeys: Hotkeys {
                 picker: picker.into(),
@@ -282,6 +311,7 @@ device_name = ""            # empty = Tailscale hostname
 start_at_login = true
 live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
+theme = "system"            # system, light or dark
 
 [hotkeys]                   # empty string = unbound
 picker = "Ctrl+Alt+V"
@@ -467,6 +497,16 @@ fn read_config(doc: &DocumentMut, platform: Platform) -> Result<Config> {
             start_at_login: r.bool("general", "start_at_login", d.general.start_at_login)?,
             live_mirror: r.bool("general", "live_mirror", d.general.live_mirror)?,
             auto_paste: r.bool("general", "auto_paste", d.general.auto_paste)?,
+            theme: match r.item("general", "theme") {
+                None => d.general.theme,
+                Some(item) => item.as_str().and_then(Theme::parse).ok_or_else(|| {
+                    bad(
+                        "general",
+                        "theme",
+                        "expected \"system\", \"light\" or \"dark\"",
+                    )
+                })?,
+            },
         },
         hotkeys: Hotkeys {
             picker: r.string("hotkeys", "picker", &d.hotkeys.picker)?,
@@ -560,13 +600,16 @@ fn b(v: &bool) -> Value {
 fn n(v: &u64) -> Value {
     Value::from(*v as i64)
 }
+fn t(v: &Theme) -> Value {
+    Value::from(v.as_str())
+}
 fn p(v: &u16) -> Value {
     Value::from(i64::from(*v))
 }
 
 fn write_config(doc: &mut DocumentMut, old: &Config, new: &Config) {
     write_changed!(doc, old.general, new.general, "general",
-        device_name: s, start_at_login: b, live_mirror: b, auto_paste: b);
+        device_name: s, start_at_login: b, live_mirror: b, auto_paste: b, theme: t);
     write_changed!(doc, old.hotkeys, new.hotkeys, "hotkeys", picker: s, paste_plain: s, pause: s);
     write_changed!(doc, old.retention, new.retention, "retention", max_items: n, max_age_days: n);
     write_changed!(doc, old.limits, new.limits, "limits",
@@ -795,11 +838,23 @@ x = [1, 2]
     }
 
     #[test]
+    fn theme_round_trips() {
+        let mut file = ConfigFile::default_for(Platform::Windows);
+        assert_eq!(file.config.general.theme, Theme::System);
+        file.config.general.theme = Theme::Dark;
+        let out = file.to_toml_string();
+        assert!(out.contains("theme = \"dark\""));
+        let again = ConfigFile::parse(&out, Platform::Windows).unwrap();
+        assert_eq!(again.config.general.theme, Theme::Dark);
+    }
+
+    #[test]
     fn bad_values_are_errors() {
         for text in [
             "[sync]\nport = 70000",
             "[sync]\nport = \"x\"",
             "[general]\nauto_paste = 1",
+            "[general]\ntheme = \"purple\"",
             "[[privacy.rules]]\nmatch = \"x\"\nmode = \"maybe\"",
             "[retention]\nmax_items = -1",
             "not toml = = =",

@@ -867,6 +867,7 @@ device_name = ""            # empty = Tailscale hostname
 start_at_login = true
 live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
+theme = "system"            # system, light or dark (10.4)
 
 [hotkeys]                   # empty string = unbound
 picker = "Ctrl+Alt+V"       # macOS default "Cmd+Shift+V"; GNOME: "" until first run

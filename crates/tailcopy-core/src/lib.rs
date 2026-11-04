@@ -14,7 +14,7 @@ pub mod search;
 pub mod store;
 
 pub use capture::{Capture, CapturedFormats, SizeLimits};
-pub use config::{Config, ConfigFile, Platform, PrivacyDecision, PrivacyMode, PrivacyRule};
+pub use config::{Config, ConfigFile, Platform, PrivacyDecision, PrivacyMode, PrivacyRule, Theme};
 pub use error::{Error, Result};
 pub use hlc::{Clock, ManualClock, SystemClock};
 pub use model::{
