@@ -1,12 +1,19 @@
 {
   "bundle": {
-    "targets": ["deb"],
+    "targets": [
+      "deb"
+    ],
     "linux": {
       "deb": {
         "files": {
           "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/extension.js": "../../extension/extension.js",
           "/usr/share/gnome-shell/extensions/tailcopy@moorew.github.io/metadata.json": "../../extension/metadata.json",
-          "/usr/share/glib-2.0/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml": "../../extension/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml"
+          "/usr/share/glib-2.0/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml": "../../extension/schemas/org.gnome.shell.extensions.tailcopy.gschema.xml",
+          "/usr/share/icons/hicolor/16x16/apps/tailcopy.png": "../../design/assets/app-icon/png/linux-16.png",
+          "/usr/share/icons/hicolor/512x512/apps/tailcopy.png": "../../design/assets/app-icon/png/linux-512.png",
+          "/usr/share/icons/hicolor/scalable/apps/tailcopy.svg": "../../design/assets/app-icon/linux.svg",
+          "/usr/share/icons/hicolor/64x64/apps/tailcopy.png": "../../design/assets/app-icon/png/linux-64.png",
+          "/usr/share/icons/hicolor/256x256/apps/tailcopy.png": "../../design/assets/app-icon/png/linux-256.png"
         }
       }
     }

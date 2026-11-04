@@ -256,6 +256,7 @@ pub fn status_changed(app: &AppHandle) {
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
         let status = crate::commands::build_status(&app2).await;
+        crate::tray::set_tailscale_running(status.tailscale == "running");
         let _ = app2.emit("status-changed", status);
         crate::tray::refresh(&app2);
     });

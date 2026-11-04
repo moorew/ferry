@@ -4,7 +4,7 @@
   import type { RuleMode, Settings, Status } from '../lib/types';
   import { bytes, isMac } from '../lib/format';
   import ShortcutInput from '../components/ShortcutInput.svelte';
-  import Logo from '../components/Logo.svelte';
+  import Lockup from '../components/Lockup.svelte';
 
   let { status, onSetup }: { status: Status | null; onSetup: () => void } = $props();
 
@@ -206,9 +206,9 @@
       </section>
 
       <section class="about">
-        <Logo size={40} />
         <div>
-          <p class="name">TailCopy {status?.version ?? ''}</p>
+          <Lockup height={32} />
+          <p class="name version">Version {status?.version ?? ''}</p>
           <p class="desc">Your clipboard history, on your devices, over your own tailnet. No accounts, no cloud, no tracking.</p>
           <p class="desc">Free and open source. Set in Bricolage Grotesque, Figtree and JetBrains Mono (SIL Open Font License).</p>
         </div>
@@ -441,5 +441,9 @@
     gap: 16px;
     align-items: flex-start;
     border-bottom: 0;
+  }
+
+  .version {
+    margin-top: 10px;
   }
 </style>

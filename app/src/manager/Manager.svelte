@@ -3,7 +3,7 @@
   import { api, on } from '../lib/api';
   import type { Status } from '../lib/types';
   import Icon from '../components/Icon.svelte';
-  import Logo from '../components/Logo.svelte';
+  import Lockup from '../components/Lockup.svelte';
   import History from './History.svelte';
   import Settings from './Settings.svelte';
   import FirstRun from './FirstRun.svelte';
@@ -59,7 +59,7 @@
 {:else}
   <div class="shell">
     <nav class="side" aria-label="Sections">
-      <div class="brand"><Logo size={22} /><span>TailCopy</span></div>
+      <div class="brand"><Lockup height={28} /></div>
 
       <p class="group">History</p>
       {#each filters as f (f.id)}
@@ -132,11 +132,7 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
     padding: 2px 8px 14px;
-    font-size: var(--tc-text-setting);
-    font-weight: 600;
-    letter-spacing: -0.01em;
   }
 
   .group {
