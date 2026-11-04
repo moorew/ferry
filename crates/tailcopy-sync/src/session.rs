@@ -232,11 +232,12 @@ impl Ctx<'_> {
         loop {
             let their = self.peer_has.lock().unwrap().clone();
             let peer = self.peer.device_id.clone();
+            let node = self.who.stable_id.clone();
             let inline = self.inner.cfg().inline_blob_bytes;
             let (ops, blobs) = self
                 .inner
                 .store
-                .call(move |s| outgoing(s, &their, &peer, inline))
+                .call(move |s| outgoing(s, &their, &peer, &node, inline))
                 .await??;
             if ops.is_empty() {
                 return Ok(total);
@@ -446,13 +447,16 @@ fn outgoing(
     s: &mut tailcopy_core::Store,
     their: &VersionVector,
     peer: &DeviceId,
+    node: &str,
     inline: u64,
 ) -> tailcopy_core::Result<(Vec<Op>, Vec<(Hash32, Vec<u8>)>)> {
     let ops = s.ops_for_peer(their, MAX_OPS_PER_FRAME)?;
     if ops.is_empty() {
         return Ok((ops, Vec::new()));
     }
-    let send = s.sync_flags()?.get(peer).is_none_or(|f| f.send);
+    // The device id is the peer's own claim; Send off also follows the tailnet
+    // node behind it, so a new id from the same node doesn't escape the switch.
+    let send = s.sync_flags()?.get(peer).is_none_or(|f| f.send) && s.node_send_enabled(node)?;
     let me = s.device_id().clone();
     let ops: Vec<Op> = ops
         .into_iter()

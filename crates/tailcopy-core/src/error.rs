@@ -41,6 +41,9 @@ pub enum Error {
     #[error("blob hash mismatch")]
     BlobHashMismatch,
 
+    #[error("blob is larger than the size its clip declared")]
+    BlobTooLarge,
+
     #[error("unknown clip {0}")]
     UnknownClip(String),
 

@@ -736,6 +736,7 @@ impl ConfigFile {
             path: dir.to_owned(),
             source,
         })?;
+        crate::store::owner_only(dir)?;
         let tmp = path.with_extension("toml.tmp");
         std::fs::write(&tmp, text)
             .and_then(|()| std::fs::rename(&tmp, path))

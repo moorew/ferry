@@ -1,12 +1,18 @@
 //! The `tailcopy` command line and single-instance handling (SPEC 5.2).
 //!
-//! A second launch connects to the running instance's local socket
-//! (`tailcopy-<username>`), forwards its command, prints any reply and exits.
+//! A second launch connects to the running instance's local socket, forwards its
+//! command, prints any reply and exits. The socket is reachable only by this user:
+//! on Unix it lives in a directory only the user can enter, on Windows the pipe's
+//! access list names only its owner.
 
 use std::io;
 
+#[cfg(unix)]
+use interprocess::local_socket::{GenericFilePath, ToFsName};
+#[cfg(windows)]
+use interprocess::local_socket::{GenericNamespaced, ToNsName};
 use interprocess::local_socket::{
-    GenericFilePath, GenericNamespaced, ListenerOptions, Name, ToFsName, ToNsName,
+    ListenerOptions, Name,
     tokio::{Listener, Stream, prelude::*},
 };
 use serde::{Deserialize, Serialize};
@@ -68,18 +74,47 @@ pub struct Request {
     pub reply: oneshot::Sender<String>,
 }
 
+#[cfg(unix)]
 fn socket_name() -> io::Result<Name<'static>> {
-    let user = std::env::var("USER")
-        .or_else(|_| std::env::var("USERNAME"))
-        .unwrap_or_else(|_| "user".into());
-    let name = format!("{IPC_SOCKET_PREFIX}-{user}");
-    if GenericNamespaced::is_supported() {
-        name.to_ns_name::<GenericNamespaced>()
-    } else {
-        std::env::temp_dir()
-            .join(format!("{name}.sock"))
-            .to_fs_name::<GenericFilePath>()
+    socket_dir()?
+        .join(format!("{IPC_SOCKET_PREFIX}.sock"))
+        .to_fs_name::<GenericFilePath>()
+}
+
+/// A directory only this user can enter: `$XDG_RUNTIME_DIR/tailcopy` where there is
+/// one, otherwise `tailcopy-<uid>` in the temporary directory (per-user on macOS).
+/// Refuses a directory someone else created or opened up.
+#[cfg(unix)]
+fn socket_dir() -> io::Result<std::path::PathBuf> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+    // SAFETY: getuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    let dir = match std::env::var_os("XDG_RUNTIME_DIR") {
+        Some(d) if !d.is_empty() => std::path::PathBuf::from(d).join(IPC_SOCKET_PREFIX),
+        _ => std::env::temp_dir().join(format!("{IPC_SOCKET_PREFIX}-{uid}")),
+    };
+    match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+        Ok(()) => {}
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(e),
     }
+    let meta = std::fs::symlink_metadata(&dir)?;
+    if !meta.is_dir() || meta.uid() != uid {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("{} isn't a directory owned by this user", dir.display()),
+        ));
+    }
+    if meta.permissions().mode() & 0o077 != 0 {
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(dir)
+}
+
+#[cfg(windows)]
+fn socket_name() -> io::Result<Name<'static>> {
+    let user = std::env::var("USERNAME").unwrap_or_else(|_| "user".into());
+    format!("{IPC_SOCKET_PREFIX}-{user}").to_ns_name::<GenericNamespaced>()
 }
 
 /// Sends `command` to a running instance. `Ok(None)` means none is running.
@@ -98,10 +133,20 @@ pub async fn forward(command: Command) -> io::Result<Option<String>> {
 /// Listens for commands from later launches; each arrives on the returned channel.
 /// Must be called inside the async runtime.
 pub async fn listen() -> io::Result<mpsc::Receiver<Request>> {
-    let listener = ListenerOptions::new()
+    let options = ListenerOptions::new()
         .name(socket_name()?)
-        .try_overwrite(true)
-        .create_tokio()?;
+        .try_overwrite(true);
+    #[cfg(windows)]
+    let options = {
+        use interprocess::os::windows::{
+            local_socket::ListenerOptionsExt, security_descriptor::SecurityDescriptor,
+        };
+        // Full access for the pipe's owner (this user) and SYSTEM, nobody else.
+        let sddl = widestring::U16CString::from_str("D:P(A;;GA;;;OW)(A;;GA;;;SY)")
+            .map_err(io::Error::other)?;
+        options.security_descriptor(SecurityDescriptor::deserialize(&sddl)?)
+    };
+    let listener = options.create_tokio()?;
     let (tx, rx) = mpsc::channel(16);
     tauri::async_runtime::spawn(serve(listener, tx));
     Ok(rx)

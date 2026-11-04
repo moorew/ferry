@@ -12,6 +12,11 @@ use crate::error::{Error, Result};
 pub type Hash32 = ByteArray<32>;
 
 /// BLAKE3 of `bytes`.
+/// The group key a stub or tombstone carries in place of the content hash.
+pub fn stub_group_key(clip: &ClipId) -> Hash32 {
+    blake3_hash(clip.0.as_bytes())
+}
+
 pub fn blake3_hash(bytes: &[u8]) -> Hash32 {
     ByteArray::new(*blake3::hash(bytes).as_bytes())
 }
@@ -238,11 +243,15 @@ impl Op {
         Ok(rmp_serde::from_slice(bytes)?)
     }
 
-    /// This op rewritten as a stub: preview and formats cleared, `trimmed = true`.
-    /// Ops other than `ClipAdded` are returned unchanged.
+    /// This op rewritten as a stub: preview and formats cleared, `trimmed = true`,
+    /// and the content-derived `group_key` replaced by one derived from the clip id,
+    /// so nothing about the content is left (SPEC 6.5). Ops other than `ClipAdded`
+    /// are returned unchanged.
     pub fn to_stub(&self) -> Op {
         let mut op = self.clone();
         if let OpBody::ClipAdded {
+            clip_id,
+            group_key,
             preview,
             formats,
             source_app,
@@ -250,6 +259,7 @@ impl Op {
             ..
         } = &mut op.body
         {
+            *group_key = stub_group_key(clip_id);
             preview.clear();
             formats.clear();
             *source_app = None;

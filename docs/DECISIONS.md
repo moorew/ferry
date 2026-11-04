@@ -7,6 +7,39 @@ written into SPEC.md).
 
 ---
 
+## D-026 · Security fixes from the first audit (v0.2.1) · landed
+
+The first security audit (4 November; source and sandboxed local runs only) confirmed
+one high and seven low findings. v0.2.1 fixes them; SPEC 5.2, 6.5, 8.5 and 11 now say
+so:
+
+- **Own address (high).** Whois of this node's own Tailscale address returns this node,
+  which passed "same user", so any local process could sync the full history. The
+  server now refuses connections from its own addresses before whois.
+- **Send and Receive follow the tailnet node.** The switches were keyed on the device
+  id a peer claims, so a new id (a restored backup, a cloned profile, a modified
+  client) escaped them. A new id from a node inherits that node's switches, changing a
+  switch changes it for every id from that node, and Send, Receive and blob requests
+  are all checked against the node.
+- **Strict mode** now ends open sessions when it is turned on.
+- **Blob size.** A fetched blob is capped at the smaller of its declared size and
+  `max_fetch_bytes` while it downloads, and `put_blob` refuses one larger than declared.
+- **Stubs and tombstones** no longer keep BLAKE3 of the deleted text; older stubs are
+  rewritten once at startup and on arrival from older peers.
+- **CLI socket** is owner-only (see SPEC 5.2). On Linux it was an abstract socket any
+  local user could reach or claim first.
+- **Unreadable config.toml** fails safe instead of falling back to defaults silently.
+
+Also from the audit's leads: a navigation guard keeps both windows on TailCopy's own
+pages; local clipboard changes count even while paused, so a live mirror can't
+overwrite them; the Windows `CF_BITMAP` uses a 40-byte header; CI and release pin
+every action to a commit SHA with read-only tokens, and nothing is built or signed
+unless the tag is on `main`.
+
+Still open, for the owner: whether a Tailscale **login or tailnet switch** should hold
+back history captured under the previous login (today it syncs to the new login's
+devices), and the remaining leads that need a real Windows, macOS or GNOME machine.
+
 ## D-025 · v0.2.0 ships sync before the M2 gate · landed
 
 Owner decision (3 November): release tailnet sync as **v0.2.0**, a full release like

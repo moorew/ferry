@@ -204,8 +204,9 @@ async fn mirror(app: &AppHandle, live: Vec<Op>) {
     let Some(payload) = crate::picker::load(&state, id.as_str()).await else {
         return;
     };
-    // Something newer happened here while the content was on its way.
-    if state.local_clip_hlc.fetch_max(op.hlc, Ordering::SeqCst) >= op.hlc {
+    // Something newer happened here while the content was on its way, or capture
+    // was paused meanwhile.
+    if state.is_paused() || state.local_clip_hlc.fetch_max(op.hlc, Ordering::SeqCst) >= op.hlc {
         return;
     }
     if write_background(app, payload).await {

@@ -145,10 +145,19 @@ fn setup(
         Session::Gnome => Platform::Gnome,
         _ => Platform::current(),
     };
+    // An unreadable config.toml must not quietly drop the user's privacy rules:
+    // keep a copy of it and start with capture paused (fail safe), and say so.
+    let mut config_problem = None;
     let config = ConfigFile::load(&paths.config, platform).unwrap_or_else(|e| {
+        let kept = paths.config.with_extension("toml.bad");
+        let _ = std::fs::copy(&paths.config, &kept);
         tracing::error!(
-            "config.toml couldn't be read ({e}); using defaults until you save Settings"
+            "config.toml couldn't be read ({e}); kept a copy as {}, capture paused",
+            kept.display()
         );
+        config_problem = Some(format!(
+            "Your settings file has a problem ({e}), so capture is paused. A copy was kept as config.toml.bad; fix the file and restart, or resume to use the default settings."
+        ));
         ConfigFile::default_for(platform)
     });
     let display_name = match config.config.general.device_name.as_str() {
@@ -168,6 +177,10 @@ fn setup(
     let db = db::Db::spawn(store)?;
     app.manage(AppState::new(db, config, paths.config, paths.data, session));
     tracing::info!(?session, "session detected");
+    if let Some(problem) = &config_problem {
+        state::set_paused(app, true);
+        picker::notify(app, problem);
+    }
 
     #[cfg(target_os = "macos")]
     if let Err(e) = app.set_activation_policy(tauri::ActivationPolicy::Accessory) {
@@ -500,7 +513,10 @@ mod gnome {
                 },
                 () = &mut settle, if pending.is_some() => {
                     let (mimetypes, source_app) = pending.take().expect("pending change");
-                    if !state.is_paused() {
+                    if state.is_paused() {
+                        // Not read, but still a local change (SPEC 7.6).
+                        crate::sync::note_local_change(&app).await;
+                    } else {
                         match gnome.read(&mimetypes, &source_app).await {
                             Ok(c) => crate::state::ingest(&app, c).await,
                             Err(e) => tracing::warn!("reading the clipboard failed: {e}"),
@@ -515,6 +531,9 @@ mod gnome {
                     source_app,
                 } => {
                     tracing::debug!(?mimetypes, %source_app, "clipboard changed");
+                    // Count it now rather than after the settle, so a mirror can't
+                    // land in between (SPEC 7.6).
+                    crate::sync::note_local_change(&app).await;
                     pending = Some((mimetypes, source_app));
                     settle
                         .as_mut()

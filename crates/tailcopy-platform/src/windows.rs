@@ -6,7 +6,7 @@ use std::{sync::mpsc, time::Duration};
 
 use clipboard_rs::{
     Clipboard, ClipboardContext, ClipboardHandler, ClipboardWatcher, ClipboardWatcherContext,
-    ContentFormat, RustImageData, common::RustImage,
+    ContentFormat, common::RustImage,
 };
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use windows::Win32::{
@@ -162,10 +162,7 @@ pub fn write(clip: &Write<'_>) -> Result<WriteOutcome> {
 }
 
 fn png_to_bmp(png: &[u8]) -> Result<Vec<u8>> {
-    let img = RustImageData::from_bytes(png).map_err(|e| Error::Clipboard(e.to_string()))?;
-    img.to_bitmap()
-        .map(|b| b.get_bytes().to_vec())
-        .map_err(|e| Error::Clipboard(e.to_string()))
+    crate::bmp::png_to_bmp(png).map_err(|e| Error::Clipboard(e.to_string()))
 }
 
 /// The window that had focus when the picker opened.

@@ -308,12 +308,13 @@ impl Store {
             "UPDATE clips SET last_used_hlc = 0, sort_hlc = ?1, preview = '', plain_text = NULL,
                byte_size = 0, pinned = 0, pin_hlc = 0, pin_origin = NULL, label = NULL,
                label_hlc = 0, label_origin = NULL, deleted_hlc = ?2, source_app = NULL,
-               use_count = 0
+               use_count = 0, group_key = ?4
              WHERE id = ?3",
             params![
                 state.created_hlc as i64,
                 deleted_hlc as i64,
-                state.clip_id.0
+                state.clip_id.0,
+                crate::model::stub_group_key(&state.clip_id).as_slice()
             ],
         )?;
         self.gc_blobs(hashes)

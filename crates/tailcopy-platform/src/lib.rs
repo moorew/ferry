@@ -8,6 +8,8 @@
 
 use std::time::{Duration, Instant};
 
+#[cfg(any(windows, test))]
+mod bmp;
 #[cfg(target_os = "linux")]
 pub mod gnome;
 #[cfg(target_os = "macos")]

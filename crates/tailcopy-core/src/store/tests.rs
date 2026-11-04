@@ -956,3 +956,65 @@ fn clear_lists_what_it_saw_and_the_pins_it_kept() {
     assert_eq!(f.previews(), ["keep"]);
     f.check();
 }
+
+#[test]
+fn a_blob_larger_than_its_declared_size_is_refused() {
+    let mut f = fixture();
+    let mut p = Peer::new("peer");
+    let content = "much longer than the peer said";
+    let mut op = p.add_text(at(1), "c", content);
+    if let OpBody::ClipAdded { formats, .. } = &mut op.body {
+        formats[0].size = 4;
+    }
+    f.store.apply_remote_ops(&[op]).unwrap();
+    let hash = blake3_hash(content.as_bytes());
+    assert!(matches!(
+        f.store.put_blob(&hash, content.as_bytes()),
+        Err(Error::BlobTooLarge)
+    ));
+    assert_eq!(f.store.missing_blobs().unwrap().len(), 1);
+}
+
+#[test]
+fn deleted_and_trimmed_clips_keep_no_content_hash() {
+    let mut f = fixture();
+    let id = f.copy("4831");
+    f.copy("keep");
+    f.store.delete_row(&id).unwrap();
+    let content_key = blake3_hash(b"4831");
+    let ops = f.store.view().all_ops().unwrap();
+    for op in &ops {
+        assert!(
+            !op.encode()
+                .unwrap()
+                .windows(32)
+                .any(|w| w == &content_key[..]),
+            "an op still carries the deleted text's hash"
+        );
+    }
+    let tomb = f.store.view().get_clip(&id).unwrap().unwrap();
+    assert_ne!(tomb.clip.group_key, content_key);
+
+    // A stub from an older peer still carrying the hash is rewritten on arrival.
+    let mut p = Peer::new("old-peer");
+    let mut old_stub = p.add_text(at(5), "s", "1234");
+    if let OpBody::ClipAdded {
+        preview,
+        formats,
+        trimmed,
+        ..
+    } = &mut old_stub.body
+    {
+        preview.clear();
+        formats.clear();
+        *trimmed = true;
+    }
+    f.store.apply_remote_ops(&[old_stub]).unwrap();
+    let held = f.store.view().all_ops().unwrap();
+    let key = blake3_hash(b"1234");
+    assert!(
+        held.iter()
+            .all(|o| !o.encode().unwrap().windows(32).any(|w| w == &key[..]))
+    );
+    f.check();
+}

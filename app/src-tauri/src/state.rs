@@ -132,10 +132,12 @@ impl AppState {
 /// Runs one clipboard change through privacy rules and into the store.
 pub async fn ingest(app: &AppHandle, captured: Captured) {
     let state = app.state::<AppState>();
+    // Count every local change, paused or not, so a live mirror never overwrites
+    // something copied while capture was paused (SPEC 7.6).
+    crate::sync::note_local_change(app).await;
     if state.is_paused() {
         return;
     }
-    crate::sync::note_local_change(app).await;
     let config = state.config();
     let mut local_only = false;
     if config.privacy.respect_os_markers {
@@ -257,6 +259,7 @@ pub fn start_capture(app: &AppHandle) {
         .spawn(move || {
             for () in rx {
                 if app.state::<AppState>().is_paused() {
+                    tauri::async_runtime::block_on(crate::sync::note_local_change(&app));
                     continue;
                 }
                 match backend::read() {
