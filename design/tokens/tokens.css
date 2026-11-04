@@ -12,6 +12,7 @@
   --tc-surface: #FCFAFE;
   --tc-sunk: #EAE3F3;
   --tc-raised: #FFFFFF;
+  --tc-knob: #FFFFFF;
   --tc-tile: #EAE3F3;
   --tc-line: #E0D6EC;
   --tc-line-strong: #CBBCDD;
@@ -50,6 +51,15 @@
   --tc-font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
   --tc-tracking-display: -0.02em;
   --tc-tracking-section: 0.08em;
+  --tc-text-page: 34px;           /* font.style in tokens.json */
+  --tc-text-state: 28px;
+  --tc-text-card: 26px;
+  --tc-text-search: 17px;
+  --tc-text-setting: 15px;
+  --tc-text-body: 14px;
+  --tc-text-code: 13px;
+  --tc-text-meta: 12px;
+  --tc-text-keycap: 11px;
 
   /* shape and space */
   --tc-r-keycap: 6px;
@@ -64,6 +74,12 @@
   --tc-detail-min: 340px;
   --tc-control: 40px;
   --tc-control-sm: 32px;
+  --tc-row-history: 56px;
+  --tc-row-tile: 36px;
+  --tc-row-picker: 46px;
+  --tc-row-tile-picker: 30px;
+  --tc-toggle-w: 44px;
+  --tc-toggle-h: 26px;
 
   /* elevation */
   --tc-shadow-card: 0 1px 2px rgba(42,24,56,.06), 0 6px 16px rgba(42,24,56,.07);

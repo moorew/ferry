@@ -54,7 +54,7 @@ let clips = [...seed];
 let paused = false;
 
 const settings: Settings = {
-  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true },
+  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system' },
   hotkeys: { picker: 'Ctrl+Alt+V', pastePlain: 'Ctrl+Alt+Shift+V', pause: '' },
   retention: { maxItems: 1000, maxAgeDays: 30 },
   limits: { maxTextBytes: 1_048_576, maxImageBytes: 20_971_520 },
@@ -91,6 +91,7 @@ function status(): Status {
     firstRunDone: new URLSearchParams(location.search).get('firstrun') !== '1',
     clipCount: clips.length,
     pinnedCount: clips.filter((c) => c.pinned).length,
+    theme: settings.general.theme,
   };
 }
 
@@ -146,6 +147,7 @@ export const mock = {
         return r(structuredClone(settings));
       case 'set_settings':
         Object.assign(settings, a.settings);
+        emit('status-changed', status());
         return r(structuredClone(settings));
       case 'set_paused':
         paused = a.paused;

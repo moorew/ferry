@@ -41,6 +41,7 @@ jobs:
         run: |
           npm ci
           npm run check
+          npm run check:tokens
           npm run lint
           npm run build
       - run: cargo fmt --all --check

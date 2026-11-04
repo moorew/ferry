@@ -115,7 +115,7 @@
 <style>
   .shell {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: var(--tc-sidebar) 1fr;
     height: 100vh;
   }
 
@@ -124,8 +124,8 @@
     flex-direction: column;
     gap: 2px;
     padding: 16px 10px 12px;
-    background: var(--bg-raised);
-    border-right: 1px solid var(--hairline);
+    background: var(--tc-sunk);
+    border-right: 1px solid var(--tc-line);
     min-height: 0;
   }
 
@@ -134,18 +134,18 @@
     align-items: center;
     gap: 9px;
     padding: 2px 8px 14px;
-    font-size: var(--text-lg);
+    font-size: var(--tc-text-setting);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
 
   .group {
     margin: 12px 8px 4px;
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--fg-faint);
+    color: var(--tc-ink-3);
   }
 
   .nav {
@@ -155,25 +155,25 @@
     height: 32px;
     padding: 0 10px;
     border: 0;
-    border-radius: var(--radius-row);
+    border-radius: var(--tc-r-row);
     background: transparent;
     text-align: left;
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
   }
 
   .nav:hover {
-    background: var(--hover);
-    color: var(--fg);
+    background: var(--tc-hover);
+    color: var(--tc-ink);
   }
 
   .nav.active {
-    background: var(--fg);
-    color: var(--bg);
+    background: var(--tc-selected);
+    color: var(--tc-on-selected);
   }
 
   .count {
     margin-left: auto;
-    font-size: var(--text-sm);
+    font-size: var(--tc-text-meta);
     font-variant-numeric: tabular-nums;
     opacity: 0.7;
   }
@@ -188,26 +188,29 @@
     align-items: center;
     gap: 10px;
     padding: 10px;
-    border-radius: var(--radius-row);
-    border: 1px solid var(--hairline-strong);
-    background: var(--bg);
+    border-radius: var(--tc-r-row);
+    border: 1px solid var(--tc-line-strong);
+    background: var(--tc-surface);
     text-align: left;
   }
 
   .capture:hover {
-    background: var(--hover);
+    background: var(--tc-hover);
   }
 
   .dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
-    background: var(--fg);
+    border-radius: var(--tc-r-pill);
+    background: var(--tc-accent);
+    box-shadow: 0 0 0 4px var(--tc-accent-soft);
     flex: none;
   }
 
   .paused .dot {
-    background: var(--warn);
+    background: transparent;
+    border: 1.5px solid var(--tc-ink-2);
+    box-shadow: none;
   }
 
   .capture-text {
@@ -218,12 +221,12 @@
 
   .capture-text strong {
     font-weight: 600;
-    font-size: var(--text-md);
+    font-size: var(--tc-text-body);
   }
 
   .capture-text span {
-    font-size: var(--text-xs);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-keycap);
+    color: var(--tc-ink-2);
   }
 
   .page {

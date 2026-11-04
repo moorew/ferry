@@ -265,6 +265,11 @@ pub async fn apply_config(app: &AppHandle, config: &Config, hotkeys_changed: boo
     let limits = config.size_limits();
     let sync_source_app = config.privacy.sync_source_app;
     let policy = config.retention_policy();
+    app.set_theme(match config.general.theme {
+        tailcopy_core::Theme::System => None,
+        tailcopy_core::Theme::Light => Some(tauri::Theme::Light),
+        tailcopy_core::Theme::Dark => Some(tauri::Theme::Dark),
+    });
     let trimmed = state
         .db
         .run(move |core| {

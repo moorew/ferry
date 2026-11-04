@@ -35,6 +35,8 @@ export interface ClipDetail extends ClipRow {
   looksLikeCode: boolean;
 }
 
+export type Theme = 'system' | 'light' | 'dark';
+
 export type Session = 'windows' | 'macos' | 'gnome' | 'degraded';
 
 export type SetupStep = 'welcome' | 'extension' | 'accessibility' | 'shortcut' | 'done';
@@ -58,6 +60,7 @@ export interface Status {
   firstRunDone: boolean;
   clipCount: number;
   pinnedCount: number;
+  theme: Theme;
 }
 
 export type RuleMode = 'dont_save' | 'save_dont_sync';
@@ -73,6 +76,7 @@ export interface Settings {
     startAtLogin: boolean;
     liveMirror: boolean;
     autoPaste: boolean;
+    theme: Theme;
   };
   hotkeys: {
     picker: string;

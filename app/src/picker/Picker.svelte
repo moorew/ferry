@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { api, on } from '../lib/api';
+  import { duration, easing, reducedMotion } from '../lib/motion';
   import type { ClipDetail, ClipRow, Status } from '../lib/types';
   import { firstLine, isMac, keycaps, mod, relativeTime, rowLabel } from '../lib/format';
   import Icon from '../components/Icon.svelte';
@@ -146,15 +147,19 @@
     selected = 0;
     previewOpen = false;
     editingLabel = false;
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      shell?.animate(
-        [
-          { opacity: 0, transform: 'scale(0.985)' },
-          { opacity: 1, transform: 'none' },
-        ],
-        { duration: 100, easing: 'ease-out' },
-      );
-    }
+    const reduced = reducedMotion();
+    shell?.animate(
+      reduced
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [
+            { opacity: 0, transform: 'scale(0.98)' },
+            { opacity: 1, transform: 'none' },
+          ],
+      {
+        duration: duration(reduced ? '--tc-dur-fast' : '--tc-dur-enter'),
+        easing: easing('--tc-ease-out'),
+      },
+    );
     input?.focus();
     load();
     refreshStatus();
@@ -301,9 +306,9 @@
     inset: 0;
     display: flex;
     flex-direction: column;
-    background: var(--bg);
-    border: 1px solid var(--hairline-strong);
-    border-radius: var(--radius-window);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-line-strong);
+    border-radius: var(--tc-r-window);
     overflow: hidden;
   }
 
@@ -318,8 +323,8 @@
     gap: 10px;
     padding: 0 14px;
     height: 52px;
-    border-bottom: 1px solid var(--hairline);
-    color: var(--fg-muted);
+    border-bottom: 1px solid var(--tc-line);
+    color: var(--tc-ink-2);
   }
 
   .search input {
@@ -327,42 +332,43 @@
     min-width: 0;
     border: 0;
     outline: none;
+    box-shadow: none;
     background: transparent;
-    font-size: var(--text-lg);
-    color: var(--fg);
+    font-size: var(--tc-text-search);
+    color: var(--tc-ink);
   }
 
   .search input::placeholder {
-    color: var(--fg-faint);
+    color: var(--tc-ink-3);
   }
 
   .token {
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 500;
     padding: 2px 7px;
-    border-radius: 999px;
-    background: var(--fg);
-    color: var(--bg);
+    border-radius: var(--tc-r-pill);
+    background: var(--tc-selected);
+    color: var(--tc-on-selected);
   }
 
   .state-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--warn);
+    color: var(--tc-ink-2);
   }
 
   .banner {
     margin: 0;
     padding: 6px 14px;
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
-    background: var(--bg-raised);
-    border-bottom: 1px solid var(--hairline);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
+    background: var(--tc-surface);
+    border-bottom: 1px solid var(--tc-line);
   }
 
   .body {
@@ -388,15 +394,15 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    height: var(--row-h);
+    height: var(--tc-row-picker);
     padding: 0 8px;
-    border-radius: var(--radius-row);
-    font-size: var(--text-md);
+    border-radius: var(--tc-r-row);
+    font-size: var(--tc-text-body);
   }
 
   .row.selected {
-    background: var(--selected);
-    color: var(--selected-fg);
+    background: var(--tc-selected);
+    color: var(--tc-on-selected);
   }
 
   .glyph {
@@ -405,7 +411,7 @@
     height: 24px;
     display: grid;
     place-items: center;
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
   }
 
   .selected .glyph {
@@ -416,8 +422,8 @@
     width: 24px;
     height: 24px;
     object-fit: cover;
-    border-radius: 4px;
-    border: 1px solid var(--hairline);
+    border-radius: var(--tc-r-keycap);
+    border: 1px solid var(--tc-line);
   }
 
   .main {
@@ -450,7 +456,7 @@
     width: 100%;
     height: 26px;
     padding: 0 8px;
-    border-radius: 6px;
+    border-radius: var(--tc-r-keycap);
     border: 1px solid currentColor;
     background: transparent;
     outline: none;
@@ -462,8 +468,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: var(--text-sm);
-    color: var(--fg-faint);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-3);
     font-variant-numeric: tabular-nums;
   }
 
@@ -474,9 +480,9 @@
 
   .chip {
     padding: 1px 7px;
-    border-radius: 999px;
+    border-radius: var(--tc-r-pill);
     border: 1px solid currentColor;
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 500;
   }
 
@@ -492,12 +498,12 @@
   .hint {
     min-width: 18px;
     text-align: right;
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 600;
   }
 
   .count {
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 600;
   }
 
@@ -506,7 +512,7 @@
     place-content: center;
     text-align: center;
     gap: 4px;
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
     padding: 24px;
   }
 
@@ -515,9 +521,9 @@
   }
 
   .empty-title {
-    font-size: var(--text-lg);
+    font-size: var(--tc-text-setting);
     font-weight: 500;
-    color: var(--fg);
+    color: var(--tc-ink);
   }
 
   .keys {
@@ -526,9 +532,9 @@
     align-items: center;
     padding: 0 14px;
     height: 34px;
-    border-top: 1px solid var(--hairline);
-    font-size: var(--text-xs);
-    color: var(--fg-muted);
+    border-top: 1px solid var(--tc-line);
+    font-size: var(--tc-text-keycap);
+    color: var(--tc-ink-2);
     white-space: nowrap;
     overflow: hidden;
   }

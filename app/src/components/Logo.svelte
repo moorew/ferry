@@ -16,15 +16,15 @@
   }
 
   .tile {
-    fill: var(--fg);
+    fill: var(--tc-ink);
   }
 
   .line {
-    stroke: var(--bg);
+    stroke: var(--tc-surface);
   }
 
   .solid {
-    fill: var(--bg);
-    stroke: var(--fg);
+    fill: var(--tc-surface);
+    stroke: var(--tc-ink);
   }
 </style>

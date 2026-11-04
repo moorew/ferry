@@ -58,6 +58,8 @@ pub struct Status {
     pub first_run_done: bool,
     pub clip_count: usize,
     pub pinned_count: usize,
+    /// "system", "light" or "dark", for the windows' `data-theme`.
+    pub theme: &'static str,
 }
 
 #[derive(Serialize)]
@@ -167,6 +169,8 @@ pub struct General {
     pub start_at_login: bool,
     pub live_mirror: bool,
     pub auto_paste: bool,
+    /// "system", "light" or "dark".
+    pub theme: String,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -236,6 +240,7 @@ impl Settings {
                 start_at_login: c.general.start_at_login,
                 live_mirror: c.general.live_mirror,
                 auto_paste: c.general.auto_paste,
+                theme: c.general.theme.as_str().into(),
             },
             hotkeys: Hotkeys {
                 picker: c.hotkeys.picker.clone(),
@@ -289,6 +294,8 @@ impl Settings {
         c.general.start_at_login = self.general.start_at_login;
         c.general.live_mirror = self.general.live_mirror;
         c.general.auto_paste = self.general.auto_paste;
+        c.general.theme =
+            tailcopy_core::Theme::parse(&self.general.theme).unwrap_or(c.general.theme);
         c.hotkeys.picker = self.hotkeys.picker.clone();
         c.hotkeys.paste_plain = self.hotkeys.paste_plain.clone();
         c.hotkeys.pause = self.hotkeys.pause.clone();

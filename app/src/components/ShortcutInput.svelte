@@ -84,27 +84,27 @@
     align-items: center;
     gap: 4px;
     padding: 0 10px;
-    border-radius: var(--radius-control);
-    border: 1px solid var(--hairline-strong);
-    background: var(--bg);
+    border-radius: var(--tc-r-control);
+    border: 1px solid var(--tc-line-strong);
+    background: var(--tc-surface);
   }
 
   .shortcut:hover {
-    background: var(--hover);
+    background: var(--tc-hover);
   }
 
   .recording {
-    border-color: var(--fg);
-    box-shadow: 0 0 0 1px var(--fg) inset;
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 4px var(--tc-accent-soft);
   }
 
   .hint {
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
   }
 
   kbd {
-    font-size: var(--text-sm);
+    font-size: var(--tc-text-meta);
     padding: 1px 6px;
   }
 </style>

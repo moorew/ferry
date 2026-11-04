@@ -8,7 +8,8 @@
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "lint": "eslint .",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "check:tokens": "node scripts/check-tokens.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4"

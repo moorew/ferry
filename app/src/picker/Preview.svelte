@@ -40,8 +40,8 @@
 
 <style>
   .preview {
-    border-left: 1px solid var(--hairline);
-    background: var(--bg-raised);
+    border-left: 1px solid var(--tc-line);
+    background: var(--tc-surface);
     display: grid;
     grid-template-rows: 1fr auto;
     min-height: 0;
@@ -58,20 +58,20 @@
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: var(--font);
-    font-size: var(--text-md);
+    font-family: var(--tc-font-ui);
+    font-size: var(--tc-text-body);
     user-select: text;
   }
 
   pre.code {
-    font-family: var(--mono);
-    font-size: var(--text-sm);
+    font-family: var(--tc-font-mono);
+    font-size: var(--tc-text-meta);
     white-space: pre;
     word-break: normal;
   }
 
   .rich {
-    font-size: var(--text-md);
+    font-size: var(--tc-text-body);
     user-select: text;
   }
 
@@ -89,21 +89,21 @@
     max-height: 100%;
     margin: auto;
     object-fit: contain;
-    border-radius: 6px;
+    border-radius: var(--tc-r-keycap);
   }
 
   .missing {
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
     margin: 0;
   }
 
   .facts {
     margin: 0;
     padding: 10px 14px;
-    border-top: 1px solid var(--hairline);
+    border-top: 1px solid var(--tc-line);
     display: grid;
     gap: 3px;
-    font-size: var(--text-sm);
+    font-size: var(--tc-text-meta);
   }
 
   .facts div {
@@ -114,7 +114,7 @@
   dt {
     width: 54px;
     flex: none;
-    color: var(--fg-faint);
+    color: var(--tc-ink-3);
   }
 
   dd {
@@ -129,7 +129,7 @@
     margin: 16px;
     height: 12px;
     width: 40%;
-    border-radius: 6px;
-    background: var(--bg-sunk);
+    border-radius: var(--tc-r-keycap);
+    background: var(--tc-sunk);
   }
 </style>

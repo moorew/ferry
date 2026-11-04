@@ -76,6 +76,16 @@
           <div><p class="name">Device name</p><p class="desc">How this device appears on your other devices. Leave empty to use its Tailscale name.</p></div>
           <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder="Tailscale name" />
         </div>
+        <div class="item">
+          <div><p class="name">Appearance</p><p class="desc">System follows your light or dark setting.</p></div>
+          <div class="segmented" role="radiogroup" aria-label="Appearance">
+            {#each [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as [value, text] (value)}
+              <label class:on={settings.general.theme === value}>
+                <input type="radio" name="theme" {value} bind:group={settings.general.theme} onchange={save} />{text}
+              </label>
+            {/each}
+          </div>
+        </div>
         <label class="item">
           <div><p class="name">Start at login</p><p class="desc">Keep TailCopy running in the background so your history is always there.</p></div>
           <input type="checkbox" class="switch" bind:checked={settings.general.startAtLogin} onchange={save} />
@@ -200,7 +210,7 @@
         <div>
           <p class="name">TailCopy {status?.version ?? ''}</p>
           <p class="desc">Your clipboard history, on your devices, over your own tailnet. No accounts, no cloud, no tracking.</p>
-          <p class="desc">Free and open source. Set in Commissioner (SIL Open Font License).</p>
+          <p class="desc">Free and open source. Set in Bricolage Grotesque, Figtree and JetBrains Mono (SIL Open Font License).</p>
         </div>
       </section>
     </div>
@@ -224,20 +234,22 @@
     align-items: center;
     gap: 12px;
     padding: 14px 24px;
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--tc-line);
   }
 
   h1 {
     margin: 0;
-    font-size: var(--text-xl);
-    font-weight: 600;
+    font-size: var(--tc-text-page);
+    font-family: var(--tc-font-display);
+    font-weight: 800;
+    letter-spacing: var(--tc-tracking-display);
   }
 
   .saved {
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
     opacity: 0;
-    transition: opacity 150ms;
+    transition: opacity var(--tc-dur-fast) var(--tc-ease-out);
   }
 
   .saved.show {
@@ -252,16 +264,16 @@
   section {
     max-width: 760px;
     padding: 18px 0;
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--tc-line);
   }
 
   h2 {
     margin: 0 0 10px;
-    font-size: var(--text-xs);
+    font-size: var(--tc-text-keycap);
     font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: var(--fg-faint);
+    color: var(--tc-ink-3);
   }
 
   .item {
@@ -285,15 +297,15 @@
 
   .desc {
     margin: 2px 0 0;
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
     max-width: 56ch;
   }
 
   .value {
     margin: 0;
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
   }
 
   .pair {
@@ -301,11 +313,11 @@
     align-items: center;
     gap: 6px;
     flex: none;
-    font-size: var(--text-sm);
+    font-size: var(--tc-text-meta);
   }
 
   .or {
-    color: var(--fg-faint);
+    color: var(--tc-ink-3);
     margin: 0 4px;
   }
 
@@ -316,35 +328,70 @@
   .switch {
     appearance: none;
     flex: none;
-    width: 38px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--bg-sunk);
-    border: 1px solid var(--hairline-strong);
+    width: var(--tc-toggle-w);
+    height: var(--tc-toggle-h);
+    margin: 0;
+    border-radius: var(--tc-r-pill);
+    background: var(--tc-line-strong);
     position: relative;
-    transition: background 120ms;
+    transition: background var(--tc-dur-fast) var(--tc-ease-out);
   }
 
   .switch::after {
     content: '';
     position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--bg);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
-    transition: transform 120ms;
+    top: 3px;
+    left: 3px;
+    width: calc(var(--tc-toggle-h) - 6px);
+    height: calc(var(--tc-toggle-h) - 6px);
+    border-radius: var(--tc-r-pill);
+    background: var(--tc-knob);
+    box-shadow: var(--tc-shadow-card);
+    transition: transform var(--tc-dur-fast) var(--tc-ease-out);
   }
 
   .switch:checked {
-    background: var(--fg);
-    border-color: var(--fg);
+    background: var(--tc-accent);
   }
 
   .switch:checked::after {
-    transform: translateX(16px);
+    transform: translateX(calc(var(--tc-toggle-w) - var(--tc-toggle-h)));
+  }
+
+  .segmented {
+    display: inline-flex;
+    flex: none;
+    padding: 3px;
+    gap: 2px;
+    border-radius: var(--tc-r-control);
+    background: var(--tc-sunk);
+  }
+
+  .segmented label {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--tc-control-sm) - 6px);
+    padding: 0 12px;
+    border-radius: calc(var(--tc-r-control) - 3px);
+    font-size: var(--tc-text-meta);
+    font-weight: 600;
+    color: var(--tc-ink-2);
+  }
+
+  .segmented label.on {
+    background: var(--tc-surface);
+    color: var(--tc-ink);
+    box-shadow: var(--tc-shadow-card);
+  }
+
+  .segmented label:has(:focus-visible) {
+    box-shadow: var(--tc-focus);
+  }
+
+  .segmented input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .rules {
@@ -379,14 +426,14 @@
 
   .warning {
     margin: 4px 0 0;
-    font-size: var(--text-sm);
-    color: var(--warn);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-danger);
   }
 
   .soon {
     margin: 6px 0 0;
-    font-size: var(--text-sm);
-    color: var(--fg-muted);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
   }
 
   .about {

@@ -218,6 +218,7 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> CmdResult<Setti
         (file.config.clone(), before != file.config.hotkeys)
     };
     crate::apply_config(&app, &config, hotkeys_changed).await;
+    crate::state::status_changed(&app);
     Ok(Settings::from_config(&config))
 }
 
@@ -262,6 +263,7 @@ pub async fn build_status(app: &AppHandle) -> Status {
         first_run_done: state.first_run_done(),
         clip_count,
         pinned_count,
+        theme: state.config().general.theme.as_str(),
     };
     #[cfg(target_os = "linux")]
     {

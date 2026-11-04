@@ -1,74 +1,15 @@
-/* TailCopy design tokens (SPEC 10.4, D-016): Commissioner, black and white with
-   neutral greys, colour only for state. */
-@font-face {
-  font-family: 'Commissioner';
-  src: url('./assets/fonts/Commissioner.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: block;
-}
+/* Every colour, size, radius and duration comes from the design tokens (SPEC 10.4,
+   D-021). Add a token there before using a new value here. */
+@import '../../design/tokens/tokens.css';
 
 :root {
-  --font: 'Commissioner', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Ubuntu Mono', monospace;
-
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 26px;
-
-  --row-h: 36px;
-  --radius-window: 12px;
-  --radius-row: 8px;
-  --radius-control: 7px;
-
-  --bg: #ffffff;
-  --bg-raised: #f6f6f5;
-  --bg-sunk: #eeeeec;
-  --fg: #0d0d0d;
-  --fg-muted: #5e5e5b;
-  --fg-faint: #8f8f8b;
-  --hairline: rgb(13 13 13 / 8%);
-  --hairline-strong: rgb(13 13 13 / 16%);
-  --selected: #0d0d0d;
-  --selected-fg: #ffffff;
-  --hover: rgb(13 13 13 / 5%);
-  --focus: #0d0d0d;
-  --danger: #b3261e;
-  --warn: #8a5a00;
-  --shadow: 0 18px 50px rgb(0 0 0 / 22%), 0 2px 8px rgb(0 0 0 / 10%);
-
-  color-scheme: light;
-  font-family: var(--font);
-  font-size: var(--text-md);
-  line-height: 1.45;
-  color: var(--fg);
-  background: var(--bg);
+  font-family: var(--tc-font-ui);
+  font-size: var(--tc-text-body);
+  line-height: 1.43;
+  color: var(--tc-ink);
+  background: var(--tc-bg);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141414;
-    --bg-raised: #1c1c1c;
-    --bg-sunk: #0e0e0e;
-    --fg: #f3f3f1;
-    --fg-muted: #a6a6a2;
-    --fg-faint: #6f6f6b;
-    --hairline: rgb(243 243 241 / 8%);
-    --hairline-strong: rgb(243 243 241 / 16%);
-    --selected: #f3f3f1;
-    --selected-fg: #0d0d0d;
-    --hover: rgb(243 243 241 / 6%);
-    --focus: #f3f3f1;
-    --danger: #ff8a80;
-    --warn: #f0c060;
-    --shadow: 0 18px 50px rgb(0 0 0 / 55%), 0 2px 8px rgb(0 0 0 / 40%);
-    color-scheme: dark;
-  }
 }
 
 *,
@@ -84,7 +25,7 @@ body {
 }
 
 body {
-  background: var(--bg);
+  background: var(--tc-bg);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -107,8 +48,8 @@ textarea,
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--tc-focus);
 }
 
 button {
@@ -119,63 +60,71 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 32px;
+  gap: 8px;
+  height: var(--tc-control-sm);
   padding: 0 14px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--hairline-strong);
-  background: var(--bg);
-  font-size: var(--text-md);
-  font-weight: 500;
+  border-radius: var(--tc-r-control);
+  border: 1px solid var(--tc-line-strong);
+  background: transparent;
+  font-size: var(--tc-text-body);
+  font-weight: 600;
   white-space: nowrap;
+  transition: background var(--tc-dur-fast) var(--tc-ease-out);
 }
 
 .btn:hover {
-  background: var(--hover);
+  background: var(--tc-hover);
 }
 
 .btn.primary {
-  background: var(--fg);
-  border-color: var(--fg);
-  color: var(--bg);
+  background: var(--tc-selected);
+  border-color: var(--tc-selected);
+  color: var(--tc-on-selected);
 }
 
 .btn.primary:hover {
-  opacity: 0.88;
+  background: var(--tc-selected-tile);
+  border-color: var(--tc-selected-tile);
 }
 
 .btn.danger {
-  color: var(--danger);
+  color: var(--tc-danger);
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   pointer-events: none;
 }
 
 .field {
-  height: 32px;
+  height: var(--tc-control-sm);
   padding: 0 10px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--hairline-strong);
-  background: var(--bg);
+  border-radius: var(--tc-r-control);
+  border: 1px solid var(--tc-line-strong);
+  background: var(--tc-surface);
   outline: none;
   min-width: 0;
 }
 
+.field::placeholder {
+  color: var(--tc-ink-3);
+}
+
 .field:focus {
-  border-color: var(--fg);
+  border-color: var(--tc-accent);
+  box-shadow: 0 0 0 4px var(--tc-accent-soft);
 }
 
 kbd {
-  font-family: var(--font);
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-family: var(--tc-font-ui);
+  font-size: var(--tc-text-keycap);
+  font-weight: 600;
   padding: 1px 5px;
-  border-radius: 4px;
-  border: 1px solid var(--hairline-strong);
-  color: var(--fg-muted);
-  background: var(--bg-raised);
+  border-radius: var(--tc-r-keycap);
+  border: 1px solid var(--tc-line-strong);
+  box-shadow: inset 0 -2px 0 var(--tc-line);
+  color: var(--tc-ink-2);
+  background: var(--tc-surface);
 }
 
 @media (prefers-reduced-motion: reduce) {

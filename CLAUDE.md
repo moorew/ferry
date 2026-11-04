@@ -44,7 +44,7 @@ not in the workspace or CI), `docs/`.
 
 ```sh
 # Front end (needed before building the Tauri crate: it embeds app/dist)
-cd app && npm ci && npm run check && npm run lint && npm run build
+cd app && npm ci && npm run check && npm run check:tokens && npm run lint && npm run build
 
 # Rust workspace
 cargo fmt --all --check

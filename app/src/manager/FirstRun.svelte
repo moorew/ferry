@@ -203,13 +203,13 @@
   .progress li {
     flex: 1;
     height: 3px;
-    border-radius: 2px;
-    background: var(--hairline-strong);
+    border-radius: var(--tc-r-dot);
+    background: var(--tc-line-strong);
   }
 
   .progress li.done,
   .progress li.current {
-    background: var(--fg);
+    background: var(--tc-selected);
   }
 
   .card {
@@ -221,17 +221,18 @@
 
   h1 {
     margin: 8px 0 0;
-    font-size: var(--text-2xl);
-    font-weight: 600;
-    letter-spacing: -0.015em;
+    font-size: var(--tc-text-state);
+    font-family: var(--tc-font-display);
+    font-weight: 800;
+    letter-spacing: var(--tc-tracking-display);
     text-wrap: balance;
   }
 
   .lede {
     margin: 0;
-    font-size: var(--text-lg);
+    font-size: var(--tc-text-setting);
     line-height: 1.55;
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
     max-width: 58ch;
   }
 
@@ -241,19 +242,19 @@
     align-items: center;
     gap: 14px;
     padding: 14px 16px;
-    border-radius: var(--radius-row);
-    border: 1px solid var(--hairline-strong);
-    background: var(--bg-raised);
+    border-radius: var(--tc-r-row);
+    border: 1px solid var(--tc-line-strong);
+    background: var(--tc-surface);
   }
 
   .check-row p {
     margin: 0;
     flex: 1;
-    color: var(--fg-muted);
+    color: var(--tc-ink-2);
   }
 
   .check-row strong {
-    color: var(--fg);
+    color: var(--tc-ink);
     font-weight: 600;
   }
 
@@ -263,23 +264,23 @@
     width: 28px;
     height: 28px;
     flex: none;
-    border-radius: 50%;
+    border-radius: var(--tc-r-pill);
     display: grid;
     place-items: center;
   }
 
   .ok {
-    background: var(--fg);
-    color: var(--bg);
+    background: var(--tc-selected);
+    color: var(--tc-on-selected);
   }
 
   .info {
-    border: 1.5px solid var(--fg);
+    border: 1.5px solid var(--tc-ink);
   }
 
   .warn {
-    border: 1.5px solid var(--warn);
-    color: var(--warn);
+    border: 1.5px solid var(--tc-danger);
+    color: var(--tc-danger);
   }
 
   .shortcut-row {
@@ -290,8 +291,8 @@
 
   .warning {
     margin: 0;
-    font-size: var(--text-sm);
-    color: var(--warn);
+    font-size: var(--tc-text-meta);
+    color: var(--tc-danger);
   }
 
   .nav {
@@ -304,6 +305,6 @@
   }
 
   kbd {
-    font-size: var(--text-sm);
+    font-size: var(--tc-text-meta);
   }
 </style>
