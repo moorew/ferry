@@ -3,7 +3,11 @@ use std::sync::Arc;
 use super::*;
 use crate::capture::{Capture, CapturedFormats};
 use crate::hlc::{ManualClock, pack};
-use crate::model::{ClipId, ClipKind, FormatRef, OpBody, blake3_hash, mime};
+use std::collections::BTreeMap;
+
+use crate::model::{
+    ClipId, ClipKind, DeviceName, FormatRef, OpBody, PeerSeen, SyncFlags, blake3_hash, mime,
+};
 
 const T0: u64 = 1_800_000_000_000;
 const DAY: u64 = 86_400_000;
@@ -227,6 +231,7 @@ fn local_only_and_over_cap_captures_emit_no_op() {
     f.store.set_limits(SizeLimits {
         max_text_bytes: 4,
         max_image_bytes: 10,
+        max_sync_image_bytes: 10,
     });
     let outcome = f.store.capture(&text("too long for the cap")).unwrap();
     let CaptureOutcome::Added {
@@ -524,6 +529,8 @@ fn remote_delete_and_clear() {
         OpBody::HistoryCleared {
             before_hlc: at(6),
             include_pinned: false,
+            seen: None,
+            spared: vec![],
         },
     );
     f.store.apply_remote_ops(&[clear]).unwrap();
@@ -805,5 +812,147 @@ fn use_and_pin_do_not_touch_fts() {
     f.copy("another");
     assert!(segments(&f.store) > before);
     assert_eq!(f.store.view().fts_search("indexed", 5).unwrap().len(), 1);
+    f.check();
+}
+
+#[test]
+fn ops_for_peer_follows_hlc_order_and_the_peers_vector() {
+    let mut f = fixture();
+    let mut a = Peer::new("a");
+    let mut b = Peer::new("b");
+    let ops = vec![
+        a.add_text(at(1), "a1", "one"),
+        b.add_text(at(2), "b1", "two"),
+        a.add_text(at(3), "a2", "three"),
+        b.add_text(at(4), "b2", "four"),
+    ];
+    f.store.apply_remote_ops(&ops).unwrap();
+    // A gap: b's seq 4 without seq 3 is held but not offered.
+    b.seq = 3;
+    let gap = b.add_text(at(6), "b4", "gap");
+    f.store.apply_remote_ops(&[gap]).unwrap();
+    let mine = f.copy("mine");
+
+    let all = f.store.ops_for_peer(&VersionVector::new(), 100).unwrap();
+    let order: Vec<(String, u64)> = all.iter().map(|o| (o.origin.0.clone(), o.seq)).collect();
+    let me = f.store.device_id().0.clone();
+    assert_eq!(
+        order,
+        [
+            ("a".into(), 1),
+            ("b".into(), 1),
+            ("a".into(), 2),
+            ("b".into(), 2),
+            (me.clone(), 1)
+        ]
+    );
+    let their = VersionVector::from([(DeviceId::from("a"), 2), (DeviceId::from("b"), 1)]);
+    let some = f.store.ops_for_peer(&their, 100).unwrap();
+    let order: Vec<(String, u64)> = some.iter().map(|o| (o.origin.0.clone(), o.seq)).collect();
+    assert_eq!(order, [("b".into(), 2), (me, 1)]);
+    assert_eq!(f.store.ops_for_peer(&their, 1).unwrap().len(), 1);
+    let _ = mine;
+}
+
+#[test]
+fn receive_off_keeps_the_op_but_not_the_content() {
+    let mut f = fixture();
+    let mut p = Peer::new("peer");
+    f.store
+        .record_peer(&PeerSeen {
+            device_id: "peer".into(),
+            display_name: "desk".into(),
+            now_ms: T0,
+            ..Default::default()
+        })
+        .unwrap();
+    f.store
+        .set_sync_flags(
+            &"peer".into(),
+            SyncFlags {
+                send: true,
+                receive: false,
+            },
+        )
+        .unwrap();
+    let add = p.add_text(at(1), "c1", "secret-ish");
+    f.store.apply_remote_ops(&[add]).unwrap();
+    assert!(f.previews().is_empty());
+    let held = f.store.view().all_ops().unwrap();
+    assert!(held[0].is_stub());
+    assert_eq!(
+        f.store.version_vector().unwrap()[&DeviceId::from("peer")],
+        1
+    );
+    assert!(f.store.missing_blobs().unwrap().is_empty());
+    f.check();
+}
+
+#[test]
+fn device_names_are_last_writer_wins_and_never_rename_self() {
+    let mut f = fixture();
+    let me = f.store.device_id().clone();
+    let name = |id: &DeviceId, n: &str, hlc| DeviceName {
+        device_id: id.clone(),
+        display_name: n.into(),
+        role: Role::Device,
+        updated_hlc: hlc,
+    };
+    let peer = DeviceId::from("peer");
+    assert!(
+        f.store
+            .merge_device_names(&[name(&peer, "old", 5)])
+            .unwrap()
+    );
+    assert!(
+        f.store
+            .merge_device_names(&[name(&peer, "new", 9)])
+            .unwrap()
+    );
+    assert!(
+        !f.store
+            .merge_device_names(&[name(&peer, "stale", 7)])
+            .unwrap()
+    );
+    assert!(
+        !f.store
+            .merge_device_names(&[name(&me, "hijack", u64::MAX)])
+            .unwrap()
+    );
+    let names: BTreeMap<DeviceId, String> = f
+        .store
+        .device_names()
+        .unwrap()
+        .into_iter()
+        .map(|n| (n.device_id, n.display_name))
+        .collect();
+    assert_eq!(names[&peer], "new");
+    assert_eq!(names[&me], "laptop");
+    f.store.set_self_display_name("thinkpad").unwrap();
+    let mine = f
+        .store
+        .device_names()
+        .unwrap()
+        .into_iter()
+        .find(|n| n.device_id == me)
+        .unwrap();
+    assert_eq!(mine.display_name, "thinkpad");
+    assert!(mine.updated_hlc > 0);
+}
+
+#[test]
+fn clear_lists_what_it_saw_and_the_pins_it_kept() {
+    let mut f = fixture();
+    let pinned = f.copy("keep");
+    f.copy("drop");
+    f.store.set_pinned(&pinned, true).unwrap();
+    let op = f.store.clear_history(false).unwrap();
+    let OpBody::HistoryCleared { seen, spared, .. } = &op.body else {
+        panic!()
+    };
+    assert_eq!(spared, std::slice::from_ref(&pinned));
+    assert_eq!(seen.as_ref().unwrap()[f.store.device_id()], 3);
+    // A pin from elsewhere stamped before the clear doesn't bring "drop" back.
+    assert_eq!(f.previews(), ["keep"]);
     f.check();
 }

@@ -174,6 +174,10 @@ pub struct Sync {
     pub relay_tag: String,
     /// Only devices signed in to the same Tailscale login may sync.
     pub strict_same_login: bool,
+    /// Images sync at all (handoff "What syncs").
+    pub images: bool,
+    /// Larger images stay on this device (SPEC 17 M2, D-021).
+    pub max_image_bytes: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -262,6 +266,8 @@ impl Config {
                 capability: names::DEFAULT_CAPABILITY.into(),
                 relay_tag: names::DEFAULT_RELAY_TAG.into(),
                 strict_same_login: true,
+                images: true,
+                max_image_bytes: 10_485_760,
             },
             tailscale: Tailscale {
                 cli_path: String::new(),
@@ -296,6 +302,11 @@ impl Config {
         SizeLimits {
             max_text_bytes: self.limits.max_text_bytes,
             max_image_bytes: self.limits.max_image_bytes,
+            max_sync_image_bytes: if self.sync.images {
+                self.sync.max_image_bytes
+            } else {
+                0
+            },
         }
     }
 
@@ -357,6 +368,8 @@ relay = ""                  # optional MagicDNS name or 100.x address, always di
 capability = "moorew.github.io/cap/tailcopy"
 relay_tag = "tag:tailcopy-relay"
 strict_same_login = true    # only devices signed in to the same Tailscale login may sync
+images = true               # images sync; larger than max_image_bytes stay on this device
+max_image_bytes = 10485760
 
 [tailscale]
 cli_path = ""               # empty = auto-detect
@@ -546,6 +559,8 @@ fn read_config(doc: &DocumentMut, platform: Platform) -> Result<Config> {
             capability: r.string("sync", "capability", &d.sync.capability)?,
             relay_tag: r.string("sync", "relay_tag", &d.sync.relay_tag)?,
             strict_same_login: r.bool("sync", "strict_same_login", d.sync.strict_same_login)?,
+            images: r.bool("sync", "images", d.sync.images)?,
+            max_image_bytes: r.uint("sync", "max_image_bytes", d.sync.max_image_bytes)?,
         },
         tailscale: Tailscale {
             cli_path: r.string("tailscale", "cli_path", &d.tailscale.cli_path)?,
@@ -626,7 +641,8 @@ fn write_config(doc: &mut DocumentMut, old: &Config, new: &Config) {
     write_changed!(doc, old.privacy, new.privacy, "privacy",
         respect_os_markers: b, sync_source_app: b);
     write_changed!(doc, old.sync, new.sync, "sync",
-        port: p, relay: s, capability: s, relay_tag: s, strict_same_login: b);
+        port: p, relay: s, capability: s, relay_tag: s, strict_same_login: b, images: b,
+        max_image_bytes: n);
     write_changed!(doc, old.tailscale, new.tailscale, "tailscale", cli_path: s, localapi_socket: s);
 
     if old.privacy.rules != new.privacy.rules {

@@ -8,6 +8,7 @@ use crate::error::{Error, Result};
 pub const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0001_initial.sql"),
     include_str!("migrations/0002_design.sql"),
+    include_str!("migrations/0003_sync.sql"),
 ];
 
 /// Schema version this build writes.

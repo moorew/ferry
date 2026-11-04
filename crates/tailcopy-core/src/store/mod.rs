@@ -9,6 +9,7 @@ mod blobs;
 mod materialize;
 mod read;
 pub mod schema;
+mod sync;
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -24,7 +25,7 @@ use crate::capture::SizeLimits;
 use crate::error::{Error, Result};
 use crate::hlc::{Clock, Hlc, SystemClock};
 use crate::merge::Clear;
-use crate::model::{DeviceId, DeviceInfo, Hash32, Op, OpKind, Role, VersionVector};
+use crate::model::{DeviceId, DeviceInfo, Hash32, Op, OpBody, OpKind, Role, VersionVector};
 
 /// Settings the store needs from config and the platform.
 #[derive(Clone)]
@@ -262,6 +263,17 @@ impl Store {
                     report.invalid += 1;
                     continue;
                 }
+                // Receive off for the origin (D-023): keep the log entry, not the content.
+                let stubbed;
+                let op = if !op.is_stub()
+                    && matches!(op.body, OpBody::ClipAdded { .. })
+                    && !s.receive_enabled(&op.origin)?
+                {
+                    stubbed = op.to_stub();
+                    &stubbed
+                } else {
+                    op
+                };
                 if !s.insert_op(op)? {
                     report.duplicates += 1;
                     continue;
@@ -373,12 +385,24 @@ impl Store {
         })
     }
 
-    /// Renames this device.
+    /// Renames this device. The new name wins over older ones on every peer.
     pub fn set_self_display_name(&mut self, name: &str) -> Result<()> {
+        let current: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT display_name FROM devices WHERE device_id = ?1",
+                [&self.device_id.0],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if current.as_deref() == Some(name) {
+            return Ok(());
+        }
         self.write(|s| {
+            let hlc = s.hlc.tick();
             s.conn.execute(
-                "UPDATE devices SET display_name = ?1 WHERE device_id = ?2",
-                params![name, s.device_id.0],
+                "UPDATE devices SET display_name = ?1, name_hlc = ?2 WHERE device_id = ?3",
+                params![name, hlc as i64, s.device_id.0],
             )?;
             Ok(())
         })

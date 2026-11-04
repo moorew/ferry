@@ -35,6 +35,8 @@ pub struct SizeLimits {
     /// Per text format (plain, HTML, RTF).
     pub max_text_bytes: u64,
     pub max_image_bytes: u64,
+    /// Images larger than this are kept but don't sync; 0 keeps every image local.
+    pub max_sync_image_bytes: u64,
 }
 
 impl Default for SizeLimits {
@@ -42,6 +44,7 @@ impl Default for SizeLimits {
         Self {
             max_text_bytes: 1024 * 1024,
             max_image_bytes: 20 * 1024 * 1024,
+            max_sync_image_bytes: 10 * 1024 * 1024,
         }
     }
 }
@@ -142,7 +145,11 @@ pub fn normalize(formats: &CapturedFormats, limits: &SizeLimits) -> Option<Norma
     }
     let image_size = image.as_ref().map(|i| (i.width(), i.height()));
     if let Some(png) = &png {
-        add(mime::PNG, png.clone(), limits.max_image_bytes);
+        add(
+            mime::PNG,
+            png.clone(),
+            limits.max_image_bytes.min(limits.max_sync_image_bytes),
+        );
     }
 
     let (group_key, preview, plain_text) = match (&plain, &png, image_size) {
@@ -590,6 +597,7 @@ mod tests {
         let limits = SizeLimits {
             max_text_bytes: 10,
             max_image_bytes: 50,
+            max_sync_image_bytes: 1000,
         };
         let n = normalize(
             &CapturedFormats {
@@ -619,6 +627,21 @@ mod tests {
         )
         .unwrap();
         assert!(n.over_cap);
+        // Under the storage cap but over the sync limit: kept, local only.
+        let big = SizeLimits {
+            max_image_bytes: 1 << 20,
+            max_sync_image_bytes: 50,
+            ..limits
+        };
+        let n = normalize(
+            &CapturedFormats {
+                image: Some(png(64, 64)),
+                ..Default::default()
+            },
+            &big,
+        )
+        .unwrap();
+        assert!(n.over_cap && mimes(&n) == [mime::PNG]);
     }
 
     #[test]

@@ -298,9 +298,24 @@ impl Store {
                 |r| r.get(0),
             )?;
             let before_hlc = s.hlc.last().max(newest.unwrap_or(0) as u64);
+            // D-018: the op names what it covers and which pinned clips it kept, so a
+            // pin or clip that arrives later can't change what the clear removed.
+            let seen = s.view().version_vector()?;
+            let spared = if include_pinned {
+                Vec::new()
+            } else {
+                let mut stmt = s.conn.prepare(
+                    "SELECT id FROM clips WHERE pinned = 1 AND deleted_hlc IS NULL
+                     AND local_only = 0 ORDER BY id",
+                )?;
+                stmt.query_map([], |r| Ok(ClipId(r.get(0)?)))?
+                    .collect::<Result<_, _>>()?
+            };
             s.emit(OpBody::HistoryCleared {
                 before_hlc,
                 include_pinned,
+                seen: Some(seen),
+                spared,
             })
         })
     }
