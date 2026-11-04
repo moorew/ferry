@@ -81,7 +81,7 @@ TailCopy is a keyboard-first clipboard manager for Windows, macOS and Linux. It 
 - Real-time peer-to-peer sync over the tailnet, including catch-up after offline periods.
 - Optional headless relay (binary, systemd unit, Docker image).
 - Privacy exclusions (OS secret markers, app denylist, pause).
-- Packaging for all tier-1 platforms, signed update manifests, opt-in update checks.
+- Packaging for all tier-1 platforms, signed update manifests, and the daily update check (on by default, D-028).
 
 ### 2.3 Out of scope for v1
 
@@ -515,6 +515,8 @@ Run `whois` on the remote address of every inbound connection, and on the addres
 
 Reject everything else and log the peer's node name.
 
+**Login binding.** The history belongs to the Tailscale login it was synced under, recorded the first time Tailscale answers. If this machine signs in as a different login (re-login, `tailscale switch`, another tailnet), rule 1 matches nobody and open sessions end until the user allows the new login in Settings > Tailnet (D-027).
+
 **Own address.** Before whois, refuse any connection whose remote address is one of this device's own Tailscale addresses. Whois describes this node there, which would pass rule 1, but the caller is a local process, not another device (D-026).
 
 **Strict mode (default on).** `sync.strict_same_login = true` limits both directions to rule 1: only untagged devices signed in to this device's own Tailscale login can sync. Rules 2 and 3 apply only when the user turns strict mode off, which is required for a tagged relay. Settings shows the mode, and the Devices view lists rejected peers by node name so the user can see what was refused. Turning strict mode on ends every open session, so peers admitted under rules 2 and 3 have to pass the stricter check to reconnect.
@@ -850,7 +852,7 @@ The look is defined in `design/HANDOFF.md` ("Lilac utility", D-021), with every 
 | Materials | Mica (Windows 11), vibrancy (macOS), solid (Linux; WebKitGTK has no transparent windows, so the picker is square there) |
 | Motion | Motion tokens in the handoff (open 140 ms fade and scale); reduced motion means fades only, max 120 ms |
 
-Never: upgrade prompts, promotional badges, onboarding carousels, what's-new popups, rating nags. Status marks (the tray's new dot, the arrival badge) are allowed. No success notifications: a paste that works says nothing; a paste that can't happen says "Copied. Press Ctrl V".
+Never: upgrade prompts (paid tiers, upsells; the new-release notice of D-028 is not one), promotional badges, onboarding carousels, what's-new popups, rating nags. Status marks (the tray's new dot, the arrival badge) are allowed. No success notifications: a paste that works says nothing; a paste that can't happen says "Copied. Press Ctrl V".
 
 ### 10.5 Manager window
 
@@ -1015,7 +1017,7 @@ Log timestamps for hotkey, show and paste so latency can be measured from logs.
 - `tracing` to a rolling file in `<data_dir>/logs` (7 files, 10 MB each). Info level by default.
 - Never log clip content, previews or labels. Log clip ids, kinds, sizes, MIME types and peer node names only.
 - "Copy diagnostics" in Settings produces a redacted text bundle: version, platform, backend, tailnet state, peers, counts, recent warnings.
-- No network calls other than the tailnet listener and sessions, and opt-in update checks to GitHub.
+- No network calls other than the tailnet listener and sessions, and the daily update check to GitHub's public releases API (on by default with a switch in Settings, sends nothing about the user; D-028).
 
 ---
 

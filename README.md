@@ -116,7 +116,8 @@ Ctrl+V.
 - **Only your devices.** TailCopy listens only on your Tailscale addresses and checks
   every connection with Tailscale before it reads anything. Only untagged devices
   signed in to *your* Tailscale login can sync. Anyone else on a shared tailnet is
-  refused, even if the tailnet policy allows everything.
+  refused, even if the tailnet policy allows everything. If the computer signs in to a
+  different Tailscale account, sync stops until you allow it.
 - **Live.** Copy on one device and a moment later it's in the picker on the others,
   ready to paste. Something you copied more recently is never overwritten.
 - **Catches up.** A device that was asleep or off gets everything it missed, in order,
@@ -140,8 +141,11 @@ each other directly.
 
 ## Privacy
 
-- **No accounts, no servers, no analytics, no crash reports, no update checks.** Your
+- **No accounts, no servers, no analytics, no crash reports.** Your
   clips go only to your own devices, over your tailnet.
+- **One update check a day.** TailCopy asks GitHub's public releases API whether a newer
+  version exists, and if so offers this computer's installer. Nothing about you or your
+  clipboard is sent. Turn it off in Settings > General.
 - **Secret copies are skipped.** That covers:
   - Windows' "exclude from history" flag
   - macOS concealed and transient types

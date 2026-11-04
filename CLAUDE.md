@@ -11,7 +11,8 @@ syncs history between the owner's devices over their Tailscale tailnet.
    tell the owner, and carry on with work it doesn't affect. Never work around the
    spec silently.
 2. **Hard product rules:** no telemetry, analytics, accounts, cloud services, ads,
-   upgrade prompts or nags. Never log clip contents, previews or labels.
+   upgrade prompts or nags (telling the user a new release exists is not one, D-028).
+   Never log clip contents, previews or labels.
 3. **One milestone at a time** (SPEC 17). At each gate write `docs/M<n>-REPORT.md`,
    then stop and give the owner a short summary, exact manual test steps and anything
    needed from them. Don't start the next milestone until the owner says go.
