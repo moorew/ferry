@@ -79,6 +79,7 @@ pub fn show_manager(app: &AppHandle, route: Option<&str>) {
             }
         }
     };
+    crate::tray::set_new(app, false);
     #[cfg(target_os = "macos")]
     let _ = app.show();
     let _ = window.show();
@@ -127,6 +128,7 @@ pub async fn toggle_picker(app: &AppHandle) {
     #[cfg(not(target_os = "linux"))]
     center_on_active_monitor(&window);
     let _ = app.emit_to(PICKER, "picker-shown", ());
+    crate::tray::set_new(app, false);
     #[cfg(target_os = "macos")]
     let _ = app.show();
     let _ = window.show();
@@ -245,6 +247,11 @@ pub async fn write(app: &AppHandle, payload: Payload, plain: bool) -> WriteOutco
 /// Enter or Shift+Enter in the picker (SPEC 10.2).
 pub async fn choose(app: &AppHandle, id: &str, plain: bool) {
     let state = app.state::<AppState>();
+    if !crate::sync::ensure_present(app, id, None).await {
+        hide_picker(app);
+        notify(app, "Not available yet (source offline)");
+        return;
+    }
     let Some(payload) = load(&state, id).await else {
         hide_picker(app);
         return;
@@ -269,6 +276,10 @@ pub async fn choose(app: &AppHandle, id: &str, plain: bool) {
 /// Copy without pasting (Ctrl+C in the picker, Copy in the manager).
 pub async fn copy(app: &AppHandle, id: &str) {
     let state = app.state::<AppState>();
+    if !crate::sync::ensure_present(app, id, None).await {
+        notify(app, "Not available yet (source offline)");
+        return;
+    }
     if let Some(payload) = load(&state, id).await {
         write(app, payload, false).await;
         record_use(app, id).await;

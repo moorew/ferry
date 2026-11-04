@@ -4,6 +4,7 @@
 import type {
   ClipDetail,
   ClipRow,
+  Devices,
   PasteMode,
   Settings,
   SetupStep,
@@ -63,4 +64,7 @@ export const api = {
   checkShortcut: (shortcut: string) => call<string | null>('check_shortcut', { shortcut }),
   openTailscale: () => call<void>('open_tailscale'),
   recheckTailscale: () => call<void>('recheck_tailscale'),
+  getDevices: () => call<Devices>('get_devices'),
+  setDeviceSync: (id: string, send: boolean, receive: boolean) =>
+    call<void>('set_device_sync', { id, send, receive }),
 };

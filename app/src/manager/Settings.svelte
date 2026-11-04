@@ -6,9 +6,9 @@
   // Settings (handoff section 5): its own section list, one section at a time. Every
   // change saves at once.
   import { onMount } from 'svelte';
-  import { api } from '../lib/api';
-  import type { RuleMode, Settings, Status } from '../lib/types';
-  import { bytes, isMac } from '../lib/format';
+  import { api, on } from '../lib/api';
+  import type { Devices, PeerDevice, RuleMode, Settings, Status } from '../lib/types';
+  import { bytes, isMac, relativeTime } from '../lib/format';
   import { t, type StringKey } from '../lib/strings';
   import Button from '../components/Button.svelte';
   import Character from '../components/Character.svelte';
@@ -39,7 +39,9 @@
   let shortcutWarning = $state('');
   let newRule = $state('');
   let diagnosticsCopied = $state(false);
+  let devices = $state<Devices | null>(null);
   let timer: ReturnType<typeof setTimeout>;
+  const MB = 1024 * 1024;
 
   const isGnome = $derived(status?.session === 'gnome');
   const tailscaleUp = $derived(status?.tailscale === 'running');
@@ -85,8 +87,56 @@
     }
   }
 
-  onMount(async () => {
-    settings = await api.getSettings();
+  async function loadDevices() {
+    devices = await api.getDevices();
+  }
+
+  async function setFlags(d: PeerDevice, send: boolean, receive: boolean) {
+    await api.setDeviceSync(d.id, send, receive);
+    await loadDevices();
+  }
+
+  function pathText(d: PeerDevice): string {
+    if (!d.path) return '';
+    return t(`settings.tailnet.path.${d.path}`, { region: d.pathDetail ?? '' });
+  }
+
+  function deviceLine(d: PeerDevice): string {
+    if (d.error) return d.error;
+    if (d.connected && d.caughtUp) return t('settings.tailnet.synced', { path: pathText(d) });
+    if (d.connected) return t('settings.tailnet.syncing');
+    if (d.online) return t('settings.tailnet.connecting');
+    return d.lastSeenMs
+      ? t('settings.tailnet.offline', { ago: relativeTime(d.lastSeenMs) })
+      : t('settings.tailnet.never');
+  }
+
+  const bannerLine = $derived.by(() => {
+    const n = devices?.devices.length ?? 0;
+    if (n === 0) return t('settings.tailnet.running_alone');
+    if (n === 1) return t('settings.tailnet.running_one');
+    return t('tailnet.running', { n });
+  });
+
+  function setImageLimit(mb: number) {
+    if (!settings || !Number.isFinite(mb)) return;
+    settings.sync.maxImageBytes = Math.round(Math.min(Math.max(mb, 0.0625), 1024) * MB);
+    save();
+  }
+
+  $effect(() => {
+    if (section !== 'tailnet') return;
+    loadDevices();
+    const every = setInterval(loadDevices, 10_000);
+    return () => clearInterval(every);
+  });
+
+  onMount(() => {
+    api.getSettings().then((s) => (settings = s));
+    const off = on('devices-changed', () => {
+      if (section === 'tailnet') loadDevices();
+    });
+    return () => off.then((f) => f());
   });
 </script>
 
@@ -211,7 +261,7 @@
             <DeviceAvatar device={status.thisDevice} size={40} />
             <div class="st">
               <b>{t('tailnet.connected', { device: status.thisDevice.name })}</b>
-              <span class="accent">{t('settings.tailnet.running_alone')}</span>
+              <span class="accent">{bannerLine}</span>
             </div>
             <label class="name-field">
               {t('settings.device_name')}
@@ -238,16 +288,97 @@
           </div>
         {/if}
 
+        {#if tailscaleUp && devices?.sync === 'unavailable'}
+          <p class="hint">{t('settings.tailnet.unavailable', { detail: devices.syncDetail ?? '' })}</p>
+        {/if}
+
         <section>
           <h2 class="label">{t('settings.tailnet.devices')}</h2>
           <div class="group">
-            <div class="set"><div class="st"><span>{t('settings.tailnet.devices_soon')}</span></div></div>
+            {#each devices?.devices ?? [] as d (d.id)}
+              <div class="set">
+                <DeviceAvatar device={d} size={28} />
+                <div class="st">
+                  <b>{d.name}{#if d.role === 'relay'}<span class="role">&nbsp;· {t('settings.tailnet.relay_role')}</span>{/if}</b>
+                  <span>{deviceLine(d)}</span>
+                </div>
+                <label class="mini">
+                  <span>{t('settings.tailnet.send')}</span>
+                  <Toggle
+                    checked={d.send}
+                    aria-label={t('settings.tailnet.send_to', { device: d.name })}
+                    onchange={(e) => setFlags(d, e.currentTarget.checked, d.receive)}
+                  />
+                </label>
+                <label class="mini">
+                  <span>{t('settings.tailnet.receive')}</span>
+                  <Toggle
+                    checked={d.receive}
+                    aria-label={t('settings.tailnet.receive_from', { device: d.name })}
+                    onchange={(e) => setFlags(d, d.send, e.currentTarget.checked)}
+                  />
+                </label>
+              </div>
+            {:else}
+              <div class="set"><div class="st"><span>{t('settings.tailnet.none')}</span></div></div>
+            {/each}
           </div>
+          {#if devices?.devices.length}
+            <p class="hint">{t('settings.tailnet.toggles_note')}</p>
+          {/if}
         </section>
+
+        {#if devices?.others.length}
+          <section>
+            <h2 class="label">{t('settings.tailnet.others')}</h2>
+            <div class="group">
+              {#each devices.others as o (o.name)}
+                <div class="set"><div class="st"><b>{o.name}</b><span>{o.os}</span></div></div>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if devices?.rejected.length}
+          <section>
+            <h2 class="label">{t('settings.tailnet.refused')}</h2>
+            <div class="group">
+              <div class="set"><div class="st"><span>{t('settings.tailnet.refused.desc', { names: devices.rejected.join(', ') })}</span></div></div>
+            </div>
+          </section>
+        {/if}
 
         <section>
           <h2 class="label">{t('settings.tailnet.what_syncs')}</h2>
           <div class="group">
+            <label class="set">
+              <div class="st">
+                <b>{t('settings.tailnet.images')}</b>
+                <span>{t('settings.tailnet.images.desc', { limit: bytes(settings.sync.maxImageBytes) })}</span>
+              </div>
+              <Toggle bind:checked={settings.sync.images} onchange={save} />
+            </label>
+            {#if settings.sync.images}
+              <div class="set">
+                <div class="st"><b>{t('settings.tailnet.images.limit')}</b></div>
+                <div class="pair">
+                  <input
+                    class="field num"
+                    type="number"
+                    min="1"
+                    max="1024"
+                    value={Math.round(settings.sync.maxImageBytes / MB)}
+                    onchange={(e) => setImageLimit(e.currentTarget.valueAsNumber)}
+                    aria-label={t('settings.tailnet.images.limit')}
+                  />
+                  MB
+                </div>
+              </div>
+            {/if}
+            <label class="set">
+              <div class="st"><b>{t('settings.tailnet.mirror')}</b><span>{t('settings.tailnet.mirror.desc')}</span></div>
+              <Toggle bind:checked={settings.general.liveMirror} onchange={save} />
+            </label>
             <div class="set">
               <div class="st"><b>{t('settings.tailnet.secrets')}</b><span>{t('sync.secrets')}</span></div>
               <span class="static">{t('settings.tailnet.always_skipped')}</span>
@@ -256,6 +387,16 @@
               <div class="st"><b>{t('settings.tailnet.only_mine')}</b><span>{t('settings.tailnet.only_mine.desc')}</span></div>
               <Toggle bind:checked={settings.sync.strictSameLogin} onchange={save} />
             </label>
+            <div class="set">
+              <div class="st"><b>{t('settings.tailnet.relay')}</b><span>{t('sync.relay')}</span></div>
+              <input
+                class="field"
+                bind:value={settings.sync.relay}
+                onchange={save}
+                placeholder={t('settings.tailnet.relay.placeholder')}
+                aria-label={t('settings.tailnet.relay')}
+              />
+            </div>
           </div>
         </section>
       {:else if section === 'storage'}
@@ -463,6 +604,29 @@
 
   .st .accent {
     color: var(--tc-accent-ink);
+  }
+
+  .mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    font-size: var(--tc-text-meta);
+    color: var(--tc-ink-2);
+  }
+
+  .role {
+    font-weight: 400;
+    color: var(--tc-ink-2);
+  }
+
+  .hint {
+    margin: 0;
+    padding: 0 4px;
+    font-size: var(--tc-text-small);
+    line-height: 1.4;
+    color: var(--tc-ink-2);
   }
 
   .static {

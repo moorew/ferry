@@ -1,7 +1,7 @@
 //! Tray and menu bar icon (SPEC 10.1, design handoff section 3).
 //!
-//! States here are idle, paused and offline (Tailscale not running). The syncing
-//! frames and the new-item dot arrive with sync in M2.
+//! States: idle, paused, offline (Tailscale not running) and new (something arrived
+//! from another device since the picker or the window was last open).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -19,12 +19,15 @@ const TAILSCALE_CHECK: Duration = Duration::from_secs(30);
 
 /// Last known Tailscale state, so the icon can show offline without a fresh query.
 static OFFLINE: AtomicBool = AtomicBool::new(false);
+/// Something arrived from another device and hasn't been seen yet.
+static NEW: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum TrayState {
     Idle,
     Paused,
     Offline,
+    New,
 }
 
 impl TrayState {
@@ -33,6 +36,7 @@ impl TrayState {
             TrayState::Idle => "TailCopy",
             TrayState::Paused => "TailCopy (paused)",
             TrayState::Offline => "TailCopy (Tailscale isn't running)",
+            TrayState::New => "TailCopy (new from another device)",
         }
     }
 }
@@ -49,6 +53,7 @@ macro_rules! tray_png {
             TrayState::Offline => {
                 include_bytes!(concat!("../icons/tray/tray-offline-", $variant, ".png"))
             }
+            TrayState::New => include_bytes!(concat!("../icons/tray/tray-new-", $variant, ".png")),
         }
     };
 }
@@ -91,6 +96,8 @@ fn current(app: &AppHandle) -> TrayState {
         TrayState::Paused
     } else if OFFLINE.load(Ordering::Relaxed) {
         TrayState::Offline
+    } else if NEW.load(Ordering::Relaxed) {
+        TrayState::New
     } else {
         TrayState::Idle
     }
@@ -183,6 +190,13 @@ pub fn refresh(app: &AppHandle) {
         let paused = state == TrayState::Paused;
         let _ = items.pause.set_enabled(!paused);
         let _ = items.resume.set_enabled(paused);
+    }
+}
+
+/// Shows the new-item dot (`true`) or clears it once the history has been seen.
+pub fn set_new(app: &AppHandle, new: bool) {
+    if NEW.swap(new, Ordering::Relaxed) != new {
+        refresh(app);
     }
 }
 

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[cfg(target_os = "linux")]
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use tailcopy_core::{
@@ -54,6 +54,9 @@ pub struct AppState {
     captures_since_retention: AtomicU32,
     #[cfg(target_os = "linux")]
     pub gnome: tokio::sync::OnceCell<Arc<tailcopy_platform::gnome::Gnome>>,
+    pub sync: std::sync::OnceLock<tailcopy_sync::Engine>,
+    /// HLC of the last local clipboard change; older live clips aren't mirrored.
+    pub local_clip_hlc: AtomicU64,
 }
 
 impl AppState {
@@ -85,6 +88,8 @@ impl AppState {
             captures_since_retention: AtomicU32::new(0),
             #[cfg(target_os = "linux")]
             gnome: tokio::sync::OnceCell::new(),
+            sync: std::sync::OnceLock::new(),
+            local_clip_hlc: AtomicU64::new(0),
         }
     }
 
@@ -130,6 +135,7 @@ pub async fn ingest(app: &AppHandle, captured: Captured) {
     if state.is_paused() {
         return;
     }
+    crate::sync::note_local_change(app).await;
     let config = state.config();
     let mut local_only = false;
     if config.privacy.respect_os_markers {

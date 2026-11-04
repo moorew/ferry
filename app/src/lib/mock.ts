@@ -1,7 +1,7 @@
 // A stand-in backend for working on the UI in a browser (`npm run dev`, then open
 // /?view=picker or /?view=manager). Never used inside the app.
 
-import type { ClipDetail, ClipRow, DeviceRef, Look, Settings, Status } from './types';
+import type { ClipDetail, ClipRow, DeviceRef, Devices, Look, Settings, Status } from './types';
 
 const now = Date.now();
 const min = 60_000;
@@ -90,7 +90,7 @@ const settings: Settings = {
       { match: 'Proton Pass', mode: 'dont_save' },
     ],
   },
-  sync: { port: 7441, relay: '', strictSameLogin: true },
+  sync: { port: 7441, relay: '', strictSameLogin: true, images: true, maxImageBytes: 10_485_760 },
   linux: {
     pasteKeystroke: [
       { app: 'org.gnome.Ptyxis', keystroke: 'ctrl-shift-v' },
@@ -125,6 +125,44 @@ function status(): Status {
     thisDevice: thinkpad,
     tailscaleName: 'thinkpad',
     theme: settings.general.theme,
+    deviceId: 'self',
+    syncedWith: localOnly ? 0 : 2,
+    peers: [],
+  };
+}
+
+const peer = (d: DeviceRef, id: string, extra: Partial<Devices['devices'][number]>): Devices['devices'][number] => ({
+  ...d,
+  id,
+  role: d.type === 'server' ? 'relay' : 'device',
+  os: 'linux',
+  tailscaleName: d.name,
+  online: true,
+  connected: true,
+  caughtUp: true,
+  path: 'direct',
+  pathDetail: '192.168.1.20:41641',
+  lastSeenMs: now - min,
+  lastSyncMs: now - min,
+  send: true,
+  receive: true,
+  error: null,
+  ...extra,
+});
+
+function devices(): Devices {
+  return {
+    sync: params.get('tailscale') === 'stopped' ? 'unavailable' : 'listening',
+    syncDetail: null,
+    devices: localOnly
+      ? []
+      : [
+          peer(macMini, 'mac', { os: 'macOS', path: 'derp', pathDetail: 'lhr' }),
+          peer(ubuntuDesk, 'ubuntu', {}),
+          peer(homelab, 'homelab', { online: false, connected: false, caughtUp: false, path: null, lastSeenMs: now - 26 * 60 * min }),
+        ],
+    others: [{ name: 'pixel-8', os: 'android', online: true }],
+    rejected: [],
   };
 }
 
@@ -196,6 +234,8 @@ export const mock = {
         return r('TailCopy 0.1.0 (mock)\nsession: gnome\nclips: 10');
       case 'check_shortcut':
         return r(null);
+      case 'get_devices':
+        return r(devices());
       default:
         return r(undefined);
     }

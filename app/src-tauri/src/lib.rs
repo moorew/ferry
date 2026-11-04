@@ -7,6 +7,7 @@ mod dto;
 mod logging;
 mod picker;
 mod state;
+mod sync;
 mod tailscale;
 mod tray;
 
@@ -102,6 +103,8 @@ pub fn run(initial: Command, autostart: bool) {
             commands::open_tailscale,
             commands::recheck_tailscale,
             commands::check_shortcut,
+            commands::get_devices,
+            commands::set_device_sync,
         ])
         .on_window_event(|window, event| {
             if window.label() == picker::MANAGER
@@ -185,8 +188,10 @@ fn setup(
     }
 
     let config = app.state::<AppState>().config();
+    crate::tailscale::init(&config);
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
+        crate::sync::start(&handle);
         apply_config(&handle, &config, true).await;
     });
 
@@ -291,6 +296,9 @@ pub async fn apply_config(app: &AppHandle, config: &Config, hotkeys_changed: boo
         .await;
     if matches!(trimmed, Ok(n) if n > 0) {
         state::clips_changed(app);
+    }
+    if let Some(engine) = state.sync.get() {
+        engine.set_config(crate::sync::engine_config(config));
     }
     if hotkeys_changed {
         hotkeys::bind(app, config).await;

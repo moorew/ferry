@@ -4,10 +4,12 @@
   // whose hints are also buttons.
   import { onMount, tick } from 'svelte';
   import { api, on } from '../lib/api';
+  import { arrived, windowShown } from '../lib/arrivals.svelte';
   import { duration, easing, reducedMotion } from '../lib/motion';
   import type { ClipDetail, ClipRow, Status } from '../lib/types';
   import { firstLine, isMac, lookIcon, mod, relativeTime, rowLabel } from '../lib/format';
   import { t, type StringKey } from '../lib/strings';
+  import Badge from '../components/Badge.svelte';
   import DeviceDot from '../components/DeviceDot.svelte';
   import Icon from '../components/Icon.svelte';
   import Keycap from '../components/Keycap.svelte';
@@ -191,6 +193,7 @@
   }
 
   function onShown() {
+    windowShown();
     query = '';
     chip = '';
     selected = 0;
@@ -303,6 +306,7 @@
             id="picker-row-{i}"
             class="row"
             class:selected={i === selected}
+            class:arrived={arrived(row) && i !== selected}
             role="option"
             tabindex="-1"
             aria-selected={i === selected}
@@ -336,7 +340,11 @@
             </span>
             {#if row.pinned}<span class="pin" title={t('badge.pinned')}><Icon name="pin" size={16} /></span>{/if}
             {#if row.copies > 1}<span class="count">×{row.copies}</span>{/if}
-            {#if row.device}<span class="device"><DeviceDot colorIndex={row.origin.colorIndex} />{row.device}</span>{/if}
+            {#if row.device && arrived(row) && i !== selected}
+              <Badge variant="arrival">{t('row.from', { device: row.device })}</Badge>
+            {:else if row.device}
+              <span class="device"><DeviceDot colorIndex={row.origin.colorIndex} />{row.device}</span>
+            {/if}
             <span class="time">{relativeTime(row.sortMs)}</span>
             <span class="num">{i < 9 ? i + 1 : ''}</span>
           </div>
@@ -492,6 +500,10 @@
     min-height: 0;
     overflow-y: auto;
     padding: 8px;
+  }
+
+  .row.arrived {
+    background: var(--tc-accent-soft);
   }
 
   .row {

@@ -17,6 +17,8 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 tailcopy-core.workspace = true
 tailcopy-platform.workspace = true
+tailcopy-sync.workspace = true
+tailcopy-tailnet.workspace = true
 ammonia = "4.2.4"
 directories = "6.0.0"
 interprocess = { version = "2.4.7", features = ["tokio"] }
