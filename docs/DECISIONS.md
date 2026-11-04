@@ -7,6 +7,65 @@ written into SPEC.md).
 
 ---
 
+## D-025 · v0.2.0 ships sync before the M2 gate · landed
+
+Owner decision (3 November): release tailnet sync as **v0.2.0**, a full release like
+v0.1.0, before the M2 gate's hardware runs (smoke items 8 to 11 between Windows and
+Ubuntu, and the two-day soak). Those runs happen on the released build. The relay
+binary exists (`tailcopy-relay`, SPEC 12 flags) but isn't packaged or released; that
+stays in M3.
+
+## D-024 · Tailscale details found while building the adapter · proposed
+
+1. **Offline peers have no path.** Status can report `Online: false` with
+   `Active: true`; D-009's rule would call that "relayed via DERP". The Devices view
+   shows offline peers as offline and only gives a path for online ones. Proposal: add
+   that to D-009 rule 2 and SPEC 8.2.
+2. **Nulls inside maps.** A `CapMap` capability's value can itself be `null`; an
+   untagged `Self` has no `Tags` key at all. Both parse as empty.
+3. **Tagged nodes share a placeholder user.** Every tagged node reports the same
+   "tagged-devices" user, so a tagged device has no login of its own and the same-user
+   rule can't match through it. SPEC 8.5 rule 1 should say a tagged *self* never
+   matches either.
+4. **Windows CLI path.** The adapter tries `C:\Program Files\Tailscale\tailscale.exe`
+   before `PATH` (the installer doesn't always add it to `PATH` for the user). SPEC 8.1
+   says `PATH` only.
+5. **Fixtures are fabricated.** SPEC 14.1 asks for redacted fixtures from the owner's
+   machines; the committed ones are hand-written in the shape of real output with every
+   value made up. Real Windows and macOS ones would still help.
+6. **`PeerRelay` format unverified.** No peer on the test tailnet uses a peer relay, so
+   the format the Devices view shows for it is a guess.
+
+## D-023 · What Send and Receive mean · applied
+
+The per-device switches (D-021, item 7) sit on top of full anti-entropy (SPEC 7.4),
+which needs every device to hold a gapless log from every origin. So neither switch
+withholds ops; they withhold content:
+
+- **Receive off for device X:** `ClipAdded` ops that X made are stored as stubs on
+  arrival (SPEC 6.5), whichever peer they come from. The log stays complete, pins and
+  deletes still apply, nothing is fetched or mirrored, and the clip never shows.
+- **Send off for device X:** this device sends X a stub of each clip it made, and
+  refuses X's blob requests. Clips from other origins pass as usual.
+- Both apply to new clips only, and a stub is final for that op (SPEC 6.5), so turning a
+  switch back on doesn't bring old clips across.
+- Receive off is a firm guarantee; Send off isn't, because a third device or a relay
+  with both switches on can still forward the clip to X. Settings says so in one line.
+
+Also chosen within the spec's latitude, in `tailcopy-sync`:
+
+- Devices dial each other from their own Tailscale address, so the peer's whois sees
+  the right node. Blob fetches use the same source address.
+- A peer that dialled us is reached for blobs on the configured sync port (SPEC 0.2
+  makes it the same everywhere).
+- Live ops for the mirror are `ClipAdded` and `ClipUsed` from another origin, after the
+  peer's `CaughtUp`, within 10 s of local time; the newest one in a batch wins.
+- Discovery probes every candidate with exponential backoff to 60 s, so a tailnet with
+  many machines that don't run TailCopy costs about one refused connection per machine
+  per minute.
+- The image sync limit is `sync.images` and `sync.max_image_bytes` (default 10 MB);
+  over it, an image is kept local-only like an over-cap clip.
+
 ## D-022 · v0.1.0 is a public release, before sync · landed
 
 Owner decision (3 November): tag the M1 app with the redesign (D-021) as **v0.1.0**, a
@@ -105,7 +164,17 @@ Choices made where SPEC 6 is silent, in `tailcopy-core`:
 - Measured: search over 10,000 clips, p95 5.9 ms (budget 16 ms); building the warm
   index for 10,000 rows takes about 195 ms, once at startup.
 
-## D-018 · A late pin can resurrect a cleared clip · proposed
+## D-018 · A late pin can resurrect a cleared clip · landed
+
+**Owner decision (3 November): apply the fix.** As built, `HistoryCleared` carries two
+new fields: `spared` (the pinned clips the clear kept) and `seen` (the clearing
+device's version vector). A clip is deleted by a clear only if the clearing device had
+seen it (`seq <= seen[origin]`), it was created at or before `before_hlc`, and it isn't
+in `spared` (unless `include_pinned`). `seen` goes one step past the proposal below:
+with `spared` alone, a clip pinned on an offline laptop that the clearing device never
+saw would be cleared. Clears written before this (no `seen`) keep the old rule, so
+existing local data materializes the same. The convergence property test no longer
+needs its late-pin exception. SPEC 6.3 and 6.4 rule 4 updated.
 
 **Finding.** SPEC 6.4 rule 4 decides whether a `HistoryCleared` spared a clip from its
 pin state "as of `C.hlc`". If device A pins a clip at hlc 5 while offline and device B

@@ -164,6 +164,7 @@ fn setup(
             ..StoreOptions::default()
         },
     )?;
+    crate::tailscale::init(&config.config);
     let db = db::Db::spawn(store)?;
     app.manage(AppState::new(db, config, paths.config, paths.data, session));
     tracing::info!(?session, "session detected");
@@ -188,7 +189,6 @@ fn setup(
     }
 
     let config = app.state::<AppState>().config();
-    crate::tailscale::init(&config);
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         crate::sync::start(&handle);
