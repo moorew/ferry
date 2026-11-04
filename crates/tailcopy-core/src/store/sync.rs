@@ -137,6 +137,11 @@ impl Store {
             return Ok(());
         }
         self.write(|s| {
+            let known: bool = s.conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM devices WHERE device_id = ?1)",
+                [&peer.device_id.0],
+                |r| r.get(0),
+            )?;
             s.conn.execute(
                 "INSERT INTO devices (device_id, display_name, role, ts_node_id, ts_hostname,
                    last_ts_ip, last_seen_ms, os, color_index)
@@ -157,8 +162,32 @@ impl Store {
                     peer.os,
                 ],
             )?;
+            // A new device id from a tailnet node the owner already restricted (a
+            // restored backup, or a client that chose a new id) keeps the switches.
+            if !known && let Some(node) = &peer.ts_node_id {
+                s.conn.execute(
+                    "UPDATE devices SET
+                       send_enabled = (SELECT min(send_enabled) FROM devices WHERE ts_node_id = ?2),
+                       receive_enabled = (SELECT min(receive_enabled) FROM devices WHERE ts_node_id = ?2)
+                     WHERE device_id = ?1",
+                    params![peer.device_id.0, node],
+                )?;
+            }
             Ok(())
         })
+    }
+
+    /// Whether Send is on for every device id seen from this tailnet node. An
+    /// unknown node (or an empty id) has no switch set.
+    pub fn node_send_enabled(&self, ts_node_id: &str) -> Result<bool> {
+        if ts_node_id.is_empty() {
+            return Ok(true);
+        }
+        Ok(self.conn.query_row(
+            "SELECT coalesce(min(send_enabled), 1) FROM devices WHERE ts_node_id = ?1",
+            [ts_node_id],
+            |r| r.get::<_, bool>(0),
+        )?)
     }
 
     /// Per-device sync switches, for every device that has a row.
@@ -178,11 +207,15 @@ impl Store {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    /// Turns Send or Receive on or off for one device (D-023).
+    /// Turns Send or Receive on or off for one device, and for every other device id
+    /// seen from the same tailnet node (D-023).
     pub fn set_sync_flags(&mut self, device: &DeviceId, flags: SyncFlags) -> Result<()> {
         self.write(|s| {
             s.conn.execute(
-                "UPDATE devices SET send_enabled = ?1, receive_enabled = ?2 WHERE device_id = ?3",
+                "UPDATE devices SET send_enabled = ?1, receive_enabled = ?2
+                 WHERE device_id = ?3
+                    OR (ts_node_id IS NOT NULL AND ts_node_id =
+                        (SELECT ts_node_id FROM devices WHERE device_id = ?3))",
                 params![flags.send, flags.receive, device.0],
             )?;
             Ok(())
@@ -193,7 +226,10 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT receive_enabled FROM devices WHERE device_id = ?1",
+                "SELECT min(d2.receive_enabled) FROM devices d1 JOIN devices d2
+                   ON d2.device_id = d1.device_id
+                   OR (d1.ts_node_id IS NOT NULL AND d2.ts_node_id = d1.ts_node_id)
+                 WHERE d1.device_id = ?1 GROUP BY d1.device_id",
                 [&origin.0],
                 |r| r.get::<_, bool>(0),
             )

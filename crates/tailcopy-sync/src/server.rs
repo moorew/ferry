@@ -25,6 +25,19 @@ pub(crate) fn router(inner: Arc<Inner>) -> Router {
 
 /// The peer's identity if it may sync; refusals are logged and get a 403.
 async fn authorize(inner: &Inner, remote: SocketAddr) -> Option<PeerIdentity> {
+    // A connection from one of this node's own addresses is a local process, not
+    // another device: whois would describe this node, which is "same user".
+    match inner.transport.listen_addrs().await {
+        Ok(own) if own.iter().any(|a| a.ip() == remote.ip()) => {
+            tracing::warn!(%remote, "refused a connection from this device's own address");
+            return None;
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::warn!(%remote, "couldn't read this device's addresses, refusing: {e}");
+            return None;
+        }
+    }
     match inner.transport.whois(remote).await {
         Ok(who) if inner.authorize_inbound(&who) => Some(who),
         Ok(_) => None,
@@ -94,20 +107,13 @@ async fn blob(
     let Some(hash) = parse_hex(&hex) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let peer = {
-        let st = inner.state.lock().unwrap();
-        st.peers
-            .iter()
-            .find(|(_, p)| p.stable_id == who.stable_id && !who.stable_id.is_empty())
-            .map(|(id, _)| id.clone())
-    };
+    let node = who.stable_id.clone();
     let bytes = inner
         .store
         .call(move |s| -> tailcopy_core::Result<Option<Vec<u8>>> {
-            // Send off for this device (D-023): its content stays here.
-            if let Some(peer) = peer
-                && s.sync_flags()?.get(&peer).is_some_and(|f| !f.send)
-            {
+            // Send off for any device id this tailnet node has used (D-023): its
+            // content stays here.
+            if !s.node_send_enabled(&node)? {
                 return Ok(None);
             }
             s.view().read_blob(&hash)

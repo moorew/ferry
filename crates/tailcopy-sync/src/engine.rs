@@ -387,7 +387,15 @@ impl Engine {
     }
 
     pub fn set_config(&self, cfg: EngineConfig) {
+        let old = self.inner.cfg();
+        let tightened = cfg.strict_same_login && !old.strict_same_login;
         *self.inner.cfg.lock().unwrap() = cfg;
+        if tightened {
+            // Sessions are authorized when they start (SPEC 8.5); make them
+            // reconnect so the new rules apply to peers already connected.
+            tracing::info!("sync authorization settings changed; reconnecting peers");
+            self.inner.stop_sessions();
+        }
     }
 
     /// Retry every peer now (Tailscale came back, settings changed).
