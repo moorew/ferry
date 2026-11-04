@@ -196,7 +196,9 @@ pub fn clip_state<'a>(
         deleted_hlc: deleted,
     };
     if deleted.is_some() {
-        // A deleted clip ignores ClipUsed, PinSet and LabelSet for display.
+        // A deleted clip ignores ClipUsed, PinSet and LabelSet for display, and keeps
+        // no content-derived key (SPEC 6.5).
+        state.group_key = crate::model::stub_group_key(clip_id);
         return state;
     }
     state.last_used_hlc = used;

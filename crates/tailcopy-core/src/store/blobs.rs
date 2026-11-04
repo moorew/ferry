@@ -51,7 +51,7 @@ impl DataDir {
         ] {
             fs::create_dir_all(&dir).map_err(|source| Error::IoAt { path: dir, source })?;
         }
-        Ok(())
+        owner_only(&self.root)
     }
 
     pub(crate) fn write_blob(&self, hash: &Hash32, bytes: &[u8]) -> Result<()> {
@@ -87,6 +87,24 @@ impl DataDir {
 
 /// Writes to a temp file next to `path`, syncs it and renames it into place. An
 /// existing file is left alone: names are content hashes.
+/// Clipboard history is private: on Unix only the owner may enter the directory,
+/// whatever the umask. Elsewhere the per-user parent directory already restricts it.
+pub(crate) fn owner_only(dir: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(dir, fs::Permissions::from_mode(0o700)).map_err(|source| {
+            Error::IoAt {
+                path: dir.to_owned(),
+                source,
+            }
+        })?;
+    }
+    #[cfg(not(unix))]
+    let _ = dir;
+    Ok(())
+}
+
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     if path.exists() {

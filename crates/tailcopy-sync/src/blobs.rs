@@ -65,6 +65,9 @@ async fn fetch_one(inner: &Inner, hash: Hash32, size: u64) -> bool {
         peers
     };
     let hex = hash_hex(&hash);
+    // The size in the op is the peer's claim; the cap bounds what we buffer either way.
+    let max = inner.cfg().max_fetch_bytes;
+    let limit = if size == 0 { max } else { size.min(max) };
     let timeout = Duration::from_secs(10) + Duration::from_millis(size / 1000);
     for (_, addr, node) in addrs {
         let client = crate::dial::http_client(inner, addr, timeout);
@@ -83,7 +86,8 @@ async fn fetch_one(inner: &Inner, hash: Hash32, size: u64) -> bool {
                 continue;
             }
         };
-        let Ok(bytes) = resp.bytes().await else {
+        let Some(bytes) = read_limited(resp, limit).await else {
+            tracing::warn!(peer = %node, "a blob was larger than its clip declared; trying another peer");
             continue;
         };
         let len = bytes.len();
@@ -94,7 +98,9 @@ async fn fetch_one(inner: &Inner, hash: Hash32, size: u64) -> bool {
                 inner.emit(SyncEvent::BlobStored(hash));
                 return true;
             }
-            Ok(Err(tailcopy_core::Error::BlobHashMismatch)) => {
+            Ok(Err(
+                tailcopy_core::Error::BlobHashMismatch | tailcopy_core::Error::BlobTooLarge,
+            )) => {
                 tracing::warn!(peer = %node, "a fetched blob had the wrong hash; trying another peer");
             }
             Ok(Err(e)) => tracing::warn!("couldn't store a fetched blob: {e}"),
@@ -102,6 +108,21 @@ async fn fetch_one(inner: &Inner, hash: Hash32, size: u64) -> bool {
         }
     }
     false
+}
+
+/// Reads a response body, giving up as soon as it passes `limit` bytes.
+async fn read_limited(mut resp: reqwest::Response, limit: u64) -> Option<Vec<u8>> {
+    if resp.content_length().is_some_and(|l| l > limit) {
+        return None;
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = resp.chunk().await.ok()? {
+        if (body.len() + chunk.len()) as u64 > limit {
+            return None;
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Some(body)
 }
 
 pub(crate) async fn fetch_now(inner: &Inner, hash: Hash32, timeout: Duration) -> bool {

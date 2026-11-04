@@ -18,6 +18,7 @@ use std::sync::Arc;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 
 pub use actions::{CaptureOutcome, RetentionPolicy};
+pub(crate) use blobs::owner_only;
 pub use blobs::{DB_FILE, DataDir};
 pub use read::{ClipDetail, ClipRow, DisplayRow, FormatInfo, PageCursor, ReadView, Reader};
 
@@ -110,6 +111,7 @@ impl Store {
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         configure(&conn)?;
         schema::migrate(&mut conn)?;
+        scrub_stub_keys(&mut conn)?;
 
         let last_hlc = meta_i64(&conn, "last_hlc")?.unwrap_or(0) as u64;
         let hlc = Hlc::new(opts.clock.clone(), last_hlc);
@@ -263,11 +265,13 @@ impl Store {
                     report.invalid += 1;
                     continue;
                 }
-                // Receive off for the origin (D-023): keep the log entry, not the content.
+                // Receive off for the origin (D-023): keep the log entry, not the
+                // content. Stubs from older peers are rewritten too, so they carry no
+                // content hash.
                 let stubbed;
-                let op = if !op.is_stub()
-                    && matches!(op.body, OpBody::ClipAdded { .. })
-                    && !s.receive_enabled(&op.origin)?
+                let op = if op.is_stub()
+                    || (matches!(op.body, OpBody::ClipAdded { .. })
+                        && !s.receive_enabled(&op.origin)?)
                 {
                     stubbed = op.to_stub();
                     &stubbed
@@ -419,13 +423,20 @@ impl Store {
         if crate::model::blake3_hash(bytes) != *hash {
             return Err(Error::BlobHashMismatch);
         }
-        let known: bool = self.conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM blobs WHERE hash = ?1)",
-            [hash.as_slice()],
-            |r| r.get(0),
-        )?;
-        if !known {
+        // The peer chose the declared size; never store more than it said.
+        let declared: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT size FROM blobs WHERE hash = ?1",
+                [hash.as_slice()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(declared) = declared else {
             return Ok(false);
+        };
+        if bytes.len() as u64 > declared.max(0) as u64 {
+            return Err(Error::BlobTooLarge);
         }
         self.dir.write_blob(hash, bytes)?;
         self.write(|s| s.blob_arrived(hash, bytes))?;
@@ -449,6 +460,55 @@ impl Store {
             .optional()?
             .unwrap_or(0) as u64)
     }
+}
+
+/// Stubs and tombstones written before 0.2.1 kept the content hash as their group
+/// key. Rewrites them once (SPEC 6.5: deleted text doesn't linger).
+fn scrub_stub_keys(conn: &mut Connection) -> Result<()> {
+    const KEY: &str = "stub_keys_scrubbed";
+    if meta_i64(conn, KEY)?.is_some() {
+        return Ok(());
+    }
+    let tx = conn.transaction()?;
+    let stubs: Vec<(String, i64, Vec<u8>)> = {
+        let mut stmt = tx.prepare("SELECT origin, seq, payload FROM ops WHERE kind = ?1")?;
+        stmt.query_map([OpKind::ClipAdded as i64], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?
+        .collect::<std::result::Result<_, _>>()?
+    };
+    let mut rewritten = 0;
+    for (origin, seq, payload) in stubs {
+        let op = Op::decode(&payload)?;
+        if op.is_stub() {
+            let fresh = op.to_stub().encode()?;
+            if fresh != payload {
+                tx.execute(
+                    "UPDATE ops SET payload = ?1 WHERE origin = ?2 AND seq = ?3",
+                    params![fresh, origin, seq],
+                )?;
+                rewritten += 1;
+            }
+        }
+    }
+    let deleted: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM clips WHERE deleted_hlc > 0")?;
+        stmt.query_map([], |r| r.get(0))?
+            .collect::<std::result::Result<_, _>>()?
+    };
+    for id in deleted {
+        let key = crate::model::stub_group_key(&crate::model::ClipId(id.clone()));
+        tx.execute(
+            "UPDATE clips SET group_key = ?1 WHERE id = ?2",
+            params![key.as_slice(), id],
+        )?;
+    }
+    set_meta(&tx, KEY, &1)?;
+    tx.commit()?;
+    if rewritten > 0 {
+        tracing::info!(rewritten, "removed content hashes from deleted clips");
+    }
+    Ok(())
 }
 
 pub(crate) fn meta_i64(conn: &Connection, key: &str) -> Result<Option<i64>> {
