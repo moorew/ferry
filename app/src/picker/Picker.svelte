@@ -251,6 +251,11 @@
       oninput={() => load()}
       placeholder={t('picker.search.placeholder')}
       aria-label={t('picker.search.placeholder')}
+      role="combobox"
+      aria-expanded={rows.length > 0}
+      aria-controls="picker-rows"
+      aria-autocomplete="list"
+      aria-activedescendant={rows.length ? `picker-row-${selected}` : undefined}
       spellcheck="false"
       autocomplete="off"
     />
@@ -263,7 +268,7 @@
     <span class="scope">{t('picker.scope.all')}</span>
   </header>
 
-  <div class="chips" role="group" aria-label="Filter">
+  <div class="chips" role="group" aria-label={t('a11y.filter')}>
     {#each chips as c (c.key)}
       <button type="button" class="chip" class:on={chip === c.token} aria-pressed={chip === c.token} onclick={() => setChip(c.token)}>
         {t(c.key)}
@@ -289,12 +294,13 @@
         {/if}
       </div>
     {:else}
-      <div class="rows" bind:this={list} role="listbox" aria-label="Clipboard history">
+      <div class="rows" id="picker-rows" bind:this={list} role="listbox" aria-label={t('picker.search.placeholder')}>
         {#each rows as row, i (row.id)}
           <!-- Keys are handled for the whole listbox in onKey. -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <div
             data-index={i}
+            id="picker-row-{i}"
             class="row"
             class:selected={i === selected}
             role="option"
@@ -433,7 +439,7 @@
   }
 
   .chip {
-    height: 30px;
+    height: var(--tc-control-sm);
     padding: 0 13px;
     border: 0;
     border-radius: var(--tc-r-pill);
@@ -638,7 +644,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 6px;
+    min-height: var(--tc-control-sm);
+    padding: 0 6px;
     border: 0;
     border-radius: var(--tc-r-keycap);
     background: transparent;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isMac, keycaps } from '../lib/format';
+  import { t } from '../lib/strings';
 
   let {
     value,
@@ -47,7 +48,7 @@
     const combo = name(e);
     if (!combo) return;
     if (!/(Ctrl|Alt|Option|Cmd|Super)\+/.test(combo)) {
-      held = 'Use at least one of Ctrl, Alt or ' + (isMac ? 'Cmd' : 'Super');
+      held = t('shortcut.need_modifier', { meta: isMac ? 'Cmd' : 'Super' });
       return;
     }
     recording = false;
@@ -59,7 +60,7 @@
 <button
   class="shortcut"
   class:recording
-  aria-label="{label}: {value || 'not set'}. Press to change."
+  aria-label={t('shortcut.a11y', { label, value: value || t('shortcut.not_set') })}
   onclick={() => {
     recording = !recording;
     held = '';
@@ -68,11 +69,11 @@
   onblur={() => (recording = false)}
 >
   {#if recording}
-    <span class="hint">{held || 'Press the new shortcut'}</span>
+    <span class="hint">{held || t('shortcut.press_new')}</span>
   {:else if value}
     {#each keycaps(value) as k, i (i)}<kbd>{k}</kbd>{/each}
   {:else}
-    <span class="hint">Not set</span>
+    <span class="hint">{t('shortcut.not_set')}</span>
   {/if}
 </button>
 

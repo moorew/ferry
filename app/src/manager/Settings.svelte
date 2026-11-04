@@ -536,7 +536,7 @@
   .segmented label {
     display: inline-flex;
     align-items: center;
-    height: calc(var(--tc-control-sm) - 6px);
+    height: var(--tc-control-sm);
     padding: 0 12px;
     border-radius: calc(var(--tc-r-control) - 3px);
     font-size: var(--tc-text-meta);

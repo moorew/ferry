@@ -1,6 +1,7 @@
 <script lang="ts">
   // A short confirmation (handoff section 4). "done" is the dark pill with a check;
   // "notice" is the quiet surface one for a problem. Announced politely, never focused.
+  import { rise } from '../lib/motion';
   import Icon, { type IconName } from './Icon.svelte';
 
   type Props = {
@@ -14,7 +15,7 @@
   let { message, detail = null, variant = 'done', icon, action = null }: Props = $props();
 </script>
 
-<div class="toast {variant}" role="status" aria-live="polite">
+<div class="toast {variant}" role="status" aria-live="polite" in:rise>
   <span class="icon"><Icon name={icon ?? (variant === 'done' ? 'check' : 'offline')} size={18} /></span>
   <span class="message">{message}</span>
   {#if detail}<span class="detail">{detail}</span>{/if}

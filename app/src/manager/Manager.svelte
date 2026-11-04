@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { api, on } from '../lib/api';
   import type { Counts, Status } from '../lib/types';
+  import { bump } from '../lib/motion';
   import { t } from '../lib/strings';
   import Icon, { type IconName } from '../components/Icon.svelte';
   import DeviceAvatar from '../components/DeviceAvatar.svelte';
@@ -101,7 +102,9 @@
             onclick={() => (route = { page: 'history', filter: { kind: item.kind } })}
           >
             <Icon name={item.icon} />{item.label}
-            {#if status}<span class="count">{status.counts[item.kind]}</span>{/if}
+            {#if status}
+              {#key status.counts[item.kind]}<span class="count" in:bump>{status.counts[item.kind]}</span>{/key}
+            {/if}
           </button>
         {/each}
       </nav>

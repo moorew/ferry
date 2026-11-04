@@ -17,7 +17,7 @@
   });
 </script>
 
-<aside class="preview" aria-label="Preview">
+<aside class="preview" aria-label={t('a11y.preview')}>
   {#if !clip}
     <div class="loading" aria-hidden="true"></div>
   {:else}

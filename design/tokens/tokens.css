@@ -105,6 +105,7 @@
   --tc-dur-exit: 100ms;
   --tc-dur-arrive: 420ms;
   --tc-dur-spring: 240ms;
+  --tc-dur-collapse: 180ms;       /* a deleted row closing up */
   --tc-hold-toast: 1800ms;        /* motion.toast in tokens.json */
   --tc-hold-undo: 5000ms;
   --tc-hold-copied: 1200ms;       /* Copy button reads "Copied" */

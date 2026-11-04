@@ -3,6 +3,7 @@
   import { api } from '../lib/api';
   import type { Settings, SetupStep, Status } from '../lib/types';
   import { isMac, keycaps } from '../lib/format';
+  import { t } from '../lib/strings';
   import Character from '../components/Character.svelte';
   import Icon from '../components/Icon.svelte';
   import ShortcutInput from '../components/ShortcutInput.svelte';
@@ -62,7 +63,7 @@
 </script>
 
 <div class="setup">
-  <ol class="progress" aria-label="Setup steps">
+  <ol class="progress" aria-label={t('a11y.setup_steps')}>
     {#each steps as s, i (s)}
       <li class:done={i < index} class:current={i === index}></li>
     {/each}
@@ -71,83 +72,70 @@
   <div class="card">
     {#if step === 'welcome'}
       <Character mood="happy" size={88} />
-      <h1>Welcome to TailCopy</h1>
-      <p class="lede">
-        TailCopy keeps everything you copy, so you can find it and paste it again with one shortcut.
-        It runs on your devices only. Nothing goes to a cloud.
-      </p>
+      <h1>{t('firstrun.welcome.title')}</h1>
+      <p class="lede">{t('firstrun.welcome.body')}</p>
       <div class="check-row">
         {#if status.tailscale === 'running'}
           <span class="ok"><Icon name="check" size={18} /></span>
-          <p><strong>Tailscale is running.</strong> When sync arrives, your devices will find each other over your tailnet.</p>
+          <p><strong>{t('firstrun.tailscale.ok')}</strong> {t('firstrun.tailscale.ok_detail')}</p>
         {:else}
           <span class="info"></span>
           <p>
-            <strong>Tailscale isn't {status.tailscale === 'missing' ? 'installed' : 'running'}.</strong>
-            TailCopy works without it; you'll need it later to sync between devices.
+            <strong>{t(status.tailscale === 'missing' ? 'firstrun.tailscale.missing' : 'firstrun.tailscale.stopped')}</strong>
+            {t('firstrun.tailscale.detail')}
           </p>
         {/if}
       </div>
     {:else if step === 'extension'}
-      <h1>Turn on clipboard access</h1>
-      <p class="lede">
-        On GNOME, apps can't see the clipboard by themselves. TailCopy's small GNOME Shell extension,
-        installed with the app, lets it read the clipboard, use its shortcut and paste for you.
-      </p>
+      <h1>{t('firstrun.extension.title')}</h1>
+      <p class="lede">{t('firstrun.extension.body')}</p>
       <div class="check-row">
         {#if ext === 'active'}
           <span class="ok"><Icon name="check" size={18} /></span>
-          <p><strong>The extension is on.</strong> You're ready for the next step.</p>
+          <p><strong>{t('firstrun.extension.on')}</strong> {t('firstrun.extension.on_detail')}</p>
         {:else if ext === 'disabled'}
           <span class="info"></span>
-          <p><strong>The extension is installed but off.</strong> Turn it on to continue.</p>
-          <button class="btn primary" disabled={busy} onclick={() => act('enable-extension')}>Turn on</button>
+          <p><strong>{t('firstrun.extension.off')}</strong> {t('firstrun.extension.off_detail')}</p>
+          <button class="btn primary" disabled={busy} onclick={() => act('enable-extension')}>{t('firstrun.extension.turn_on')}</button>
         {:else if ext === 'needsRelogin'}
           <span class="info"></span>
-          <p>
-            <strong>Log out and back in once.</strong> GNOME only notices new extensions when you sign in.
-            Setup picks up where you left off afterwards.
-          </p>
-          <button class="btn primary" disabled={busy} onclick={() => act('log-out')}>Log out now</button>
+          <p><strong>{t('firstrun.extension.relogin')}</strong> {t('firstrun.extension.relogin_detail')}</p>
+          <button class="btn primary" disabled={busy} onclick={() => act('log-out')}>{t('firstrun.extension.log_out')}</button>
         {:else if ext === 'broken'}
           <span class="warn"><Icon name="close" size={18} /></span>
-          <p><strong>The extension didn't start.</strong> {status.extension?.message ?? ''}</p>
+          <p><strong>{t('firstrun.extension.broken')}</strong> {status.extension?.message ?? ''}</p>
         {:else}
           <span class="warn"><Icon name="close" size={18} /></span>
-          <p><strong>The extension is missing.</strong> Reinstall TailCopy from its package to put it back.</p>
+          <p><strong>{t('firstrun.extension.missing')}</strong> {t('firstrun.extension.missing_detail')}</p>
         {/if}
       </div>
     {:else if step === 'accessibility'}
-      <h1>Let TailCopy paste for you</h1>
+      <h1>{t('firstrun.accessibility.title')}</h1>
       <p class="lede">
-        To paste into the app you were using, macOS needs to let TailCopy press <kbd>⌘</kbd><kbd>V</kbd> for you.
-        Without it, TailCopy still copies what you choose and you paste it yourself.
+        {t('firstrun.accessibility.body_before')} <kbd>⌘</kbd><kbd>V</kbd> {t('firstrun.accessibility.body_after')}
       </p>
       <div class="check-row">
         {#if status.accessibility}
           <span class="ok"><Icon name="check" size={18} /></span>
-          <p><strong>Allowed.</strong> TailCopy can paste for you.</p>
+          <p><strong>{t('firstrun.accessibility.allowed')}</strong> {t('firstrun.accessibility.allowed_detail')}</p>
         {:else}
           <span class="info"></span>
-          <p>
-            <strong>Not allowed yet.</strong> Click the button, then switch on TailCopy in
-            Privacy &amp; Security &gt; Accessibility. This page updates by itself.
-          </p>
-          <button class="btn primary" disabled={busy} onclick={() => act('open-accessibility')}>Open Accessibility settings</button>
+          <p><strong>{t('firstrun.accessibility.not_yet')}</strong> {t('firstrun.accessibility.not_yet_detail')}</p>
+          <button class="btn primary" disabled={busy} onclick={() => act('open-accessibility')}>{t('firstrun.accessibility.open')}</button>
         {/if}
       </div>
     {:else if step === 'shortcut'}
-      <h1>Choose your shortcut</h1>
+      <h1>{t('firstrun.shortcut.title')}</h1>
       <p class="lede">
-        Press it anywhere to open TailCopy. Type to search, press <kbd>Enter</kbd> to paste,
-        <kbd>Shift</kbd><kbd>Enter</kbd> for plain text.
+        {t('firstrun.shortcut.body_before')} <kbd>Enter</kbd> {t('firstrun.shortcut.body_middle')}
+        <kbd>Shift</kbd><kbd>Enter</kbd> {t('firstrun.shortcut.body_after')}
       </p>
       {#if settings}
         <div class="shortcut-row">
-          <ShortcutInput label="Open TailCopy" value={settings.hotkeys.picker} onchange={setShortcut} />
+          <ShortcutInput label={t('settings.shortcut.picker')} value={settings.hotkeys.picker} onchange={setShortcut} />
           {#if !settings.hotkeys.picker}
             <button class="btn" onclick={() => setShortcut(isMac ? 'Cmd+Shift+V' : 'Ctrl+Alt+V')}>
-              Use {keycaps(isMac ? 'Cmd+Shift+V' : 'Ctrl+Alt+V').join(isMac ? '' : '+')}
+              {t('firstrun.shortcut.use', { keys: keycaps(isMac ? 'Cmd+Shift+V' : 'Ctrl+Alt+V').join(isMac ? '' : '+') })}
             </button>
           {/if}
         </div>
@@ -155,28 +143,28 @@
       {/if}
     {:else}
       <Character mood="happy" size={88} />
-      <h1>You're set</h1>
+      <h1>{t('firstrun.done.title')}</h1>
       <p class="lede">
-        Copy as usual. When you need something again, press
-        {#if settings?.hotkeys.picker}{#each keycaps(settings.hotkeys.picker) as k, i (i)}<kbd>{k}</kbd>{/each}{:else}your shortcut{/if}.
-        TailCopy lives in the {isMac ? 'menu bar' : 'system tray'}; open this window from there.
+        {t('firstrun.done.body_before')}
+        {#if settings?.hotkeys.picker}{#each keycaps(settings.hotkeys.picker) as k, i (i)}<kbd>{k}</kbd>{/each}{:else}{t('firstrun.done.your_shortcut')}{/if}.
+        {t(isMac ? 'firstrun.done.body_menu_bar' : 'firstrun.done.body_tray')}
       </p>
     {/if}
   </div>
 
   <footer class="nav">
-    {#if index > 0}<button class="btn" onclick={back}>Back</button>{/if}
+    {#if index > 0}<button class="btn" onclick={back}>{t('firstrun.back')}</button>{/if}
     <span class="spacer"></span>
     {#if step === 'done'}
-      <button class="btn primary" onclick={finish}>Start using TailCopy</button>
+      <button class="btn primary" onclick={finish}>{t('firstrun.start')}</button>
     {:else}
-      {#if step !== 'welcome'}<button class="btn" onclick={next}>Skip</button>{/if}
+      {#if step !== 'welcome'}<button class="btn" onclick={next}>{t('firstrun.skip')}</button>{/if}
       <button
         class="btn primary"
         onclick={next}
         disabled={(step === 'extension' && ext !== 'active') || (step === 'shortcut' && !settings?.hotkeys.picker)}
       >
-        Continue <Icon name="chevron" size={18} />
+        {t('firstrun.continue')} <Icon name="chevron" size={18} />
       </button>
     {/if}
   </footer>

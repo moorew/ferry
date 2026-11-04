@@ -11,7 +11,7 @@
   import { api, on } from '../lib/api';
   import type { ClipDetail, ClipRow, Settings, Status } from '../lib/types';
   import { bytes, firstLine, isMac, longTime, lookIcon, lookName, mod, relativeTime, rowLabel, timeGroup } from '../lib/format';
-  import { duration } from '../lib/motion';
+  import { collapse, duration } from '../lib/motion';
   import { t, type StringKey } from '../lib/strings';
   import Button from '../components/Button.svelte';
   import Character from '../components/Character.svelte';
@@ -305,6 +305,7 @@
       {#each groups as group (group.title)}
         <h2 class="group">{group.title}</h2>
         {#each group.rows as row (row.id)}
+          <div out:collapse={{ enabled: pendingDelete.has(row.id) }}>
           <HistoryRow
             icon={lookIcon(row.look)}
             title={row.kind === 'image' && row.width
@@ -324,6 +325,7 @@
             ariaLabel={rowLabel(row.kind, row.device, row.sortMs, row.label ?? row.preview)}
             onclick={(e) => click(e, row)}
           />
+          </div>
         {/each}
       {:else}
         {#if !query && !chip && filter.kind === 'all'}
@@ -342,7 +344,7 @@
     </div>
 
     {#if visible.length}
-    <aside class="detail" aria-label="Selected item">
+    <aside class="detail" aria-label={t('a11y.selected_item')}>
       {#if detail}
         <div class="actions">
           <Button variant="primary" icon={copied ? 'check' : 'copy'} onclick={copy}>
@@ -352,6 +354,7 @@
             icon="pin"
             label={detail.pinned ? t('detail.unpin') : t('detail.pin')}
             pressed={detail.pinned}
+            class={detail.pinned ? 'pinned' : ''}
             onclick={pin}
           />
           <IconButton icon="delete" label={t('detail.delete')} danger class="push" onclick={remove} />
@@ -609,6 +612,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .actions :global(.pinned) {
+    color: var(--tc-accent-ink);
   }
 
   .actions :global(.push) {

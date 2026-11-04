@@ -848,6 +848,8 @@ Never: upgrade prompts, promotional badges, onboarding carousels, what's-new pop
 ### 10.5 Manager window
 
 - **History:** sidebar (All, Pinned, Code, Links, Images, Formatted, with live counts; one entry per device), list with multi-select, detail pane, bulk delete, pin, label, clear history (with "include pinned" checkbox and confirmation).
+- **Pinned:** pinned items as cards (type, use count, More menu), kept forever and shown first in the picker.
+- **Settings sections:** General, Shortcuts, Privacy, Tailnet, History and storage, About, with their own section list. Pause offers 15 minutes, 1 hour or until resumed, in the app and the tray.
 - **Devices:** one row per known device: name, role, online, path (direct or DERP region), last sync, ops pending, TailCopy version. Banner if Tailscale isn't running or this device has no peers.
 - **Settings:** general (device name, start at login, live mirror), shortcuts, retention, size caps, privacy rules, paste overrides (Linux), sync (port, pinned relay address, capability name), diagnostics (open log folder, copy redacted diagnostics), about.
 - **First run:** 1) Tailscale check, 2) GNOME extension setup if applicable (9.4.6), 3) macOS Accessibility permission if applicable, 4) choose picker shortcut, 5) show discovered devices. Each step can be skipped and revisited.

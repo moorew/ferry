@@ -2,6 +2,7 @@
   // One history item (handoff section 4): type tile, title, a meta line with the
   // device's colour and name, and the time or the arrival badge on the right.
   import type { DeviceRef } from '../lib/types';
+  import { tip } from '../lib/motion';
   import { t } from '../lib/strings';
   import Badge from './Badge.svelte';
   import DeviceDot from './DeviceDot.svelte';
@@ -78,7 +79,7 @@
     </span>
   </span>
   {#if copies > 1}<Badge variant="count">×{copies}</Badge>{/if}
-  {#if pinned}<span class="pin" title="Pinned"><Icon name="pin" size={16} /></span>{/if}
+  {#if pinned}<span class="pin" title={t('badge.pinned')} in:tip><Icon name="pin" size={16} /></span>{/if}
   {#if arrived && !selected}
     <Badge variant="arrival">{t('row.arrived')}</Badge>
   {:else}
