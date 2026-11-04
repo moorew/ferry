@@ -11,6 +11,7 @@ use nucleo_matcher::{Config, Matcher, Utf32String};
 
 use crate::error::Result;
 use crate::hlc::wall_ms;
+use crate::look::Look;
 use crate::model::{ClipKind, DeviceId, DeviceInfo, Hash32};
 use crate::store::{DisplayRow, ReadView};
 
@@ -19,8 +20,10 @@ use crate::store::{DisplayRow, ReadView};
 pub struct ParsedQuery {
     /// `is:pinned`
     pub pinned: bool,
-    /// `is:image`, `is:rich`, `is:text` (any of them).
+    /// `is:image`, `is:rich`, `is:text` (any of them, or any of `looks`).
     pub kinds: Vec<ClipKind>,
+    /// `is:code`, `is:link` (derived looks, [`crate::look`]).
+    pub looks: Vec<Look>,
     /// `from:<device name>` (any of them). Quote names with spaces: `from:"Work Mac"`.
     pub from: Vec<String>,
     pub today: bool,
@@ -51,7 +54,8 @@ fn tokens(query: &str) -> Vec<String> {
     out
 }
 
-/// Parses `is:pinned is:image is:rich is:text from:<device> today yesterday`; other
+/// Parses `is:pinned is:image is:rich is:text is:code is:link from:<device> today
+/// yesterday`; other
 /// words are free text. Tokens are case-insensitive.
 pub fn parse_query(query: &str) -> ParsedQuery {
     let mut q = ParsedQuery::default();
@@ -63,6 +67,8 @@ pub fn parse_query(query: &str) -> ParsedQuery {
             "is:image" => q.kinds.push(ClipKind::Image),
             "is:rich" => q.kinds.push(ClipKind::Rich),
             "is:text" => q.kinds.push(ClipKind::Text),
+            "is:code" => q.looks.push(Look::Code),
+            "is:link" => q.looks.push(Look::Link),
             "today" => q.today = true,
             "yesterday" => q.yesterday = true,
             _ => match lower.strip_prefix("from:") {
@@ -73,6 +79,17 @@ pub fn parse_query(query: &str) -> ParsedQuery {
     }
     q.text = text.join(" ");
     q
+}
+
+/// Rows per sidebar filter.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Counts {
+    pub all: usize,
+    pub pinned: usize,
+    pub code: usize,
+    pub link: usize,
+    pub image: usize,
+    pub rich: usize,
 }
 
 /// Local day boundaries, which the app computes in the user's time zone.
@@ -219,6 +236,23 @@ impl SearchIndex {
         self.entries.is_empty()
     }
 
+    /// How many rows each sidebar filter shows (handoff section 5).
+    pub fn counts(&self) -> Counts {
+        let mut c = Counts::default();
+        for row in self.rows() {
+            c.all += 1;
+            c.pinned += usize::from(row.pinned);
+            match row.look {
+                Look::Code => c.code += 1,
+                Look::Link => c.link += 1,
+                Look::Image => c.image += 1,
+                Look::Rich => c.rich += 1,
+                Look::Text | Look::Colour => {}
+            }
+        }
+        c
+    }
+
     /// Rows in list order, for the picker's first frame.
     pub fn rows(&self) -> impl Iterator<Item = &DisplayRow> {
         self.entries.iter().map(|e| &e.row)
@@ -256,7 +290,10 @@ impl SearchIndex {
             if q.pinned && !row.pinned {
                 return false;
             }
-            if !q.kinds.is_empty() && !q.kinds.contains(&row.kind) {
+            if (!q.kinds.is_empty() || !q.looks.is_empty())
+                && !q.kinds.contains(&row.kind)
+                && !q.looks.contains(&row.look)
+            {
                 return false;
             }
             if let Some(ids) = &from

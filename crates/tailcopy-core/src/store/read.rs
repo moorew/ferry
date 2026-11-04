@@ -6,6 +6,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use super::blobs::DataDir;
 use crate::error::Result;
+use crate::look::Look;
 use crate::model::{
     ClipId, ClipKind, DeviceId, DeviceInfo, Hash32, Op, Role, VersionVector, hash_from_slice, mime,
 };
@@ -33,6 +34,10 @@ pub struct DisplayRow {
     pub members: u32,
     /// Hash of the PNG format, for the thumbnail.
     pub image_hash: Option<Hash32>,
+    /// Derived from kind and preview, never stored (see [`crate::look`]).
+    pub look: Look,
+    /// Reads better in a monospace font.
+    pub mono: bool,
 }
 
 impl DisplayRow {
@@ -73,6 +78,10 @@ pub struct ClipRow {
     pub deleted_hlc: Option<u64>,
     pub local_only: bool,
     pub source_app: Option<String>,
+    /// Pastes and copies from TailCopy, on every device.
+    pub use_count: u32,
+    /// When this device first held it, by this device's clock.
+    pub received_ms: Option<u64>,
 }
 
 /// One stored format of a clip.
@@ -101,7 +110,7 @@ impl ClipDetail {
 const CLIP_COLUMNS: &str =
     "id, origin, created_hlc, last_used_hlc, sort_hlc, group_key, kind, preview,
     byte_size, pinned, pin_hlc, pin_origin, label, label_hlc, label_origin, deleted_hlc,
-    local_only, source_app";
+    local_only, source_app, use_count, received_ms";
 
 fn clip_row(r: &Row<'_>) -> rusqlite::Result<ClipRow> {
     Ok(ClipRow {
@@ -123,6 +132,8 @@ fn clip_row(r: &Row<'_>) -> rusqlite::Result<ClipRow> {
         deleted_hlc: r.get::<_, Option<i64>>(15)?.map(|v| v as u64),
         local_only: r.get(16)?,
         source_app: r.get(17)?,
+        use_count: r.get(18)?,
+        received_ms: r.get::<_, Option<i64>>(19)?.map(|v| v as u64),
     })
 }
 
@@ -168,11 +179,14 @@ ORDER BY sort_hlc DESC, id DESC
 LIMIT ?3";
 
 fn display_row(r: &Row<'_>) -> rusqlite::Result<DisplayRow> {
+    let kind = kind(r, 2)?;
+    let preview: String = r.get(3)?;
+    let (look, mono) = crate::look::classify(kind, &preview);
     Ok(DisplayRow {
         clip_id: ClipId(r.get(0)?),
         group_key: blob_hash(r, 1)?,
-        kind: kind(r, 2)?,
-        preview: r.get(3)?,
+        kind,
+        preview,
         label: r.get(4)?,
         pinned: r.get(5)?,
         origin: DeviceId(r.get(6)?),
@@ -187,6 +201,8 @@ fn display_row(r: &Row<'_>) -> rusqlite::Result<DisplayRow> {
             .map(|b| hash_from_slice(&b))
             .transpose()
             .map_err(|_| conversion_err(13, "hash is not 32 bytes"))?,
+        look,
+        mono,
     })
 }
 
@@ -339,7 +355,8 @@ impl<'a> ReadView<'a> {
     pub fn devices(&self) -> Result<Vec<DeviceInfo>> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT device_id, display_name, role, ts_node_id, ts_hostname, last_ts_ip,
-               last_seen_ms, is_self FROM devices ORDER BY display_name, device_id",
+               last_seen_ms, is_self, coalesce(color_index, 0), device_type, os
+             FROM devices ORDER BY display_name, device_id",
         )?;
         let rows = stmt.query_map([], |r| {
             let role: String = r.get(2)?;
@@ -352,6 +369,9 @@ impl<'a> ReadView<'a> {
                 last_ts_ip: r.get(5)?,
                 last_seen_ms: r.get::<_, Option<i64>>(6)?.map(|v| v as u64),
                 is_self: r.get(7)?,
+                color_index: r.get(8)?,
+                device_type: r.get(9)?,
+                os: r.get(10)?,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)

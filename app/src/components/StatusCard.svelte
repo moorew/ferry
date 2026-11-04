@@ -58,7 +58,8 @@
     gap: 10px;
     padding: 12px 10px 12px 14px;
     border-radius: var(--tc-r-row);
-    background: var(--tc-bg);
+    background: var(--tc-surface);
+    box-shadow: var(--tc-shadow-card);
   }
 
   .dot {

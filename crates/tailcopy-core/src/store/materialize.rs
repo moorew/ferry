@@ -250,8 +250,9 @@ impl Store {
         self.conn.execute(
             "INSERT INTO clips (id, origin, created_hlc, last_used_hlc, sort_hlc, group_key, kind,
                preview, plain_text, byte_size, pinned, pin_hlc, pin_origin, label, label_hlc,
-               label_origin, deleted_hlc, local_only, source_app)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, 0, ?18)",
+               label_origin, deleted_hlc, local_only, source_app, use_count, received_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, 0, ?18,
+               ?19, ?20)",
             params![
                 state.clip_id.0,
                 state.origin.0,
@@ -271,6 +272,8 @@ impl Store {
                 state.label_origin.as_ref().map(|d| d.0.as_str()),
                 deleted_hlc.map(|d| d as i64),
                 if live { state.source_app.as_deref() } else { None },
+                state.use_count,
+                self.hlc.now_ms() as i64,
             ],
         )?;
         Ok(())
@@ -280,7 +283,7 @@ impl Store {
         self.conn
             .prepare_cached(
                 "UPDATE clips SET last_used_hlc = ?1, sort_hlc = ?2, pinned = ?3, pin_hlc = ?4,
-                   pin_origin = ?5, label = ?6, label_hlc = ?7, label_origin = ?8
+                   pin_origin = ?5, label = ?6, label_hlc = ?7, label_origin = ?8, use_count = ?10
                  WHERE id = ?9",
             )?
             .execute(params![
@@ -293,6 +296,7 @@ impl Store {
                 state.label_hlc as i64,
                 state.label_origin.as_ref().map(|d| d.0.as_str()),
                 state.clip_id.0,
+                state.use_count,
             ])?;
         Ok(())
     }
@@ -303,7 +307,8 @@ impl Store {
         self.conn.execute(
             "UPDATE clips SET last_used_hlc = 0, sort_hlc = ?1, preview = '', plain_text = NULL,
                byte_size = 0, pinned = 0, pin_hlc = 0, pin_origin = NULL, label = NULL,
-               label_hlc = 0, label_origin = NULL, deleted_hlc = ?2, source_app = NULL
+               label_hlc = 0, label_origin = NULL, deleted_hlc = ?2, source_app = NULL,
+               use_count = 0
              WHERE id = ?3",
             params![
                 state.created_hlc as i64,
@@ -394,6 +399,7 @@ struct Expected {
     created_hlc: u64,
     last_used_hlc: u64,
     sort_hlc: u64,
+    use_count: u32,
     group_key: Hash32,
     kind: String,
     preview: String,
@@ -415,6 +421,7 @@ fn expected(state: &ClipState) -> Expected {
         created_hlc: state.created_hlc,
         last_used_hlc: state.last_used_hlc,
         sort_hlc: state.sort_hlc,
+        use_count: state.use_count,
         group_key: state.group_key,
         kind: state.kind.as_str().to_owned(),
         preview: if live {
@@ -457,7 +464,8 @@ pub(super) fn check_consistency(store: &Store) -> Result<(), String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, origin, created_hlc, last_used_hlc, sort_hlc, group_key, kind, preview,
-               byte_size, pinned, pin_hlc, pin_origin, label, label_hlc, label_origin, deleted_hlc
+               byte_size, pinned, pin_hlc, pin_origin, label, label_hlc, label_origin, deleted_hlc,
+               use_count
              FROM clips WHERE local_only = 0",
         )
         .map_err(|e| e.to_string())?;
@@ -481,6 +489,7 @@ pub(super) fn check_consistency(store: &Store) -> Result<(), String> {
                     label_hlc: r.get::<_, i64>(13)? as u64,
                     label_origin: r.get(14)?,
                     deleted_hlc: r.get::<_, Option<i64>>(15)?.map(|d| d as u64),
+                    use_count: r.get(16)?,
                     formats: BTreeSet::new(),
                 },
             ))

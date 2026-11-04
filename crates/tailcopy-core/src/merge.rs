@@ -50,6 +50,8 @@ pub struct ClipState {
     pub last_used_hlc: u64,
     /// `max(created_hlc, last_used_hlc)`.
     pub sort_hlc: u64,
+    /// Number of `ClipUsed` ops; 0 if deleted.
+    pub use_count: u32,
     pub pinned: bool,
     pub pin_hlc: u64,
     pub pin_origin: Option<DeviceId>,
@@ -114,12 +116,16 @@ pub fn clip_state<'a>(
     let created_hlc = added.hlc;
 
     let mut used = 0u64;
+    let mut uses = 0u32;
     let mut pins: Vec<(u64, &DeviceId, bool)> = Vec::new();
     let mut labels: Vec<(u64, &DeviceId, Option<&str>)> = Vec::new();
     let mut deleted: Option<u64> = None;
     for op in clip_ops {
         match &op.body {
-            OpBody::ClipUsed { .. } => used = used.max(op.hlc),
+            OpBody::ClipUsed { .. } => {
+                used = used.max(op.hlc);
+                uses += 1;
+            }
             OpBody::PinSet { pinned, .. } => pins.push((op.hlc, &op.origin, *pinned)),
             OpBody::LabelSet { label, .. } => labels.push((op.hlc, &op.origin, label.as_deref())),
             OpBody::ClipDeleted { .. } => {
@@ -157,6 +163,7 @@ pub fn clip_state<'a>(
         stub: *trimmed,
         last_used_hlc: 0,
         sort_hlc: created_hlc,
+        use_count: 0,
         pinned: false,
         pin_hlc: 0,
         pin_origin: None,
@@ -171,6 +178,7 @@ pub fn clip_state<'a>(
     }
     state.last_used_hlc = used;
     state.sort_hlc = created_hlc.max(used);
+    state.use_count = uses;
     if let Some((hlc, origin, pinned)) = lww(pins.into_iter()) {
         state.pinned = pinned;
         state.pin_hlc = hlc;

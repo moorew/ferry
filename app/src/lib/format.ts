@@ -1,4 +1,5 @@
 import type { IconName } from '../components/Icon.svelte';
+import { t } from './strings';
 // Display helpers: relative time, sizes, shortcut labels, accessible row labels.
 
 export const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
@@ -72,4 +73,33 @@ export function trailLatency(ms: number): string | null {
   if (ms < 100) return '<0.1s';
   if (ms > 60_000) return null;
   return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+}
+
+/** Section heading for the time-grouped list (handoff section 5). */
+export function timeGroup(ms: number, now = Date.now()): string {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const day = 86_400_000;
+  if (now - ms < 15 * 60_000) return t('history.group.now');
+  if (ms >= today.getTime()) return t('history.group.today');
+  if (ms >= today.getTime() - day) return t('history.group.yesterday');
+  if (ms >= today.getTime() - 6 * day) return new Date(ms).toLocaleDateString(undefined, { weekday: 'long' });
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+}
+
+/** The type as the detail pane names it. */
+export function lookName(look: string): string {
+  return (
+    { text: 'Text', rich: 'Formatted text', image: 'Image', code: 'Code', link: 'Link', colour: 'Colour' }[look] ??
+    'Text'
+  );
+}
+
+/** Tile icon for a derived look. */
+export function lookIcon(look: string): IconName {
+  return (
+    ({ text: 'text', rich: 'rich-text', image: 'image', code: 'code', link: 'link', colour: 'colour' } as const)[
+      look as 'text'
+    ] ?? 'text'
+  );
 }

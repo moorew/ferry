@@ -4,13 +4,70 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use tailcopy_core::{ClipKind, DeviceId, DisplayRow, hlc::wall_ms, model::hash_hex};
+use tailcopy_core::{
+    ClipKind, Counts, DeviceId, DeviceInfo, DisplayRow, Role, hlc::wall_ms, model::hash_hex,
+};
+
+/// A device as the UI draws it.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Device {
+    pub name: String,
+    pub color_index: u32,
+    #[serde(rename = "type")]
+    pub device_type: &'static str,
+}
+
+pub fn device(d: &DeviceInfo) -> Device {
+    Device {
+        name: d.display_name.clone(),
+        color_index: d.color_index,
+        device_type: match d.device_type.as_deref() {
+            Some("laptop") => "laptop",
+            Some("server") => "server",
+            Some("board") => "board",
+            Some("desktop") => "desktop",
+            _ if d.role == Role::Relay => "server",
+            _ => "desktop",
+        },
+    }
+}
+
+/// Rows per sidebar filter.
+#[derive(Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CountsDto {
+    pub all: usize,
+    pub pinned: usize,
+    pub code: usize,
+    pub link: usize,
+    pub image: usize,
+    pub rich: usize,
+}
+
+impl From<Counts> for CountsDto {
+    fn from(c: Counts) -> Self {
+        CountsDto {
+            all: c.all,
+            pinned: c.pinned,
+            code: c.code,
+            link: c.link,
+            image: c.image,
+            rich: c.rich,
+        }
+    }
+}
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipRow {
     pub id: String,
     pub kind: &'static str,
+    /// text, rich, image, code, link or colour (derived, never stored).
+    pub look: &'static str,
+    pub mono: bool,
+    /// Where it was copied, this device included.
+    pub origin: Device,
     pub preview: String,
     pub pinned: bool,
     pub label: Option<String>,
@@ -35,6 +92,12 @@ pub struct ClipDetail {
     pub image_url: Option<String>,
     pub formats: Vec<String>,
     pub looks_like_code: bool,
+    /// Pastes and copies from TailCopy, on every device.
+    pub use_count: u32,
+    /// When it was copied, by the clock of the device that copied it.
+    pub copied_ms: u64,
+    /// When this device got it, by this device's clock.
+    pub received_ms: Option<u64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -58,6 +121,11 @@ pub struct Status {
     pub first_run_done: bool,
     pub clip_count: usize,
     pub pinned_count: usize,
+    pub counts: CountsDto,
+    /// This device, as the sidebar shows it.
+    pub this_device: Option<Device>,
+    /// This machine's name on the tailnet, when Tailscale is running.
+    pub tailscale_name: Option<String>,
     /// "system", "light" or "dark", for the windows' `data-theme`.
     pub theme: &'static str,
 }
@@ -93,21 +161,30 @@ fn image_size(preview: &str) -> Option<(u32, u32)> {
     Some((w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
 
-pub fn row(r: &DisplayRow, me: &DeviceId, names: &HashMap<DeviceId, String>) -> ClipRow {
+pub fn row(r: &DisplayRow, me: &DeviceId, devices: &HashMap<DeviceId, DeviceInfo>) -> ClipRow {
     let size = (r.kind == ClipKind::Image)
         .then(|| image_size(&r.preview))
         .flatten();
     ClipRow {
         id: r.clip_id.to_string(),
         kind: kind_name(r.kind),
+        look: r.look.as_str(),
+        mono: r.mono,
+        origin: devices
+            .get(&r.origin)
+            .map(device)
+            .unwrap_or_else(|| Device {
+                name: "another device".into(),
+                color_index: 0,
+                device_type: "desktop",
+            }),
         preview: r.preview.clone(),
         pinned: r.pinned,
         label: r.label.clone(),
         device: (&r.origin != me).then(|| {
-            names
+            devices
                 .get(&r.origin)
-                .cloned()
-                .unwrap_or_else(|| "another device".into())
+                .map_or_else(|| "another device".into(), |d| d.display_name.clone())
         }),
         source_app: r.source_app.clone(),
         sort_ms: wall_ms(r.sort_hlc),
@@ -171,6 +248,7 @@ pub struct General {
     pub auto_paste: bool,
     /// "system", "light" or "dark".
     pub theme: String,
+    pub skip_single_characters: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -241,6 +319,7 @@ impl Settings {
                 live_mirror: c.general.live_mirror,
                 auto_paste: c.general.auto_paste,
                 theme: c.general.theme.as_str().into(),
+                skip_single_characters: c.general.skip_single_characters,
             },
             hotkeys: Hotkeys {
                 picker: c.hotkeys.picker.clone(),
@@ -294,6 +373,7 @@ impl Settings {
         c.general.start_at_login = self.general.start_at_login;
         c.general.live_mirror = self.general.live_mirror;
         c.general.auto_paste = self.general.auto_paste;
+        c.general.skip_single_characters = self.general.skip_single_characters;
         c.general.theme =
             tailcopy_core::Theme::parse(&self.general.theme).unwrap_or(c.general.theme);
         c.hotkeys.picker = self.hotkeys.picker.clone();

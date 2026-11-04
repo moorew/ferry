@@ -265,6 +265,10 @@ pub async fn apply_config(app: &AppHandle, config: &Config, hotkeys_changed: boo
     let limits = config.size_limits();
     let sync_source_app = config.privacy.sync_source_app;
     let policy = config.retention_policy();
+    let self_name = match config.general.device_name.as_str() {
+        "" => crate::tailscale::hostname().await.unwrap_or_else(hostname),
+        name => name.to_owned(),
+    };
     app.set_theme(match config.general.theme {
         tailcopy_core::Theme::System => None,
         tailcopy_core::Theme::Light => Some(tauri::Theme::Light),
@@ -275,6 +279,9 @@ pub async fn apply_config(app: &AppHandle, config: &Config, hotkeys_changed: boo
         .run(move |core| {
             core.store.set_limits(limits);
             core.store.set_sync_source_app(sync_source_app);
+            if let Err(e) = core.store.set_self_display_name(&self_name) {
+                tracing::warn!("couldn't rename this device: {e}");
+            }
             let n = core.store.enforce_retention(&policy);
             core.refresh();
             n

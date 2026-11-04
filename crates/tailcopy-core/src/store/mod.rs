@@ -137,7 +137,8 @@ impl Store {
         set_meta(&self.conn, "device_id", &self.device_id.0)?;
         set_meta(&self.conn, "created_at", &(now as i64))?;
         self.conn.execute(
-            "INSERT INTO devices (device_id, display_name, role, is_self) VALUES (?1, ?2, ?3, 1)",
+            "INSERT INTO devices (device_id, display_name, role, is_self, color_index)
+             VALUES (?1, ?2, ?3, 1, (SELECT coalesce(max(color_index) + 1, 0) FROM devices))",
             params![self.device_id.0, display_name, role.as_str()],
         )?;
         tracing::info!(device_id = %self.device_id, "created device id");
@@ -329,8 +330,10 @@ impl Store {
         let new = DeviceId::new_v7(self.hlc.now_ms());
         set_meta(&self.conn, "device_id", &new.0)?;
         self.conn.execute(
-            "INSERT INTO devices (device_id, display_name, role, ts_node_id, ts_hostname, last_ts_ip, last_seen_ms, is_self)
-             SELECT ?1, display_name, role, ts_node_id, ts_hostname, last_ts_ip, last_seen_ms, 1
+            "INSERT INTO devices (device_id, display_name, role, ts_node_id, ts_hostname, last_ts_ip,
+               last_seen_ms, is_self, color_index, device_type, os)
+             SELECT ?1, display_name, role, ts_node_id, ts_hostname, last_ts_ip, last_seen_ms, 1,
+               color_index, device_type, os
              FROM devices WHERE device_id = ?2",
             params![new.0, old.0],
         )?;
@@ -347,12 +350,13 @@ impl Store {
     pub fn upsert_device(&mut self, device: &DeviceInfo) -> Result<()> {
         self.write(|s| {
             s.conn.execute(
-                "INSERT INTO devices (device_id, display_name, role, ts_node_id, ts_hostname, last_ts_ip, last_seen_ms, is_self)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                "INSERT INTO devices (device_id, display_name, role, ts_node_id, ts_hostname, last_ts_ip,
+                   last_seen_ms, is_self, os, color_index)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, (SELECT coalesce(max(color_index) + 1, 0) FROM devices))
                  ON CONFLICT(device_id) DO UPDATE SET display_name = excluded.display_name,
                    role = excluded.role, ts_node_id = excluded.ts_node_id,
                    ts_hostname = excluded.ts_hostname, last_ts_ip = excluded.last_ts_ip,
-                   last_seen_ms = excluded.last_seen_ms",
+                   last_seen_ms = excluded.last_seen_ms, os = coalesce(excluded.os, os)",
                 params![
                     device.device_id.0,
                     device.display_name,
@@ -362,6 +366,7 @@ impl Store {
                     device.last_ts_ip,
                     device.last_seen_ms.map(|v| v as i64),
                     device.device_id == s.device_id,
+                    device.os,
                 ],
             )?;
             Ok(())

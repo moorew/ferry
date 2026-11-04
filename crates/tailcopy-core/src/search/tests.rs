@@ -152,8 +152,14 @@ fn from_matches_peer_devices() {
         last_ts_ip: None,
         last_seen_ms: None,
         is_self: false,
+        color_index: 0,
+        device_type: None,
+        os: None,
     })
     .unwrap();
+    let devices = s.view().devices().unwrap();
+    let peer = devices.iter().find(|d| d.device_id.0 == "peer").unwrap();
+    assert_eq!(peer.color_index, 1, "joins after this device");
     let mut p_seq = 0;
     let mut op = |body| {
         p_seq += 1;
@@ -364,4 +370,33 @@ fn search_p95_over_10k_clips() {
     if !cfg!(debug_assertions) {
         assert!(p95.as_millis() < 16, "p95 {p95:?} over the 16 ms budget");
     }
+}
+
+#[test]
+fn look_filters_and_counts() {
+    let tmp = tempfile::tempdir().unwrap();
+    let clock = ManualClock::new(T0);
+    let mut s = store(tmp.path(), &clock);
+    copy(&mut s, &clock, "docker compose up -d");
+    copy(&mut s, &clock, "https://tailscale.com/kb");
+    let pinned = copy(&mut s, &clock, "just some words");
+    s.set_pinned(&pinned, true).unwrap();
+    let mut index = SearchIndex::load(&s.view()).unwrap();
+    let ctx = SearchContext::default();
+
+    let code = index.search(None, "is:code", &ctx, 10).unwrap();
+    assert_eq!(previews(&code), ["docker compose up -d"]);
+    let either = index.search(None, "is:link is:code", &ctx, 10).unwrap();
+    assert_eq!(either.len(), 2);
+    assert_eq!(
+        index.counts(),
+        Counts {
+            all: 3,
+            pinned: 1,
+            code: 1,
+            link: 1,
+            image: 0,
+            rich: 0
+        }
+    );
 }

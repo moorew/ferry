@@ -2,6 +2,8 @@
 // sides (serde `rename_all = "camelCase"`).
 
 export type ClipKind = 'text' | 'rich' | 'image';
+/** Derived from kind and content for display and filters; never stored. */
+export type Look = 'text' | 'rich' | 'image' | 'code' | 'link' | 'colour';
 export type PasteMode = 'all' | 'plain';
 
 export type DeviceType = 'laptop' | 'desktop' | 'server' | 'board';
@@ -16,6 +18,11 @@ export interface DeviceRef {
 export interface ClipRow {
   id: string;
   kind: ClipKind;
+  look: Look;
+  /** Code, colours and IP addresses read better in mono. */
+  mono: boolean;
+  /** Where it was copied, this device included. */
+  origin: DeviceRef;
   preview: string;
   pinned: boolean;
   label: string | null;
@@ -42,6 +49,21 @@ export interface ClipDetail extends ClipRow {
   imageUrl: string | null;
   formats: string[];
   looksLikeCode: boolean;
+  /** Pastes and copies from TailCopy, on every device. */
+  useCount: number;
+  /** When it was copied, by the copying device's clock. */
+  copiedMs: number;
+  /** When this device got it, by its own clock. */
+  receivedMs: number | null;
+}
+
+export interface Counts {
+  all: number;
+  pinned: number;
+  code: number;
+  link: number;
+  image: number;
+  rich: number;
 }
 
 export type Theme = 'system' | 'light' | 'dark';
@@ -69,6 +91,10 @@ export interface Status {
   firstRunDone: boolean;
   clipCount: number;
   pinnedCount: number;
+  counts: Counts;
+  thisDevice: DeviceRef | null;
+  /** This machine's name on the tailnet, while Tailscale runs. */
+  tailscaleName: string | null;
   theme: Theme;
 }
 
@@ -86,6 +112,7 @@ export interface Settings {
     liveMirror: boolean;
     autoPaste: boolean;
     theme: Theme;
+    skipSingleCharacters: boolean;
   };
   hotkeys: {
     picker: string;

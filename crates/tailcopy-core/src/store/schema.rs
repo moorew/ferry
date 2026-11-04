@@ -5,7 +5,10 @@ use rusqlite::{Connection, OptionalExtension, params};
 use crate::error::{Error, Result};
 
 /// Migration `n` (1-based) is `MIGRATIONS[n - 1]`. Append only.
-pub const MIGRATIONS: &[&str] = &[include_str!("migrations/0001_initial.sql")];
+pub const MIGRATIONS: &[&str] = &[
+    include_str!("migrations/0001_initial.sql"),
+    include_str!("migrations/0002_design.sql"),
+];
 
 /// Schema version this build writes.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -121,9 +124,44 @@ mod tests {
     }
 
     #[test]
+    fn design_migration_backfills_from_v1() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate_with(&mut conn, &MIGRATIONS[..1]).unwrap();
+        conn.execute_batch(
+            "INSERT INTO devices (device_id, display_name, role, is_self) VALUES
+               ('me', 'Laptop', 'device', 1), ('peer', 'Desk', 'device', 0);
+             INSERT INTO clips (id, origin, created_hlc, last_used_hlc, sort_hlc, group_key,
+               kind, preview, byte_size)
+               VALUES ('c1', 'me', 6553600000, 0, 6553600000, x'00', 'text', 'hi', 2);
+             INSERT INTO ops (origin, seq, hlc, kind, clip_id, payload) VALUES
+               ('me', 1, 6553600000, 1, 'c1', x'00'),
+               ('me', 2, 6553700000, 2, 'c1', x'00'),
+               ('peer', 1, 6553800000, 2, 'c1', x'00');",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        let (uses, received): (i64, i64) = conn
+            .query_row(
+                "SELECT use_count, received_ms FROM clips WHERE id = 'c1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((uses, received), (2, 100_000));
+        let colours: Vec<(String, i64)> = conn
+            .prepare("SELECT device_id, color_index FROM devices ORDER BY device_id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(colours, [("me".into(), 0), ("peer".into(), 1)]);
+    }
+
+    #[test]
     fn failed_migration_rolls_back() {
         let mut conn = Connection::open_in_memory().unwrap();
-        migrate(&mut conn).unwrap();
+        migrate_with(&mut conn, &MIGRATIONS[..1]).unwrap();
         let bad = [MIGRATIONS[0], "CREATE TABLE ok_t (x); THIS IS NOT SQL;"];
         assert!(migrate_with(&mut conn, &bad).is_err());
         assert_eq!(schema_version(&conn).unwrap(), 1);

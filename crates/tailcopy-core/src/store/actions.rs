@@ -127,8 +127,8 @@ impl Store {
                 clip_id = ClipId::new_v7(hlc::wall_ms(hlc));
                 s.conn.execute(
                     "INSERT INTO clips (id, origin, created_hlc, last_used_hlc, sort_hlc, group_key,
-                       kind, preview, plain_text, byte_size, local_only, source_app)
-                     VALUES (?1, ?2, ?3, 0, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
+                       kind, preview, plain_text, byte_size, local_only, source_app, received_ms)
+                     VALUES (?1, ?2, ?3, 0, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)",
                     params![
                         clip_id.0,
                         s.device_id.0,
@@ -139,6 +139,7 @@ impl Store {
                         n.plain_text,
                         formats.iter().map(|f| f.size).sum::<u64>() as i64,
                         source_app,
+                        hlc::wall_ms(hlc) as i64,
                     ],
                 )?;
                 for f in &formats {
@@ -208,7 +209,8 @@ impl Store {
             if local {
                 let hlc = s.hlc.tick() as i64;
                 s.conn.execute(
-                    "UPDATE clips SET last_used_hlc = ?1, sort_hlc = max(created_hlc, ?1) WHERE id = ?2",
+                    "UPDATE clips SET last_used_hlc = ?1, sort_hlc = max(created_hlc, ?1),
+                       use_count = use_count + 1 WHERE id = ?2",
                     params![hlc, clip_id.0],
                 )?;
                 s.dirty_groups.insert(key);

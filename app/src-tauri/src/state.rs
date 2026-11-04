@@ -159,6 +159,10 @@ pub async fn ingest(app: &AppHandle, captured: Captured) {
     let Some(normalized) = normalize(&formats, &config.size_limits()) else {
         return;
     };
+    if config.general.skip_single_characters && normalized.is_single_character() {
+        tracing::debug!("skipped a single-character copy");
+        return;
+    }
     if state.is_own_write(&normalized.group_key) {
         tracing::debug!("ignored our own clipboard write");
         return;

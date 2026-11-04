@@ -295,6 +295,12 @@ pub struct DeviceInfo {
     pub last_ts_ip: Option<String>,
     pub last_seen_ms: Option<u64>,
     pub is_self: bool,
+    /// Index into the UI's device colours, assigned in join order and kept (local).
+    pub color_index: u32,
+    /// laptop, desktop, server or board; `None` for the default (local).
+    pub device_type: Option<String>,
+    /// Tailscale's OS name, when known.
+    pub os: Option<String>,
 }
 
 #[cfg(test)]

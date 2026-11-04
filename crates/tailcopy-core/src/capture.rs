@@ -63,6 +63,18 @@ pub struct Normalized {
     pub(crate) image: Option<DynamicImage>,
 }
 
+impl Normalized {
+    /// Plain text that is one character once trimmed, like a stray "I" or "x". Skipped
+    /// by default (`general.skip_single_characters`, handoff fix 11.3).
+    pub fn is_single_character(&self) -> bool {
+        self.kind == ClipKind::Text
+            && self
+                .plain_text
+                .as_deref()
+                .is_some_and(|t| t.trim().chars().count() == 1)
+    }
+}
+
 /// Normalizes a capture. `None` means there is nothing worth storing (empty or
 /// whitespace-only text, undecodable image, unsupported formats only).
 pub fn normalize(formats: &CapturedFormats, limits: &SizeLimits) -> Option<Normalized> {
@@ -446,6 +458,27 @@ mod tests {
         assert_eq!(mimes(&n), [mime::TEXT]);
         // The stored bytes are exact; only the group key normalizes line endings.
         assert_eq!(n.formats[0].1, b"hello\r\nworld");
+    }
+
+    #[test]
+    fn single_characters() {
+        let text = |t: &str| {
+            norm(CapturedFormats {
+                text: Some(t.into()),
+                ..Default::default()
+            })
+            .unwrap()
+        };
+        assert!(text("I").is_single_character());
+        assert!(text(" é\n").is_single_character());
+        assert!(!text("ok").is_single_character());
+        let rich = norm(CapturedFormats {
+            text: Some("x".into()),
+            html: Some("<b>x</b>".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(!rich.is_single_character());
     }
 
     #[test]

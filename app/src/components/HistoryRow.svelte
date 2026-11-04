@@ -17,6 +17,10 @@
     app?: string | null;
     time: string;
     thumbUrl?: string | null;
+    /** 64 × 44 thumbnails, for the Images view. */
+    wide?: boolean;
+    /** The colour itself, for colour items. */
+    swatch?: string | null;
     pinned?: boolean;
     copies?: number;
     selected?: boolean;
@@ -37,6 +41,8 @@
     app = null,
     time,
     thumbUrl = null,
+    wide = false,
+    swatch = null,
     pinned = false,
     copies = 1,
     selected = false,
@@ -60,7 +66,7 @@
   {onclick}
   {ondblclick}
 >
-  <span class="tile" class:thumb={thumbUrl}>
+  <span class="tile" class:wide={wide && thumbUrl} style:background={swatch}>
     {#if thumbUrl}<img src={thumbUrl} alt="" />{:else}<Icon name={icon} size={20} />{/if}
   </span>
   <span class="text">
@@ -109,6 +115,11 @@
     border-radius: var(--tc-r-tile);
     background: var(--tc-tile);
     overflow: hidden;
+  }
+
+  .tile.wide {
+    width: 64px;
+    height: 44px;
   }
 
   .row:hover .tile {

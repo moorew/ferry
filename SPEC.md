@@ -232,7 +232,12 @@ CREATE TABLE devices (
   ts_hostname   TEXT,
   last_ts_ip    TEXT,
   last_seen_ms  INTEGER,
-  is_self       INTEGER NOT NULL DEFAULT 0
+  is_self       INTEGER NOT NULL DEFAULT 0,
+  color_index   INTEGER,             -- UI colour, join order, assigned once (local)
+  device_type   TEXT,                -- laptop | desktop | server | board; NULL = default (local)
+  os            TEXT,                -- from Tailscale status
+  send_enabled    INTEGER NOT NULL DEFAULT 1,   -- per-device sync switches (M2)
+  receive_enabled INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE version_vector (
@@ -272,7 +277,9 @@ CREATE TABLE clips (
   label_origin   TEXT,
   deleted_hlc    INTEGER,            -- tombstone
   local_only     INTEGER NOT NULL DEFAULT 0,
-  source_app     TEXT                -- local only unless the user opts in
+  source_app     TEXT,               -- local only unless the user opts in
+  use_count      INTEGER NOT NULL DEFAULT 0,   -- number of ClipUsed ops (0 when deleted)
+  received_ms    INTEGER             -- when this device first held it, local clock (never compared)
 );
 CREATE INDEX clips_order ON clips(deleted_hlc, sort_hlc DESC);
 CREATE INDEX clips_group ON clips(group_key);
@@ -794,7 +801,7 @@ On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on va
 
 - Opens with the search field focused and empty, selection on row 1. Must render the cached list on the first frame (no loading state on open).
 - Rows: type glyph, first line of preview (or thumbnail for images), source device chip (hidden for this device), relative time, pin marker. Rows 1 to 9 show their number hint.
-- Search: tokens `is:pinned`, `is:image`, `is:rich`, `is:text`, `from:<device name>`, `today`, `yesterday`; remaining text is fuzzy-matched (`nucleo-matcher`) against preview text of every retained clip in memory. If the query is 3+ characters, also run FTS5 over full plain text and merge, fuzzy results first.
+- Search: tokens `is:pinned`, `is:image`, `is:rich`, `is:text`, `is:code`, `is:link`, `from:<device name>`, `today`, `yesterday`. `is:code` and `is:link` match a look derived from the preview for display (code, link, colour), which is never stored or synced; remaining text is fuzzy-matched (`nucleo-matcher`) against preview text of every retained clip in memory. If the query is 3+ characters, also run FTS5 over full plain text and merge, fuzzy results first.
 - Preview pane (Tab): full text with monospace when it looks like code, rendered sanitized HTML for rich clips (no scripts, no remote images), image at fit size. Missing blobs show a spinner, then the offline message.
 - Choose: Enter pastes with all formats, Shift+Enter pastes plain text. The picker hides immediately; paste happens after focus returns.
 - States: empty history ("Copy something to get started"), no results, paused banner, "Tailscale not running" banner (subtle, one line), degraded-mode banner.
@@ -868,6 +875,7 @@ start_at_login = true
 live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
 theme = "system"            # system, light or dark (10.4)
+skip_single_characters = true   # ignore one-character and whitespace-only copies
 
 [hotkeys]                   # empty string = unbound
 picker = "Ctrl+Alt+V"       # macOS default "Cmd+Shift+V"; GNOME: "" until first run

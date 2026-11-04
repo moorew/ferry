@@ -4,19 +4,34 @@
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-static CACHE: Mutex<Option<(Instant, &'static str)>> = Mutex::new(None);
+#[derive(Clone)]
+struct Info {
+    state: &'static str,
+    hostname: Option<String>,
+}
+
+static CACHE: Mutex<Option<(Instant, Info)>> = Mutex::new(None);
 const TTL: Duration = Duration::from_secs(15);
+
+async fn info() -> Info {
+    if let Some((at, info)) = CACHE.lock().unwrap().as_ref()
+        && at.elapsed() < TTL
+    {
+        return info.clone();
+    }
+    let info = query().await;
+    *CACHE.lock().unwrap() = Some((Instant::now(), info.clone()));
+    info
+}
 
 /// `running`, `stopped` or `missing`.
 pub async fn state() -> &'static str {
-    if let Some((at, s)) = *CACHE.lock().unwrap()
-        && at.elapsed() < TTL
-    {
-        return s;
-    }
-    let s = query().await;
-    *CACHE.lock().unwrap() = Some((Instant::now(), s));
-    s
+    info().await.state
+}
+
+/// This machine's name on the tailnet (`Self.HostName`), while Tailscale runs.
+pub async fn hostname() -> Option<String> {
+    info().await.hostname
 }
 
 fn cli() -> &'static str {
@@ -29,7 +44,7 @@ fn cli() -> &'static str {
     }
 }
 
-async fn query() -> &'static str {
+async fn query() -> Info {
     let mut cmd = tokio::process::Command::new(cli());
     cmd.args(["status", "--json"]).kill_on_drop(true);
     #[cfg(windows)]
@@ -37,15 +52,31 @@ async fn query() -> &'static str {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    let stopped = Info {
+        state: "stopped",
+        hostname: None,
+    };
     match tokio::time::timeout(Duration::from_secs(3), cmd.output()).await {
         Ok(Ok(out)) => {
-            let running = serde_json::from_slice::<serde_json::Value>(&out.stdout)
-                .ok()
-                .and_then(|v| v.get("BackendState")?.as_str().map(|s| s == "Running"))
-                .unwrap_or(false);
-            if running { "running" } else { "stopped" }
+            let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) else {
+                return stopped;
+            };
+            if json.get("BackendState").and_then(|v| v.as_str()) != Some("Running") {
+                return stopped;
+            }
+            Info {
+                state: "running",
+                hostname: json
+                    .pointer("/Self/HostName")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned),
+            }
         }
-        Ok(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => "missing",
-        _ => "stopped",
+        Ok(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => Info {
+            state: "missing",
+            hostname: None,
+        },
+        _ => stopped,
     }
 }

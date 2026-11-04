@@ -36,11 +36,11 @@ pub async fn list_clips(
         .run(move |core| {
             let me = core.store.device_id().clone();
             let view = core.store.view();
-            let names: HashMap<_, _> = view
+            let devices: HashMap<_, _> = view
                 .devices()
                 .unwrap_or_default()
                 .into_iter()
-                .map(|d| (d.device_id, d.display_name))
+                .map(|d| (d.device_id.clone(), d))
                 .collect();
             let rows: Vec<_> = if query.trim().is_empty() {
                 core.index
@@ -57,7 +57,7 @@ pub async fn list_clips(
                     .map(|h| h.row)
                     .collect()
             };
-            Ok(rows.iter().map(|r| dto::row(r, &me, &names)).collect())
+            Ok(rows.iter().map(|r| dto::row(r, &me, &devices)).collect())
         })
         .await
         .map_err(|e: tailcopy_core::Error| err(e))
@@ -74,13 +74,16 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
             let Some(row) = core.index.rows().find(|r| r.clip_id == id).cloned() else {
                 return Ok(None);
             };
-            let names: HashMap<_, _> = view
+            let devices: HashMap<_, _> = view
                 .devices()
                 .unwrap_or_default()
                 .into_iter()
-                .map(|d| (d.device_id, d.display_name))
+                .map(|d| (d.device_id.clone(), d))
                 .collect();
             let detail = view.get_clip(&id)?;
+            let (use_count, received_ms) = detail
+                .as_ref()
+                .map_or((0, None), |d| (d.clip.use_count, d.clip.received_ms));
             let text = view.plain_text(&id)?;
             let html = view
                 .read_format(&id, "text/html")?
@@ -95,7 +98,10 @@ pub async fn get_clip(state: State<'_, AppState>, id: String) -> CmdResult<Optio
                 .map(|h| dto::thumb_url(&hash_hex(h), true));
             Ok(Some(ClipDetail {
                 looks_like_code: text.as_deref().is_some_and(dto::looks_like_code),
-                row: dto::row(&row, &me, &names),
+                use_count,
+                copied_ms: tailcopy_core::hlc::wall_ms(row.created_hlc),
+                received_ms,
+                row: dto::row(&row, &me, &devices),
                 text,
                 html,
                 image_url,
@@ -235,11 +241,19 @@ pub async fn get_status(app: AppHandle) -> CmdResult<Status> {
 
 pub async fn build_status(app: &AppHandle) -> Status {
     let state = app.state::<AppState>();
-    let (clip_count, pinned_count) = state
+    let (counts, this_device) = state
         .db
         .run(|core| {
-            let rows: Vec<_> = core.index.rows().collect();
-            (rows.len(), rows.iter().filter(|r| r.pinned).count())
+            let me = core.store.device_id().clone();
+            let this_device = core
+                .store
+                .view()
+                .devices()
+                .unwrap_or_default()
+                .iter()
+                .find(|d| d.device_id == me)
+                .map(dto::device);
+            (core.index.counts(), this_device)
         })
         .await;
     let session = state.session;
@@ -261,8 +275,11 @@ pub async fn build_status(app: &AppHandle) -> Status {
         extension: None,
         accessibility: None,
         first_run_done: state.first_run_done(),
-        clip_count,
-        pinned_count,
+        clip_count: counts.all,
+        pinned_count: counts.pinned,
+        counts: counts.into(),
+        this_device,
+        tailscale_name: crate::tailscale::hostname().await,
         theme: state.config().general.theme.as_str(),
     };
     #[cfg(target_os = "linux")]

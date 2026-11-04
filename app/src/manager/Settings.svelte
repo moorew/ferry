@@ -75,7 +75,7 @@
         <h2>General</h2>
         <div class="item">
           <div><p class="name">Device name</p><p class="desc">How this device appears on your other devices. Leave empty to use its Tailscale name.</p></div>
-          <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder="Tailscale name" />
+          <input class="field" bind:value={settings.general.deviceName} onchange={save} placeholder={status?.tailscaleName ?? 'This device'} />
         </div>
         <div class="item">
           <div><p class="name">Appearance</p><p class="desc">System follows your light or dark setting.</p></div>
@@ -90,6 +90,10 @@
         <label class="item">
           <div><p class="name">Start at login</p><p class="desc">Keep TailCopy running in the background so your history is always there.</p></div>
           <Toggle bind:checked={settings.general.startAtLogin} onchange={save} />
+        </label>
+        <label class="item">
+          <div><p class="name">Skip single characters</p><p class="desc">Don't keep copies that are one character, like a stray letter or a space.</p></div>
+          <Toggle bind:checked={settings.general.skipSingleCharacters} onchange={save} />
         </label>
         <label class="item">
           <div><p class="name">Paste for me</p><p class="desc">Choosing an item pastes it into the app you were using. Turn off to only copy it.</p></div>

@@ -7,6 +7,7 @@ pub mod capture;
 pub mod config;
 pub mod error;
 pub mod hlc;
+pub mod look;
 pub mod merge;
 pub mod model;
 pub mod names;
@@ -17,10 +18,11 @@ pub use capture::{Capture, CapturedFormats, SizeLimits};
 pub use config::{Config, ConfigFile, Platform, PrivacyDecision, PrivacyMode, PrivacyRule, Theme};
 pub use error::{Error, Result};
 pub use hlc::{Clock, ManualClock, SystemClock};
+pub use look::Look;
 pub use model::{
     ClipId, ClipKind, DeviceId, DeviceInfo, FormatRef, Hash32, Op, OpBody, Role, VersionVector,
 };
-pub use search::{SearchContext, SearchHit, SearchIndex, parse_query};
+pub use search::{Counts, SearchContext, SearchHit, SearchIndex, parse_query};
 pub use store::{
     ApplyReport, CaptureOutcome, ClipDetail, DisplayRow, ReadView, Reader, RetentionPolicy, Store,
     StoreOptions,

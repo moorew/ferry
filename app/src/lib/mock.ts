@@ -1,7 +1,7 @@
 // A stand-in backend for working on the UI in a browser (`npm run dev`, then open
 // /?view=picker or /?view=manager). Never used inside the app.
 
-import type { ClipDetail, ClipRow, Settings, Status } from './types';
+import type { ClipDetail, ClipRow, DeviceRef, Look, Settings, Status } from './types';
 
 const now = Date.now();
 const min = 60_000;
@@ -11,42 +11,58 @@ function thumb(label: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-const seed: ClipDetail[] = [
-  ['text', 'git rebase -i HEAD~4 && git push --force-with-lease', null, 2],
-  ['rich', 'Quarterly review notes: revenue up 12%, churn steady, hiring two engineers in Q1', 'desk', 14],
-  ['image', 'image 1280×800', null, 31],
-  ['text', 'https://tailscale.com/kb/1537/grants-app-capabilities', null, 58],
-  ['text', 'SELECT id, preview FROM clips WHERE deleted_hlc IS NULL ORDER BY sort_hlc DESC LIMIT 50;', 'laptop', 95],
-  ['rich', 'Meeting moved to Thursday 3pm in the large room. Bring the printed spec.', null, 180],
-  ['text', '100.66.95.52', null, 300],
-  ['text', 'Thanks for the quick turnaround on this, it really helped us ship on time.', 'laptop', 1500],
-  ['text', 'cargo clippy --workspace --all-targets -- -D warnings', null, 2900],
-  ['image', 'image 640×480', 'desk', 4300],
-].map(([kind, preview, device, ago], i) => {
+const thinkpad: DeviceRef = { name: 'thinkpad', colorIndex: 0, type: 'laptop' };
+const macMini: DeviceRef = { name: 'mac-mini', colorIndex: 1, type: 'desktop' };
+const ubuntuDesk: DeviceRef = { name: 'ubuntu-desk', colorIndex: 2, type: 'desktop' };
+const homelab: DeviceRef = { name: 'homelab', colorIndex: 3, type: 'server' };
+
+type SeedRow = [ClipRow['kind'], Look, string, DeviceRef, string, number];
+
+// [kind, look, preview, device, app, minutes ago]
+const rowsSeed: SeedRow[] = [
+  ['text', 'code', 'tailscale up --ssh --accept-routes', macMini, 'Ghostty', 1],
+  ['text', 'code', 'docker compose -f stack.yml up -d', ubuntuDesk, 'Terminal', 2],
+  ['text', 'text', "Ok, I've pushed the fix to main. Can you pull and retry the build?", thinkpad, 'Slack', 4],
+  ['text', 'link', 'login.tailscale.com/admin/machines', macMini, 'Safari', 60],
+  ['image', 'image', 'image 1444×1006', thinkpad, 'Snipping Tool', 120],
+  ['text', 'colour', '#7B52F0', ubuntuDesk, 'Inkscape', 180],
+  ['rich', 'rich', 'Q4 launch notes: messaging, timeline and owners', thinkpad, 'Google Docs', 1500],
+  ['text', 'text', '100.101.42.17', homelab, 'ssh', 1560],
+  ['text', 'code', 'cargo clippy --workspace --all-targets -- -D warnings', thinkpad, 'Code', 2900],
+  ['text', 'link', 'https://tailscale.com/kb/1537/grants-app-capabilities', thinkpad, 'Firefox', 4300],
+  ['image', 'image', 'image 640×480', macMini, 'Preview', 5800],
+];
+
+const seed: ClipDetail[] = rowsSeed.map(([kind, look, preview, origin, app, ago], i) => {
   const isImage = kind === 'image';
+  const [w, h] = isImage ? preview.slice(6).split('×').map(Number) : [null, null];
+  const copied = now - ago * min;
   return {
     id: `clip-${i}`,
-    kind: kind as ClipRow['kind'],
-    preview: preview as string,
+    kind,
+    look,
+    mono: look === 'code' || look === 'colour' || /^[\d.:]+$/.test(preview),
+    origin,
+    preview,
     pinned: i === 3 || i === 8,
     label: i === 8 ? 'clippy' : null,
-    device: device as string | null,
-    sourceApp: isImage ? 'firefox' : i % 2 ? 'org.gnome.TextEditor' : 'code',
-    sortMs: now - (ago as number) * min,
-    byteSize: isImage ? 182_000 : (preview as string).length,
+    device: origin === thinkpad ? null : origin.name,
+    sourceApp: app,
+    sortMs: copied,
+    byteSize: isImage ? 182_000 : preview.length,
     localOnly: false,
-    width: isImage ? 1280 : null,
-    height: isImage ? 800 : null,
-    thumbUrl: isImage ? thumb(preview as string) : null,
-    copies: i === 0 ? 3 : 1,
-    text: isImage ? null : (preview as string),
-    html:
-      kind === 'rich'
-        ? `<p><strong>${(preview as string).split(':')[0]}</strong>${(preview as string).includes(':') ? ':' + (preview as string).split(':').slice(1).join(':') : ''}</p>`
-        : null,
-    imageUrl: isImage ? thumb(preview as string) : null,
+    width: w,
+    height: h,
+    thumbUrl: isImage ? thumb(preview) : null,
+    copies: i === 3 ? 2 : 1,
+    text: isImage ? null : preview,
+    html: kind === 'rich' ? `<p><strong>${preview.split(':')[0]}</strong>:${preview.split(':')[1]}</p>` : null,
+    imageUrl: isImage ? thumb(preview) : null,
     formats: isImage ? ['image/png'] : kind === 'rich' ? ['text/plain', 'text/html'] : ['text/plain'],
-    looksLikeCode: /[;{}=]|--|&&/.test(preview as string),
+    looksLikeCode: look === 'code',
+    useCount: i % 4,
+    copiedMs: copied,
+    receivedMs: origin === thinkpad ? copied : copied + 400,
   };
 });
 
@@ -54,7 +70,7 @@ let clips = [...seed];
 let paused = false;
 
 const settings: Settings = {
-  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system' },
+  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system', skipSingleCharacters: true },
   hotkeys: { picker: 'Ctrl+Alt+V', pastePlain: 'Ctrl+Alt+Shift+V', pause: '' },
   retention: { maxItems: 1000, maxAgeDays: 30 },
   limits: { maxTextBytes: 1_048_576, maxImageBytes: 20_971_520 },
@@ -91,6 +107,16 @@ function status(): Status {
     firstRunDone: new URLSearchParams(location.search).get('firstrun') !== '1',
     clipCount: clips.length,
     pinnedCount: clips.filter((c) => c.pinned).length,
+    counts: {
+      all: clips.length,
+      pinned: clips.filter((c) => c.pinned).length,
+      code: clips.filter((c) => c.look === 'code').length,
+      link: clips.filter((c) => c.look === 'link').length,
+      image: clips.filter((c) => c.look === 'image').length,
+      rich: clips.filter((c) => c.look === 'rich').length,
+    },
+    thisDevice: thinkpad,
+    tailscaleName: 'thinkpad',
     theme: settings.general.theme,
   };
 }
@@ -108,7 +134,9 @@ function filter(query: string): ClipDetail[] {
       if (w === 'is:image') return c.kind === 'image';
       if (w === 'is:rich') return c.kind === 'rich';
       if (w === 'is:text') return c.kind === 'text';
-      if (w.startsWith('from:')) return (c.device ?? 'this').startsWith(w.slice(5));
+      if (w === 'is:code') return c.look === 'code';
+      if (w === 'is:link') return c.look === 'link';
+      if (w.startsWith('from:')) return c.origin.name.startsWith(w.slice(5).replaceAll('"', ''));
       return c.preview.toLowerCase().includes(w) || (c.label ?? '').toLowerCase().includes(w);
     }),
   );
