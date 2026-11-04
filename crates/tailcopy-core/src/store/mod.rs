@@ -341,6 +341,18 @@ impl Store {
         })
     }
 
+    /// The Tailscale login this history belongs to (D-027). Sync is only allowed
+    /// while the machine is signed in to it; `None` until the first one is recorded.
+    pub fn sync_login(&self) -> Result<Option<String>> {
+        meta_text(&self.conn, "sync_login")
+    }
+
+    /// Records the login sync is allowed for: the first one seen, or one the user
+    /// approved after a change.
+    pub fn set_sync_login(&mut self, login: &str) -> Result<()> {
+        self.write(|s| set_meta(&s.conn, "sync_login", &login))
+    }
+
     fn regenerate_device_id(&mut self, reason: &str) -> Result<()> {
         let old = self.device_id.clone();
         let new = DeviceId::new_v7(self.hlc.now_ms());

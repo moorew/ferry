@@ -189,6 +189,10 @@
             <div class="st"><b>{t('settings.skip_single')}</b><span>{t('settings.skip_single.desc')}</span></div>
             <Toggle bind:checked={settings.general.skipSingleCharacters} onchange={save} />
           </label>
+          <label class="set">
+            <div class="st"><b>{t('settings.updates')}</b><span>{t('settings.updates.desc')}</span></div>
+            <Toggle bind:checked={settings.general.checkUpdates} onchange={save} />
+          </label>
         </div>
       {:else if section === 'shortcuts'}
         <div class="group">
@@ -256,6 +260,19 @@
           </div>
         </div>
       {:else if section === 'tailnet'}
+        {#if status?.loginChange}
+          <div class="group">
+            <div class="set">
+              <div class="st">
+                <b>{t('login.title')}</b>
+                <span>{t('login.body', status.loginChange)}</span>
+              </div>
+              <Button compact variant="primary" onclick={() => api.approveTailscaleLogin()}>
+                {t('login.allow', status.loginChange)}
+              </Button>
+            </div>
+          </div>
+        {/if}
         {#if tailscaleUp && status?.thisDevice}
           <div class="banner">
             <DeviceAvatar device={status.thisDevice} size={40} />
@@ -424,6 +441,15 @@
             <span>{t('settings.about.tagline')}</span>
             <span>{t('settings.about.fonts')}</span>
           </div>
+          {#if status?.update}
+            <div class="set">
+              <div class="st">
+                <b>{t('update.available', status.update)}</b>
+                <span>{t('update.available.desc')}</span>
+              </div>
+              <Button compact variant="primary" onclick={() => api.openUpdate()}>{t('update.download')}</Button>
+            </div>
+          {/if}
           <div class="set">
             <div class="st">
               <b>{t('settings.setup')}</b>

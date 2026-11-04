@@ -10,6 +10,7 @@ mod state;
 mod sync;
 mod tailscale;
 mod tray;
+mod update;
 
 use std::path::PathBuf;
 
@@ -50,6 +51,9 @@ fn hostname() -> String {
 }
 
 pub fn run(initial: Command, autostart: bool) {
+    // reqwest is built with rustls here (the update check); every client, including
+    // the Tailscale LocalAPI and sync ones, needs a crypto provider installed first.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let paths = paths();
     let log_dir = paths.data.join("logs");
     let _ = std::fs::create_dir_all(&log_dir);
@@ -103,6 +107,8 @@ pub fn run(initial: Command, autostart: bool) {
             commands::open_tailscale,
             commands::recheck_tailscale,
             commands::check_shortcut,
+            commands::approve_tailscale_login,
+            commands::open_update,
             commands::get_devices,
             commands::set_device_sync,
         ])
@@ -189,6 +195,7 @@ fn setup(
 
     picker::create_picker(app)?;
     tray::create(app)?;
+    update::start(app);
 
     match session {
         #[cfg(any(windows, target_os = "macos"))]

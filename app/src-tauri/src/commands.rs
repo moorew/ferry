@@ -300,6 +300,20 @@ pub async fn build_status(app: &AppHandle) -> Status {
         device_id,
         synced_with: peers.iter().filter(|p| p.connected).count(),
         peers,
+        login_change: state
+            .login_change
+            .lock()
+            .unwrap()
+            .clone()
+            .map(|(previous, current)| crate::dto::LoginChange { previous, current }),
+        update: state
+            .update
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|a| crate::dto::UpdateDto {
+                version: a.version.clone(),
+            }),
     };
     #[cfg(target_os = "linux")]
     {
@@ -526,4 +540,17 @@ pub async fn check_shortcut(shortcut: String) -> CmdResult<Option<String>> {
         None
     };
     Ok(warning)
+}
+
+/// Lets this history sync with the Tailscale login the machine is now signed in to
+/// (D-027).
+#[tauri::command]
+pub async fn approve_tailscale_login(app: AppHandle) -> CmdResult<()> {
+    crate::sync::approve_current_login(&app).await.map_err(err)
+}
+
+/// Opens this platform's download for the available update (D-028).
+#[tauri::command]
+pub fn open_update(app: AppHandle) -> CmdResult<()> {
+    crate::update::open(&app).map_err(err)
 }

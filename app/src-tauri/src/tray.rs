@@ -108,9 +108,15 @@ fn icon(app: &AppHandle, state: TrayState) -> Image<'static> {
 }
 
 struct Items {
+    menu: Menu<Wry>,
     pause: Submenu<Wry>,
     resume: MenuItem<Wry>,
+    /// "Download TailCopy x.y.z", added to the top of the menu when one exists.
+    update: MenuItem<Wry>,
 }
+
+/// The update item is in the menu.
+static UPDATE_SHOWN: AtomicBool = AtomicBool::new(false);
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open TailCopy", true, None::<&str>)?;
@@ -128,6 +134,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let resume = MenuItem::with_id(app, "resume", "Resume capture", false, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit TailCopy", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "Download the update…", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -142,8 +149,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     app.manage(Items {
+        menu: menu.clone(),
         pause: pause.clone(),
         resume: resume.clone(),
+        update,
     });
     let state = current(app);
     TrayIconBuilder::with_id(TRAY)
@@ -158,6 +167,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 tauri::async_runtime::spawn(async move { picker::toggle_picker(&app).await });
             }
             "history" => picker::show_manager(app, Some("history")),
+            "update" => {
+                if let Err(e) = crate::update::open(app) {
+                    tracing::warn!("couldn't open the download: {e}");
+                }
+            }
             "settings" => picker::show_manager(app, Some("settings")),
             "pause" => crate::state::set_paused(app, true),
             "pause-15" => crate::state::pause_for(app, 15),
@@ -190,6 +204,15 @@ pub fn refresh(app: &AppHandle) {
         let paused = state == TrayState::Paused;
         let _ = items.pause.set_enabled(!paused);
         let _ = items.resume.set_enabled(paused);
+        let update = app.state::<AppState>().update.lock().unwrap().clone();
+        if let Some(found) = update {
+            let _ = items
+                .update
+                .set_text(format!("Download TailCopy {}…", found.version));
+            if !UPDATE_SHOWN.swap(true, Ordering::Relaxed) {
+                let _ = items.menu.insert(&items.update, 0);
+            }
+        }
     }
 }
 

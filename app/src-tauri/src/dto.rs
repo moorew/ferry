@@ -134,6 +134,23 @@ pub struct Status {
     /// Devices with an open, caught-up sync session.
     pub synced_with: usize,
     pub peers: Vec<PeerLine>,
+    /// The Tailscale login changed; sync is stopped until approved (D-027).
+    pub login_change: Option<LoginChange>,
+    /// A newer release for this platform (D-028).
+    pub update: Option<UpdateDto>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginChange {
+    pub previous: String,
+    pub current: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDto {
+    pub version: String,
 }
 
 /// One peer in `tailcopy status` and the status card.
@@ -266,6 +283,7 @@ pub struct General {
     /// "system", "light" or "dark".
     pub theme: String,
     pub skip_single_characters: bool,
+    pub check_updates: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -339,6 +357,7 @@ impl Settings {
                 auto_paste: c.general.auto_paste,
                 theme: c.general.theme.as_str().into(),
                 skip_single_characters: c.general.skip_single_characters,
+                check_updates: c.general.check_updates,
             },
             hotkeys: Hotkeys {
                 picker: c.hotkeys.picker.clone(),
@@ -395,6 +414,7 @@ impl Settings {
         c.general.live_mirror = self.general.live_mirror;
         c.general.auto_paste = self.general.auto_paste;
         c.general.skip_single_characters = self.general.skip_single_characters;
+        c.general.check_updates = self.general.check_updates;
         c.general.theme =
             tailcopy_core::Theme::parse(&self.general.theme).unwrap_or(c.general.theme);
         c.hotkeys.picker = self.hotkeys.picker.clone();

@@ -7,6 +7,30 @@ written into SPEC.md).
 
 ---
 
+## D-028 · A daily update check, on by default · landed
+
+Owner decision (4 November): tell users when a new release is out, per platform.
+SPEC said update checks were opt-in; the owner chose on by default so everyone hears
+about fixes like 0.2.1. Once a day (first a minute after start) TailCopy asks
+`api.github.com/repos/moorew/tailcopy/releases/latest`, with only a `TailCopy/<version>`
+user agent. If the latest non-prerelease is newer, it notifies once, adds "Download
+TailCopy x.y.z…" to the top of the tray menu, and shows it in the sidebar and in
+Settings > About. Download opens this platform's installer from the release (only
+`github.com/moorew/tailcopy` URLs are accepted). It doesn't install anything itself;
+signed in-app updates (the Tauri updater) stay in M3. `general.check_updates = false`,
+or the switch in Settings > General, turns it off.
+
+## D-027 · History belongs to the Tailscale login it was synced under · landed
+
+Owner decision (4 November), from the audit's open lead: if the machine's Tailscale
+login changes, sync loses access and needs approving again. The first login seen is
+recorded with the history (`meta.sync_login`). While the machine is signed in as a
+different one, whois treats nobody as "same user", open sessions end, and TailCopy
+says so with a notification and a Settings > Tailnet banner ("Allow syncing as …").
+Approving records the new login. Switching back to the recorded login resumes on its
+own. The history stays on the device either way. The relay has no guard (it is tagged
+and has no login).
+
 ## D-026 · Security fixes from the first audit (v0.2.1) · landed
 
 The first security audit (4 November; source and sandboxed local runs only) confirmed

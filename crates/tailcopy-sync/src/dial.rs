@@ -14,6 +14,9 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(crate) fn http_client(inner: &Inner, peer: SocketAddr, timeout: Duration) -> reqwest::Client {
+    // No TLS here, but reqwest may be built with rustls (see Cargo.toml), and then
+    // it needs a provider; installing one twice is a no-op.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let mut b = reqwest::Client::builder()
         .no_proxy()
         .timeout(timeout)

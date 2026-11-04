@@ -48,6 +48,8 @@ pub struct General {
     /// `false`: choosing an item only copies it.
     pub auto_paste: bool,
     pub theme: Theme,
+    /// Look for a newer release once a day (D-028).
+    pub check_updates: bool,
     /// Don't keep copies that are a single character (or whitespace only).
     pub skip_single_characters: bool,
 }
@@ -234,6 +236,7 @@ impl Config {
                 auto_paste: true,
                 theme: Theme::System,
                 skip_single_characters: true,
+                check_updates: true,
             },
             hotkeys: Hotkeys {
                 picker: picker.into(),
@@ -327,6 +330,7 @@ live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
 theme = "system"            # system, light or dark
 skip_single_characters = true
+check_updates = true        # once a day, ask GitHub for the latest release
 
 [hotkeys]                   # empty string = unbound
 picker = "Ctrl+Alt+V"
@@ -514,6 +518,7 @@ fn read_config(doc: &DocumentMut, platform: Platform) -> Result<Config> {
             start_at_login: r.bool("general", "start_at_login", d.general.start_at_login)?,
             live_mirror: r.bool("general", "live_mirror", d.general.live_mirror)?,
             auto_paste: r.bool("general", "auto_paste", d.general.auto_paste)?,
+            check_updates: r.bool("general", "check_updates", d.general.check_updates)?,
             skip_single_characters: r.bool(
                 "general",
                 "skip_single_characters",
@@ -633,7 +638,8 @@ fn p(v: &u16) -> Value {
 
 fn write_config(doc: &mut DocumentMut, old: &Config, new: &Config) {
     write_changed!(doc, old.general, new.general, "general",
-        device_name: s, start_at_login: b, live_mirror: b, auto_paste: b, theme: t, skip_single_characters: b);
+        device_name: s, start_at_login: b, live_mirror: b, auto_paste: b, theme: t, skip_single_characters: b,
+        check_updates: b);
     write_changed!(doc, old.hotkeys, new.hotkeys, "hotkeys", picker: s, paste_plain: s, pause: s);
     write_changed!(doc, old.retention, new.retention, "retention", max_items: n, max_age_days: n);
     write_changed!(doc, old.limits, new.limits, "limits",
