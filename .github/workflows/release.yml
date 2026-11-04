@@ -1,7 +1,8 @@
-name: TailCopy builds
+name: TailCopy release
 
-# Installers for the current milestone, published as a pre-release for testing on
-# real machines. Replaced by release.yml (tagged releases) in M3.
+# Pushing a version tag (v0.1.0) builds the Windows, macOS and Ubuntu installers and
+# publishes them as a GitHub Release, with notes from docs/releases/<tag>.md and a
+# SHA256SUMS file. The tag must match the version in app/src-tauri/tauri.conf.json.
 #
 # macOS signing and notarization use these repository secrets when present, and fall
 # back to an ad-hoc signature without them:
@@ -13,11 +14,7 @@ name: TailCopy builds
 
 on:
   push:
-    branches: [m1]
-  workflow_dispatch:
-
-env:
-  TAG: m1-test-build
+    tags: ['v*']
 
 jobs:
   windows:
@@ -121,8 +118,8 @@ jobs:
           name: tailcopy-ubuntu-amd64
           path: out/
 
-  prerelease:
-    name: Pre-release
+  release:
+    name: Release
     needs: [windows, macos, linux]
     runs-on: ubuntu-24.04
     permissions:
@@ -133,22 +130,18 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Replace the pre-release
+      - name: Check the tag and notes
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          [ "$GITHUB_REF_NAME" = "v$V" ] || { echo "tag $GITHUB_REF_NAME doesn't match version $V"; exit 1; }
+          test -f "docs/releases/$GITHUB_REF_NAME.md"
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
-          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          cat > notes.md <<NOTES
-          **Pre-release.** A Milestone 1 test build of TailCopy $V: the clipboard manager on Windows, macOS and Ubuntu, without sync yet.
-
-          | Platform | File |
-          | --- | --- |
-          | Windows 10/11 x64 | \`TailCopy-$V-windows-x64-setup.exe\` (unsigned: SmartScreen, More info, Run anyway) |
-          | macOS 13+ (universal) | \`TailCopy-$V-macos-universal.dmg\` |
-          | Ubuntu 24.04 / 26.04 | \`TailCopy-$V-ubuntu-amd64.deb\` (includes the GNOME extension) |
-
-          Install, open TailCopy and follow the setup screens; nothing needs a terminal. Test steps: [docs/M1-REPORT.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/M1-REPORT.md). Built from ${GITHUB_SHA::7}.
-          NOTES
-          gh release create "$TAG" dist/* --prerelease --target "${{ github.sha }}" \
-            --title "TailCopy $V (M1 pre-release test build)" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --latest \
+            --title "TailCopy $V" --notes-file "docs/releases/$GITHUB_REF_NAME.md"

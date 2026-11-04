@@ -33,7 +33,11 @@ const rowsSeed: SeedRow[] = [
   ['image', 'image', 'image 640×480', macMini, 'Preview', 5800],
 ];
 
-const seed: ClipDetail[] = rowsSeed.map(([kind, look, preview, origin, app, ago], i) => {
+// ?local=1: everything copied on this device, as in a build without sync.
+const localOnly = new URLSearchParams(location.search).get('local') === '1';
+
+const seed: ClipDetail[] = rowsSeed.map(([kind, look, preview, from, app, ago], i) => {
+  const origin = localOnly ? thinkpad : from;
   const isImage = kind === 'image';
   const [w, h] = isImage ? preview.slice(6).split('×').map(Number) : [null, null];
   const copied = now - ago * min;

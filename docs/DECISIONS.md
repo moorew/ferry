@@ -7,6 +7,21 @@ written into SPEC.md).
 
 ---
 
+## D-022 · v0.1.0 is a public release, before sync · landed
+
+Owner decision (3 November): tag the M1 app with the redesign (D-021) as **v0.1.0**, a
+full GitHub release with notes, screenshots and a README, and hide the pre-release
+test builds. SPEC 17 puts releases and the README in M3; this pulls a first one
+forward. What the v0.1.0 release has, against SPEC 13:
+
+- `release.yml` runs on `v*` tags and publishes straight away (not a draft), with the
+  same build steps the M1 test builds used rather than `tauri-action`, plus a
+  `SHA256SUMS` file. Notes come from `docs/releases/<tag>.md`.
+- Not yet: the Windows `.msi`, the signed updater manifest, relay binaries and image,
+  and the extension zip for EGO. They stay in M3.
+- `builds.yml` (the pre-release workflow) is gone; `m0-test-build` and `m1-test-build`
+  are turned into drafts, which hides them without deleting them.
+
 ## D-021 · The "Lilac utility" redesign changes SPEC 10 · landed
 
 Owner decision (3 November): every recommendation below accepted; logo Option A;
