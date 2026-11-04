@@ -84,9 +84,7 @@ styles, not the real webviews.
   (handoff fix 4); that's Phase 4.
 - The picker is still 640 × 420 with 46 px rows, so seven rows show. Phase 5 makes it
   960 × 640.
-- Bricolage Grotesque is 408 KB as a variable TTF and only titles use it. If the
-  install size matters, a static ExtraBold instance (in `design/fonts/static`) would
-  cut that to about a fifth.
+- Bricolage Grotesque now ships as the static ExtraBold (91 KB, was 408 KB), owner decision.
 - `tokens.css` uses `font-display: swap`. The picker's webview stays loaded, so the
   fonts are cached after first launch; I'll check for a flash of fallback on first open
   in Phase 5.
