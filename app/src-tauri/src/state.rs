@@ -55,6 +55,12 @@ pub struct AppState {
     #[cfg(target_os = "linux")]
     pub gnome: tokio::sync::OnceCell<Arc<tailcopy_platform::gnome::Gnome>>,
     pub sync: std::sync::OnceLock<tailcopy_sync::Engine>,
+    pub transport: std::sync::OnceLock<std::sync::Arc<tailcopy_tailnet::TailnetTransport>>,
+    /// The Tailscale login changed from the one this history belongs to; sync is
+    /// stopped until the user approves the new one (D-027). `(previous, current)`.
+    pub login_change: Mutex<Option<(String, String)>>,
+    /// A newer release than this build, from the update check (D-028).
+    pub update: Mutex<Option<crate::update::Available>>,
     /// HLC of the last local clipboard change; older live clips aren't mirrored.
     pub local_clip_hlc: AtomicU64,
 }
@@ -89,6 +95,9 @@ impl AppState {
             #[cfg(target_os = "linux")]
             gnome: tokio::sync::OnceCell::new(),
             sync: std::sync::OnceLock::new(),
+            transport: std::sync::OnceLock::new(),
+            login_change: Mutex::new(None),
+            update: Mutex::new(None),
             local_clip_hlc: AtomicU64::new(0),
         }
     }

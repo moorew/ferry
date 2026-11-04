@@ -19,6 +19,18 @@ pub struct TailnetTransport {
     relay: Option<String>,
     /// This node's Tailscale addresses, from the last status.
     own_ips: Mutex<Vec<IpAddr>>,
+    login: Mutex<LoginGuard>,
+}
+
+/// Which Tailscale login may sync (D-027). History belongs to the login it was
+/// captured under; after a switch nobody is "same user" until the user approves.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LoginGuard {
+    /// No guard (the relay, tests): the current login is trusted.
+    Off,
+    /// Guarded, but no login approved yet: refuse everyone.
+    Pending,
+    Approved(String),
 }
 
 impl TailnetTransport {
@@ -28,7 +40,25 @@ impl TailnetTransport {
             port,
             relay: None,
             own_ips: Mutex::new(Vec::new()),
+            login: Mutex::new(LoginGuard::Off),
         }
+    }
+
+    /// Only allows "same user" while this machine is signed in to an approved login
+    /// (see [`approve_login`](Self::approve_login)). Until then nobody is.
+    pub fn with_login_guard(self) -> Self {
+        *self.login.lock().unwrap() = LoginGuard::Pending;
+        self
+    }
+
+    /// Allows sync while this machine is signed in to `login`.
+    pub fn approve_login(&self, login: &str) {
+        *self.login.lock().unwrap() = LoginGuard::Approved(login.to_owned());
+    }
+
+    /// This machine's current Tailscale login, if it has one (untagged, signed in).
+    pub async fn self_login(&self) -> anyhow::Result<Option<String>> {
+        Ok(self.status().await?.self_login().map(str::to_owned))
     }
 
     /// Always offers this relay as a candidate (SPEC 7.7). Empty means none.
@@ -76,7 +106,13 @@ impl Transport for TailnetTransport {
     async fn whois(&self, remote: SocketAddr) -> anyhow::Result<PeerIdentity> {
         let who = self.tailnet.whois(remote).await?;
         let status = self.status().await?;
-        let same_user = status.self_login().is_some_and(|l| who.same_user(l));
+        let me = status.self_login();
+        let allowed = match &*self.login.lock().unwrap() {
+            LoginGuard::Off => true,
+            LoginGuard::Pending => false,
+            LoginGuard::Approved(l) => me == Some(l.as_str()),
+        };
+        let same_user = allowed && me.is_some_and(|l| who.same_user(l));
         Ok(PeerIdentity {
             node_name: first_label(&who.node_name).to_owned(),
             stable_id: who.stable_id.clone(),

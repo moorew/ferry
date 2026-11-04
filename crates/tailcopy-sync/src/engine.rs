@@ -398,6 +398,11 @@ impl Engine {
         }
     }
 
+    /// Ends every session; peers reconnect only if they pass authorization again.
+    pub fn reconnect_all(&self) {
+        self.inner.stop_sessions();
+    }
+
     /// Retry every peer now (Tailscale came back, settings changed).
     pub fn retry_now(&self) {
         let mut st = self.inner.state.lock().unwrap();

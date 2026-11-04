@@ -47,10 +47,15 @@ pub fn start(app: &AppHandle) {
     let state = app.state::<AppState>();
     let config = state.config();
     let tailnet = crate::tailscale::init(&config);
-    let transport = TailnetTransport::new(tailnet, config.sync.port).with_relay(&config.sync.relay);
+    let transport = Arc::new(
+        TailnetTransport::new(tailnet, config.sync.port)
+            .with_relay(&config.sync.relay)
+            .with_login_guard(),
+    );
+    let _ = state.transport.set(transport.clone());
     let engine = Engine::start(
         StoreHandle::new(DbRunner(state.db.clone())),
-        Arc::new(transport),
+        transport,
         engine_config(&config),
     );
     let pusher = engine.clone();
@@ -63,26 +68,117 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move { bind_node(handle).await });
 }
 
-/// Records the Tailscale node this data directory belongs to, once Tailscale
-/// answers; a different one means the directory was copied (SPEC 6.1).
+/// Follows this machine's Tailscale identity. Records the node the data directory
+/// belongs to once Tailscale answers (a different one means it was copied, SPEC
+/// 6.1), and keeps checking the login: history belongs to the login it was
+/// captured under, so after a switch sync stops until the user approves (D-027).
 async fn bind_node(app: AppHandle) {
+    let mut node_bound = false;
     loop {
-        if let Ok(status) = crate::tailscale::status().await
-            && let Some(id) = status.self_node.as_ref().map(|n| n.stable_id.clone())
-            && !id.is_empty()
-        {
-            let regenerated = app
-                .state::<AppState>()
-                .db
-                .run(move |core| core.store.bind_tailscale_node(&id))
-                .await;
-            if matches!(regenerated, Ok(true)) {
-                crate::state::status_changed(&app);
+        if let Ok(status) = crate::tailscale::status().await {
+            if !node_bound
+                && let Some(id) = status.self_node.as_ref().map(|n| n.stable_id.clone())
+                && !id.is_empty()
+            {
+                let regenerated = app
+                    .state::<AppState>()
+                    .db
+                    .run(move |core| core.store.bind_tailscale_node(&id))
+                    .await;
+                node_bound = regenerated.is_ok();
+                if matches!(regenerated, Ok(true)) {
+                    crate::state::status_changed(&app);
+                }
             }
-            return;
+            if let Some(login) = status.self_login() {
+                check_login(&app, login.to_owned()).await;
+            }
         }
         tokio::time::sleep(Duration::from_secs(15)).await;
     }
+}
+
+async fn check_login(app: &AppHandle, current: String) {
+    let state = app.state::<AppState>();
+    let Some(transport) = state.transport.get() else {
+        return;
+    };
+    let recorded = state
+        .db
+        .run(|core| core.store.sync_login())
+        .await
+        .ok()
+        .flatten();
+    match recorded {
+        None => {
+            // The first login seen owns this history.
+            let login = current.clone();
+            let _ = state
+                .db
+                .run(move |core| core.store.set_sync_login(&login))
+                .await;
+            transport.approve_login(&current);
+        }
+        Some(owner) if owner == current => {
+            transport.approve_login(&current);
+            if state.login_change.lock().unwrap().take().is_some() {
+                tracing::info!("back on the Tailscale login this history belongs to");
+                if let Some(engine) = state.sync.get() {
+                    engine.retry_now();
+                }
+                crate::state::status_changed(app);
+            }
+        }
+        Some(owner) => {
+            let fresh = {
+                let mut change = state.login_change.lock().unwrap();
+                let fresh = change.as_ref().is_none_or(|(_, c)| *c != current);
+                *change = Some((owner.clone(), current.clone()));
+                fresh
+            };
+            if fresh {
+                tracing::warn!(
+                    "this machine's Tailscale login changed; sync stopped until approved"
+                );
+                // whois now refuses the new login's devices; end what's open.
+                transport.approve_login(&owner);
+                if let Some(engine) = state.sync.get() {
+                    engine.reconnect_all();
+                }
+                crate::picker::notify(
+                    app,
+                    &format!(
+                        "This computer is now signed in to Tailscale as {current}. Sync is stopped so your history doesn't go to that account's devices; allow it in Settings > Tailnet."
+                    ),
+                );
+                crate::state::status_changed(app);
+            }
+        }
+    }
+}
+
+/// The user allows the current Tailscale login to sync this history.
+pub async fn approve_current_login(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let Some((_, current)) = state.login_change.lock().unwrap().clone() else {
+        return Ok(());
+    };
+    let login = current.clone();
+    state
+        .db
+        .run(move |core| core.store.set_sync_login(&login))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(transport) = state.transport.get() {
+        transport.approve_login(&current);
+    }
+    *state.login_change.lock().unwrap() = None;
+    tracing::info!("the user allowed sync for the new Tailscale login");
+    if let Some(engine) = state.sync.get() {
+        engine.retry_now();
+    }
+    crate::state::status_changed(app);
+    Ok(())
 }
 
 async fn watch(app: AppHandle, mut events: tokio::sync::broadcast::Receiver<SyncEvent>) {
