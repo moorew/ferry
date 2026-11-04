@@ -162,9 +162,8 @@ each other directly.
 
 ## Status and known issues
 
-TailCopy is young: version 0.2, with sync tested between Windows and Ubuntu machines.
+TailCopy is young: version 0.2, tested on Windows, macOS and Ubuntu, with sync tested between Windows and Ubuntu machines.
 
-- **macOS** builds are signed and notarized but haven't been tested on a real Mac yet.
 - **Ubuntu:** clips that arrive from another device go on the clipboard as plain text or
   an image. Paste them from the picker to keep their formatting.
 - **Send and Receive:** turning either back on doesn't bring across clips made while it
