@@ -126,6 +126,16 @@
       {/if}
 
       <div class="foot">
+        {#if status?.loginChange}
+          <button class="nav" onclick={() => (route = { page: 'settings', section: 'tailnet' })}>
+            <Icon name="offline" />{t('nav.login')}
+          </button>
+        {/if}
+        {#if status?.update}
+          <button class="nav" onclick={() => (route = { page: 'settings', section: 'about' })}>
+            <Icon name="arrival" />{t('nav.update', status.update)}
+          </button>
+        {/if}
         <button
           class="nav"
           onclick={() => (route = { page: 'settings', section: 'general' })}

@@ -76,7 +76,7 @@ let paused = false;
 let pausedUntil: number | null = null;
 
 const settings: Settings = {
-  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system', skipSingleCharacters: true },
+  general: { deviceName: '', startAtLogin: true, liveMirror: true, autoPaste: true, theme: 'system', skipSingleCharacters: true, checkUpdates: true },
   hotkeys: { picker: 'Ctrl+Alt+V', pastePlain: 'Ctrl+Alt+Shift+V', pause: '' },
   retention: { maxItems: 1000, maxAgeDays: 30 },
   limits: { maxTextBytes: 1_048_576, maxImageBytes: 20_971_520 },
@@ -128,6 +128,8 @@ function status(): Status {
     deviceId: 'self',
     syncedWith: localOnly ? 0 : 2,
     peers: [],
+    loginChange: params.has('login') ? { previous: 'will@example.com', current: 'work@example.com' } : null,
+    update: params.has('update') ? { version: '0.3.0' } : null,
   };
 }
 

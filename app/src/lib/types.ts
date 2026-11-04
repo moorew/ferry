@@ -102,6 +102,10 @@ export interface Status {
   /** Devices with an open, caught-up sync session. */
   syncedWith: number;
   peers: { name: string; connected: boolean; lastSyncMs: number | null }[];
+  /** The Tailscale login changed; sync is stopped until the user allows it (D-027). */
+  loginChange: { previous: string; current: string } | null;
+  /** A newer release for this platform (D-028). */
+  update: { version: string } | null;
 }
 
 export type SyncPath = 'direct' | 'peer-relay' | 'derp' | 'idle';
@@ -149,6 +153,7 @@ export interface Settings {
     autoPaste: boolean;
     theme: Theme;
     skipSingleCharacters: boolean;
+    checkUpdates: boolean;
   };
   hotkeys: {
     picker: string;
