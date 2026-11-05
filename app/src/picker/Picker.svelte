@@ -383,9 +383,16 @@
     overflow: hidden;
   }
 
-  /* WebKitGTK windows aren't transparent, so the picker is square on Linux. */
+  /* WebKitGTK windows aren't transparent, so the picker is square on Linux. On
+     Windows the system rounds the window and draws its border (picker.rs), so the
+     page itself stays square there too. */
   :global([data-platform='linux']) .picker {
     border-radius: 0;
+  }
+
+  :global([data-platform='windows']) .picker {
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .search {

@@ -45,19 +45,53 @@ fn save_size(app: &AppHandle, window: &WebviewWindow) {
 
 pub fn create_picker(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let (width, height) = saved_size(app);
-    WebviewWindowBuilder::new(app, PICKER, WebviewUrl::App("index.html".into()))
+    let window = WebviewWindowBuilder::new(app, PICKER, WebviewUrl::App("index.html".into()))
         .title(PICKER_TITLE)
         .inner_size(width, height)
         .min_inner_size(PICKER_MIN.0, PICKER_MIN.1)
         .resizable(true)
         .decorations(false)
-        .transparent(true)
+        // Windows rounds the opaque window itself (round_corners); elsewhere the page
+        // draws the rounded shape on a transparent window.
+        .transparent(!cfg!(windows))
         .shadow(true)
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
         .on_navigation(stays_in_app)
-        .build()
+        .build()?;
+    #[cfg(windows)]
+    round_corners(&window);
+    Ok(window)
+}
+
+/// Windows draws its border and shadow around the whole (transparent) window, which
+/// shows square corners around the rounded picker. Windows 11 can round the window
+/// itself, border and shadow included; the page then stays square (Windows 10 keeps
+/// square corners).
+#[cfg(windows)]
+fn round_corners(window: &WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
+    };
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let preference = DWMWCP_ROUND;
+    // SAFETY: `hwnd` is the live picker window, and the attribute points to a value of
+    // the size passed, as DwmSetWindowAttribute requires.
+    let result = unsafe {
+        DwmSetWindowAttribute(
+            HWND(hwnd.0),
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::from_ref(&preference).cast(),
+            size_of_val(&preference) as u32,
+        )
+    };
+    if let Err(e) = result {
+        tracing::debug!("window corners stay square (Windows 10?): {e}");
+    }
 }
 
 /// The windows only ever show TailCopy's own pages. A link inside a copied web page
