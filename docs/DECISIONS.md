@@ -7,6 +7,41 @@ written into SPEC.md).
 
 ---
 
+## D-030 · X11 backend (tier 2) · applied
+
+Owner decision (6 November): build the X11 backend now, because the owner's Zorin OS 17
+desktop (GNOME 43, X11 on NVIDIA) showed "This desktop isn't supported yet" and no
+shortcut worked. GNOME 43 can't load the extension either (the extension format changed
+in GNOME 45), so the GNOME path can't serve that machine. SPEC 9.5 now describes the
+backend. Choices within the spec's latitude:
+
+- **XTest through `x11rb` instead of `enigo` for the paste keystroke.** enigo 0.6
+  maps `Key::Unicode('v')` onto a spare keycode, which makes every X client reload its
+  keymap, and some apps match shortcuts by keycode. TailCopy looks up the keycodes for
+  `Control_L`, `Shift_L`, `v` and `Insert` in the current keymap (first group first)
+  and sends them with XTest, like `xdotool key`. enigo stays on Windows and macOS.
+- **Focus with EWMH.** The previous window is `_NET_ACTIVE_WINDOW` when the shortcut
+  fires. Activation requests carry a real server timestamp (from a property change on a
+  scratch window), because window managers refuse a timestamp-less request once there
+  has been keyboard input. Each request ends with a round trip, because closing the
+  connection straight after a request can drop it. Both were found by the Xvfb smoke
+  test (`crates/tailcopy-platform/tests/x11_smoke.rs`), not guessed.
+- **Writes reuse the GNOME backend's GTK multi-format offer** (now in
+  `tailcopy_platform::linux`), which on X11 works without focus.
+- **Source app:** `_GTK_APPLICATION_ID`, then `WM_CLASS`, then the process name, so the
+  Linux paste-keystroke defaults (desktop ids such as `org.gnome.Terminal`) keep working.
+- **Detection:** X11 only when `DISPLAY` is set and `WAYLAND_DISPLAY` isn't. A Wayland
+  desktop other than GNOME stays degraded, and the banner now says which desktop and
+  what is supported.
+- **Shortcut conflicts are reported.** When the global shortcut plugin can't register a
+  shortcut (on any platform), TailCopy now shows a notification instead of only logging.
+- **First-show centring.** GTK reports no size for a never-shown window, so the picker
+  opened off centre the first time; it now falls back to the saved picker size.
+
+Tested in Docker (Xvfb, openbox) with the release build: capture, the picker shortcut,
+Enter pasting into the previous window, and the plain-paste shortcut. Not yet tested on
+real hardware or under mutter on X11.
+
 ## D-029 · A device is named after its tailnet machine name · applied
 
 Found 6 November: the owner's `blackbox` showed up in Devices as "sempa". Its node is
