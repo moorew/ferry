@@ -279,6 +279,7 @@ pub async fn build_status(app: &AppHandle) -> Status {
             tailcopy_platform::Session::Windows => "windows",
             tailcopy_platform::Session::MacOs => "macos",
             tailcopy_platform::Session::Gnome => "gnome",
+            tailcopy_platform::Session::X11 => "x11",
             tailcopy_platform::Session::Degraded => "degraded",
         },
         paused: state.is_paused(),
@@ -338,11 +339,15 @@ pub async fn build_status(app: &AppHandle) -> Status {
                 });
             }
             status.extension = Some(ExtensionState { state: s, message });
+        } else if session == tailcopy_platform::Session::X11 {
+            if !status.capture_ready {
+                status.degraded_reason = Some(
+                    "TailCopy couldn't watch the X11 clipboard. Restart TailCopy to try again."
+                        .into(),
+                );
+            }
         } else {
-            status.degraded_reason = Some(
-                "This desktop isn't supported yet. History is still here, but new copies aren't saved."
-                    .into(),
-            );
+            status.degraded_reason = Some(unsupported_desktop());
         }
     }
     #[cfg(target_os = "macos")]
@@ -350,6 +355,23 @@ pub async fn build_status(app: &AppHandle) -> Status {
         status.accessibility = Some(tailcopy_platform::macos::accessibility_trusted());
     }
     status
+}
+
+/// Why there's no clipboard backend here, for the degraded-mode banner.
+#[cfg(target_os = "linux")]
+fn unsupported_desktop() -> String {
+    let session = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
+    let what = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        match session.as_str() {
+            "" => "this Wayland desktop".to_owned(),
+            name => format!("{} on Wayland", name.replace(':', " / ")),
+        }
+    } else {
+        "a session without a display".to_owned()
+    };
+    format!(
+        "TailCopy can't read the clipboard in {what} yet (it supports GNOME on Wayland and X11 sessions). History is still here, but new copies aren't saved."
+    )
 }
 
 #[tauri::command]

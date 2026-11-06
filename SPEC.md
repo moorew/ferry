@@ -108,7 +108,7 @@ Use the latest stable release of each crate at the time of building and commit `
 | Clipboard (Windows, macOS, X11) | `clipboard-rs` | Text, HTML, RTF, image, change watching |
 | Clipboard (Wayland data-control) | `lamco-data-control` or `wl-clipboard-rs` | Tier 2 only (KDE, wlroots) |
 | Clipboard (GNOME Wayland) | TailCopy GNOME Shell extension over D-Bus (`zbus`), plus GTK clipboard for focused writes | Section 9.4 |
-| Input injection | `enigo` | Windows, macOS, X11 |
+| Input injection | `enigo`; XTest through `x11rb` on X11 | Windows, macOS, X11 (D-030) |
 | D-Bus | `zbus` | GNOME backend, portals |
 | Portals (tier 2) | `ashpd` | GlobalShortcuts on KDE |
 | HTTP and WebSocket server | `axum` (with `ws`) | |
@@ -593,7 +593,7 @@ Backend selection at startup:
 1. Windows → Windows backend. macOS → macOS backend.
 2. Linux with `WAYLAND_DISPLAY` set and `XDG_CURRENT_DESKTOP` containing `GNOME` → GNOME backend (requires the extension).
 3. Linux Wayland with a data-control protocol available → data-control backend (tier 2).
-4. Linux with `DISPLAY` set → X11 backend (tier 2).
+4. Linux with `DISPLAY` set and no `WAYLAND_DISPLAY` → X11 backend (tier 2). On a Wayland desktop other than GNOME, `DISPLAY` is XWayland, which only sees X apps, so that stays degraded until the data-control backend exists.
 5. Otherwise → degraded mode: no capture, sync and manager still work, clear message in the UI.
 
 ### 9.2 Windows
@@ -761,7 +761,7 @@ Review risk: EGO forbids sharing clipboard data with a third party without expli
 ### 9.5 Linux tier 2
 
 - **KDE Plasma 6 and wlroots (Wayland):** data-control backend for watch, read and multi-format write. Hotkeys through the GlobalShortcuts portal (`ashpd`); if unavailable, the user binds a desktop shortcut to `tailcopy picker`. No keystroke injection in v1: the picker copies and shows "Copied. Press Ctrl+V." (v1.x: RemoteDesktop portal.)
-- **X11:** `clipboard-rs` (watch, read, write), `tauri-plugin-global-shortcut`, `enigo` (XTest) for paste.
+- **X11:** `clipboard-rs` to watch (XFixes) and read; the same GTK multi-format write as GNOME (9.4.3), which works without focus on X11; `tauri-plugin-global-shortcut` for all three shortcuts; XTest through `x11rb` for the paste keystroke, using keycodes already in the keymap (D-030). The previous window is `_NET_ACTIVE_WINDOW` when the shortcut fires; TailCopy re-activates it, and focuses the picker, with an EWMH `_NET_ACTIVE_WINDOW` request carrying a server timestamp. The source app is the clipboard owner's (else the active window's) `_GTK_APPLICATION_ID`, then `WM_CLASS`, then process name, so GTK apps match the same desktop ids as on GNOME for privacy rules and `linux.paste_keystroke`. `x-kde-passwordManagerHint` is honoured as on GNOME. A shortcut that another app already holds is reported with a notification.
 
 ### 9.6 Formats and normalization
 

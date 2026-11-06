@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use tailcopy_core::{ClipId, Hash32, names::PICKER_TITLE};
-use tailcopy_platform::{CopyOnlyReason, PasteResult, Write, WriteOutcome};
+use tailcopy_platform::{CopyOnlyReason, PasteResult, Session, Write, WriteOutcome};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::state::{AppState, clips_changed};
@@ -171,11 +171,22 @@ pub async fn toggle_picker(app: &AppHandle) {
     {
         *state.previous.lock().unwrap() = tailcopy_platform::macos::frontmost();
     }
+    #[cfg(target_os = "linux")]
+    if state.session == Session::X11 {
+        let target = x11_foreground().await;
+        *state.focused_app.lock().unwrap() = target
+            .as_ref()
+            .map(|t| t.app_id.clone())
+            .unwrap_or_default();
+        *state.previous.lock().unwrap() = target;
+    }
     let Some(window) = app.get_webview_window(PICKER) else {
         return;
     };
-    #[cfg(not(target_os = "linux"))]
-    center_on_active_monitor(&window);
+    // Wayland doesn't let apps place their windows.
+    if state.session != Session::Gnome {
+        center_on_active_monitor(app, &window);
+    }
     let _ = app.emit_to(PICKER, "picker-shown", ());
     crate::tray::set_new(app, false);
     #[cfg(target_os = "macos")]
@@ -188,6 +199,13 @@ pub async fn toggle_picker(app: &AppHandle) {
     {
         tracing::warn!("PresentPicker failed: {e}");
     }
+    #[cfg(target_os = "linux")]
+    if state.session == Session::X11 {
+        let _ = tauri::async_runtime::spawn_blocking(|| {
+            tailcopy_platform::x11::present(tailcopy_core::names::PICKER_TITLE);
+        })
+        .await;
+    }
     log_since_hotkey(&state, "picker shown");
 }
 
@@ -197,13 +215,28 @@ pub fn log_since_hotkey(state: &AppState, what: &str) {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-fn center_on_active_monitor(window: &WebviewWindow) {
-    let (Ok(cursor), Ok(size)) = (window.cursor_position(), window.outer_size()) else {
+#[cfg(target_os = "linux")]
+async fn x11_foreground() -> Option<tailcopy_platform::x11::Target> {
+    tauri::async_runtime::spawn_blocking(tailcopy_platform::x11::foreground)
+        .await
+        .ok()
+        .flatten()
+}
+
+fn center_on_active_monitor(app: &AppHandle, window: &WebviewWindow) {
+    let Ok(cursor) = window.cursor_position() else {
         return;
     };
     let Ok(Some(monitor)) = window.monitor_from_point(cursor.x, cursor.y) else {
         return;
+    };
+    // GTK reports no size for a window that hasn't been shown yet.
+    let size = match window.outer_size() {
+        Ok(s) if s.width > 0 && s.height > 0 => s,
+        _ => {
+            let (w, h) = saved_size(app);
+            tauri::LogicalSize::new(w, h).to_physical(monitor.scale_factor())
+        }
     };
     let (mp, ms) = (monitor.position(), monitor.size());
     // A little above centre reads as centred.
@@ -223,6 +256,13 @@ pub struct Payload {
 }
 
 impl Payload {
+    fn text(text: String) -> Self {
+        Payload {
+            text: Some(text),
+            ..Payload::default()
+        }
+    }
+
     pub fn write(&self, plain: bool) -> Write<'_> {
         let all = Write {
             text: self.text.as_deref(),
@@ -260,7 +300,7 @@ pub async fn load(state: &AppState, id: &str) -> Option<Payload> {
 }
 
 /// Puts `payload` on the clipboard. On GNOME this is the focused write, so call it
-/// while a TailCopy window has focus.
+/// while a TailCopy window has focus; X11 uses the same GTK write without that limit.
 pub async fn write(app: &AppHandle, payload: Payload, plain: bool) -> WriteOutcome {
     if let Some(key) = payload.group_key {
         app.state::<AppState>().guard_write(key);
@@ -269,7 +309,7 @@ pub async fn write(app: &AppHandle, payload: Payload, plain: bool) -> WriteOutco
     {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let ran = app.run_on_main_thread(move || {
-            let _ = tx.send(tailcopy_platform::gnome::gtk_write(&payload.write(plain)));
+            let _ = tx.send(tailcopy_platform::linux::gtk_write(&payload.write(plain)));
         });
         if ran.is_err() {
             return WriteOutcome::default();
@@ -381,10 +421,23 @@ async fn inject(app: &AppHandle, to_previous: bool) -> PasteResult {
     }
     #[cfg(target_os = "linux")]
     {
-        let Some(gnome) = state.gnome() else {
+        let keystroke = linux_keystroke(&state);
+        if let Some(gnome) = state.gnome() {
+            return gnome.paste(keystroke, to_previous).await;
+        }
+        if state.session != Session::X11 {
             return PasteResult::CopiedOnly(CopyOnlyReason::Unsupported);
+        }
+        let target = if to_previous {
+            state.previous.lock().unwrap().clone()
+        } else {
+            None
         };
-        gnome.paste(linux_keystroke(&state), to_previous).await
+        tauri::async_runtime::spawn_blocking(move || {
+            tailcopy_platform::x11::paste(target.as_ref(), keystroke)
+        })
+        .await
+        .unwrap_or(PasteResult::CopiedOnly(CopyOnlyReason::Failed))
     }
 }
 
@@ -437,6 +490,16 @@ pub async fn paste_plain(app: &AppHandle) {
             Ok(m) => g.read(&m, "").await.ok().and_then(|c| c.text),
             Err(_) => None,
         },
+        None if state.session == Session::X11 => {
+            *state.focused_app.lock().unwrap() =
+                x11_foreground().await.map(|t| t.app_id).unwrap_or_default();
+            tauri::async_runtime::spawn_blocking(|| {
+                tailcopy_platform::x11::read().ok().and_then(|c| c.text)
+            })
+            .await
+            .ok()
+            .flatten()
+        }
         None => None,
     };
     let Some(text) = text.filter(|t| !t.is_empty()) else {
@@ -450,21 +513,16 @@ pub async fn paste_plain(app: &AppHandle) {
         state.guard_write(n.group_key);
     }
     #[cfg(target_os = "linux")]
-    {
-        let Some(g) = state.gnome() else { return };
+    if let Some(g) = state.gnome() {
         if let Err(e) = g.set_text(&text).await {
             tracing::warn!("plain write failed: {e}");
             return;
         }
+    } else {
+        write(app, Payload::text(text), true).await;
     }
     #[cfg(not(target_os = "linux"))]
-    {
-        let payload = Payload {
-            text: Some(text),
-            ..Payload::default()
-        };
-        write(app, payload, true).await;
-    }
+    write(app, Payload::text(text), true).await;
     if let PasteResult::CopiedOnly(reason) = inject(app, false).await {
         notify(app, &reason.message(&keystroke_label(app)));
     }

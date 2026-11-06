@@ -32,9 +32,15 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+clipboard-rs = "0.3.5"
 futures-util = "0.3.31"
 gtk = "0.18.2"
+x11rb = { version = "0.13.2", features = ["xtest"] }
 zbus = { version = "6.2.1", default-features = false, features = ["tokio", "proxy"] }
+
+[[test]]
+name = "x11_smoke"
+harness = false
 
 [lints]
 workspace = true

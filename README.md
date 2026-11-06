@@ -62,6 +62,7 @@
 | Windows 10 (22H2) and 11, x64 | `TailCopy-…-windows-x64-setup.exe` | Installs for your user only. The installer isn't code-signed yet, so SmartScreen asks first: choose **More info**, then **Run anyway**. |
 | macOS 13 Ventura and later (Apple silicon and Intel) | `TailCopy-…-macos-universal.dmg` | Signed and notarized. Drag TailCopy to Applications. Setup asks for Accessibility so TailCopy can paste for you, with a button that opens the right settings pane. |
 | Ubuntu 24.04 and 26.04 (GNOME on Wayland) | `TailCopy-…-ubuntu-amd64.deb` | Open it with App Center, or run `sudo apt install ./TailCopy-…deb`. Setup turns on the GNOME extension. If GNOME hasn't picked it up yet, setup asks you to log out and back in once and has a **Log out now** button for it; if the extension is already on, there's nothing to do. |
+| Other Linux desktops on X11 (best effort) | `TailCopy-…-ubuntu-amd64.deb` | Works without the extension: TailCopy watches the clipboard and binds its shortcuts directly. Built on Ubuntu 24.04, so it suits 24.04 and its derivatives (Zorin OS 18, Linux Mint 22, Pop!_OS 24.04). |
 
 Each release has a `SHA256SUMS` file to check the downloads against.
 

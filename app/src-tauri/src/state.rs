@@ -28,6 +28,8 @@ const RETENTION_EVERY: u32 = 50;
 pub type Target = tailcopy_platform::windows::Target;
 #[cfg(target_os = "macos")]
 pub type Target = tailcopy_platform::macos::Target;
+#[cfg(target_os = "linux")]
+pub type Target = tailcopy_platform::x11::Target;
 
 pub struct AppState {
     pub db: Db,
@@ -41,10 +43,10 @@ pub struct AppState {
     /// Bumped on every pause change, so a stale resume timer does nothing.
     pause_epoch: AtomicU32,
     pub capture_ready: AtomicBool,
-    /// The window or app focused when the picker opened.
-    #[cfg(not(target_os = "linux"))]
+    /// The window or app focused when the picker opened (not tracked on GNOME, where
+    /// the extension remembers it).
     pub previous: Mutex<Option<Target>>,
-    /// App id of the focused window when the shortcut fired (GNOME keystroke overrides).
+    /// App id of the focused window when the shortcut fired (Linux keystroke overrides).
     #[cfg(target_os = "linux")]
     pub focused_app: Mutex<String>,
     pub hotkey_at: Mutex<Option<Instant>>,
@@ -82,8 +84,10 @@ impl AppState {
             paused: AtomicBool::new(false),
             paused_until: Mutex::new(None),
             pause_epoch: AtomicU32::new(0),
-            capture_ready: AtomicBool::new(matches!(session, Session::Windows | Session::MacOs)),
-            #[cfg(not(target_os = "linux"))]
+            capture_ready: AtomicBool::new(matches!(
+                session,
+                Session::Windows | Session::MacOs | Session::X11
+            )),
             previous: Mutex::new(None),
             #[cfg(target_os = "linux")]
             focused_app: Mutex::new(String::new()),
@@ -244,13 +248,14 @@ pub fn clips_changed(app: &AppHandle) {
     let _ = app.emit("clips-changed", ());
 }
 
-/// Watches the clipboard on Windows and macOS; GNOME capture runs in `gnome_loop`.
-#[cfg(any(windows, target_os = "macos"))]
+/// Watches the clipboard on Windows, macOS and X11; GNOME capture runs in `gnome::run`.
 pub fn start_capture(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     use tailcopy_platform::macos as backend;
     #[cfg(windows)]
     use tailcopy_platform::windows as backend;
+    #[cfg(target_os = "linux")]
+    use tailcopy_platform::x11 as backend;
 
     let rx = match backend::watch() {
         Ok(rx) => rx,

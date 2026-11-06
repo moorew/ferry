@@ -44,6 +44,7 @@
   const MB = 1024 * 1024;
 
   const isGnome = $derived(status?.session === 'gnome');
+  const isLinux = $derived(status?.session === 'gnome' || status?.session === 'x11');
   const tailscaleUp = $derived(status?.tailscale === 'running');
   const canOpenTailscale = $derived(status?.session === 'windows' || status?.session === 'macos');
 
@@ -214,7 +215,7 @@
           {/if}
         </div>
         {#if shortcutWarning}<p class="warning" role="alert">{shortcutWarning}</p>{/if}
-        {#if isGnome}
+        {#if isLinux}
           <div class="group">
             <div class="set column">
               <div class="st"><b>{t('settings.linux_paste')}</b><span>{t('settings.linux_paste.desc')}</span></div>
