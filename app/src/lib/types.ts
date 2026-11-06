@@ -68,7 +68,7 @@ export interface Counts {
 
 export type Theme = 'system' | 'light' | 'dark';
 
-export type Session = 'windows' | 'macos' | 'gnome' | 'degraded';
+export type Session = 'windows' | 'macos' | 'gnome' | 'x11' | 'degraded';
 
 export type SetupStep = 'welcome' | 'extension' | 'accessibility' | 'shortcut' | 'done';
 

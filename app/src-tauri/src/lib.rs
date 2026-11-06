@@ -69,8 +69,10 @@ pub fn run(initial: Command, autostart: bool) {
             Some(vec!["--autostart"]),
         ));
 
-    #[cfg(any(windows, target_os = "macos"))]
-    {
+    // GNOME binds shortcuts through the extension; X11, Windows and macOS through the
+    // plugin, which can't work on Wayland.
+    let session = tailcopy_platform::detect_session();
+    if !cfg!(target_os = "linux") || session == Session::X11 {
         builder = builder.plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -200,6 +202,8 @@ fn setup(
     match session {
         #[cfg(any(windows, target_os = "macos"))]
         Session::Windows | Session::MacOs => state::start_capture(app),
+        #[cfg(target_os = "linux")]
+        Session::X11 => state::start_capture(app),
         #[cfg(target_os = "linux")]
         Session::Gnome => {
             let app = app.clone();
@@ -342,7 +346,6 @@ mod hotkeys {
     use super::*;
 
     /// The parsed global shortcuts, for dispatching plugin events.
-    #[cfg(any(windows, target_os = "macos"))]
     #[derive(Default)]
     pub struct Bound {
         pub picker: Option<String>,
@@ -350,15 +353,24 @@ mod hotkeys {
         pub pause: Option<String>,
     }
 
-    #[cfg(any(windows, target_os = "macos"))]
     pub static BOUND: std::sync::Mutex<Bound> = std::sync::Mutex::new(Bound {
         picker: None,
         paste_plain: None,
         pause: None,
     });
 
-    #[cfg(any(windows, target_os = "macos"))]
     pub async fn bind(app: &AppHandle, config: &Config) {
+        #[cfg(target_os = "linux")]
+        match app.state::<AppState>().session {
+            Session::Gnome => return bind_gnome(app, config).await,
+            Session::X11 => {}
+            _ => return,
+        }
+        bind_global(app, config);
+    }
+
+    /// Windows, macOS and X11: Tauri's global shortcut plugin.
+    fn bind_global(app: &AppHandle, config: &Config) {
         use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
         let gs = app.global_shortcut();
         let _ = gs.unregister_all();
@@ -374,7 +386,15 @@ mod hotkeys {
             match value.parse::<Shortcut>() {
                 Ok(s) => match gs.register(s) {
                     Ok(()) => *slot = Some(s.into_string()),
-                    Err(e) => tracing::warn!("couldn't register {value}: {e}"),
+                    Err(e) => {
+                        tracing::warn!("couldn't register {value}: {e}");
+                        picker::notify(
+                            app,
+                            &format!(
+                                "TailCopy couldn't use {value}; another app may already have it. Choose another shortcut in Settings."
+                            ),
+                        );
+                    }
                 },
                 Err(e) => tracing::warn!("invalid shortcut {value}: {e}"),
             }
@@ -383,7 +403,7 @@ mod hotkeys {
     }
 
     #[cfg(target_os = "linux")]
-    pub async fn bind(app: &AppHandle, config: &Config) {
+    async fn bind_gnome(app: &AppHandle, config: &Config) {
         let Some(gnome) = app.state::<AppState>().gnome() else {
             return;
         };
@@ -397,7 +417,6 @@ mod hotkeys {
         }
     }
 
-    #[cfg(any(windows, target_os = "macos"))]
     pub fn dispatch(app: &AppHandle, shortcut: &tauri_plugin_global_shortcut::Shortcut) {
         let pressed = Some(shortcut.into_string());
         let bound = BOUND.lock().unwrap();
