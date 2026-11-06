@@ -158,6 +158,19 @@ impl Node {
         }
     }
 
+    /// The name the tailnet knows this machine by: the MagicDNS label, which the
+    /// admin console can rename and which is unique. The OS hostname can differ (a
+    /// node renamed in the console, or tailscaled in a container), so it is only
+    /// used for its capitalisation when it matches the label (D-029).
+    pub fn machine_name(&self) -> &str {
+        let label = self.short_name();
+        if self.host_name.eq_ignore_ascii_case(label) {
+            &self.host_name
+        } else {
+            label
+        }
+    }
+
     pub fn ipv4(&self) -> Option<IpAddr> {
         self.ips.iter().copied().find(IpAddr::is_ipv4)
     }

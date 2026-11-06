@@ -41,7 +41,7 @@ impl Platform {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct General {
-    /// Empty means the Tailscale hostname.
+    /// Empty means the Tailscale machine name (its MagicDNS label).
     pub device_name: String,
     pub start_at_login: bool,
     pub live_mirror: bool,
@@ -324,7 +324,7 @@ impl Config {
 
 /// Written when no config file exists yet: the SPEC 11 example.
 const TEMPLATE: &str = r#"[general]
-device_name = ""            # empty = Tailscale hostname
+device_name = ""            # empty = Tailscale machine name
 start_at_login = true
 live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
@@ -770,7 +770,7 @@ mod tests {
         }
         let mac = ConfigFile::default_for(Platform::MacOs).to_toml_string();
         assert!(mac.contains("picker = \"Cmd+Shift+V\""));
-        assert!(mac.contains("# empty = Tailscale hostname"));
+        assert!(mac.contains("# empty = Tailscale machine name"));
         let gnome = Config::defaults(Platform::Gnome);
         assert!(gnome.hotkeys.picker.is_empty() && gnome.hotkeys.paste_plain.is_empty());
     }

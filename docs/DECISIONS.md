@@ -7,6 +7,19 @@ written into SPEC.md).
 
 ---
 
+## D-029 · A device is named after its tailnet machine name · applied
+
+Found 6 November: the owner's `blackbox` showed up in Devices as "sempa". Its node is
+called `blackbox` on the tailnet (MagicDNS), but tailscaled reports the OS hostname
+`sempa`, and an empty `general.device_name` used `Self.HostName`. The OS hostname can
+differ from the name the owner sees in the admin console (a node renamed there, or
+tailscaled running in a container), and two machines can share it, while the MagicDNS
+label is unique. The default name is now the MagicDNS label, keeping the OS hostname's
+capitalisation when the two match apart from case (`Venus` stays `Venus`). It falls back
+to the OS hostname when MagicDNS is off. A device renames itself on its next start and
+the new name reaches the others with the next sync. SPEC 11 now says "Tailscale machine
+name".
+
 ## D-028 · A daily update check, on by default · landed
 
 Owner decision (4 November): tell users when a new release is out, per platform.

@@ -78,13 +78,13 @@ pub async fn state() -> &'static str {
     }
 }
 
-/// This machine's name on the tailnet (`Self.HostName`), while Tailscale runs.
+/// This machine's name on the tailnet (its MagicDNS label), while Tailscale runs.
 pub async fn hostname() -> Option<String> {
     status()
         .await
         .ok()?
         .self_node
         .as_ref()
-        .map(|n| n.host_name.clone())
+        .map(|n| n.machine_name().to_owned())
         .filter(|s| !s.is_empty())
 }
