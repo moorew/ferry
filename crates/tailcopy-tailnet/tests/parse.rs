@@ -88,6 +88,29 @@ fn paths() {
 }
 
 #[test]
+fn machine_name_follows_the_tailnet() {
+    let mut node = tailcopy_tailnet::Node {
+        host_name: "Venus".into(),
+        dns_name: "venus.example.ts.net.".into(),
+        ..Default::default()
+    };
+    assert_eq!(node.machine_name(), "Venus");
+
+    // Renamed in the admin console, or tailscaled running in a container.
+    node.host_name = "sempa".into();
+    node.dns_name = "blackbox.example.ts.net.".into();
+    assert_eq!(node.machine_name(), "blackbox");
+
+    // Two machines with the same OS hostname get distinct MagicDNS names.
+    node.host_name = "FRACTAL".into();
+    node.dns_name = "fractal-wsl.example.ts.net.".into();
+    assert_eq!(node.machine_name(), "fractal-wsl");
+
+    node.dns_name = String::new();
+    assert_eq!(node.machine_name(), "FRACTAL");
+}
+
+#[test]
 fn candidates() {
     let s = status("status-running.json");
     let names: Vec<_> = s

@@ -881,7 +881,7 @@ Events: `clips-changed` (debounced 50 ms), `devices-changed`, `status-changed`, 
 
 ```toml
 [general]
-device_name = ""            # empty = Tailscale hostname
+device_name = ""            # empty = Tailscale machine name
 start_at_login = true
 live_mirror = true
 auto_paste = true           # false = choosing an item only copies it
