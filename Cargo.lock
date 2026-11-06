@@ -4514,6 +4514,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tracing",
  "windows 0.62.2",
+ "x11rb",
  "zbus 6.2.1",
 ]
 

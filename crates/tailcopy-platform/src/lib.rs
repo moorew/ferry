@@ -3,7 +3,7 @@
 //! Each platform module exposes the same small surface: read what is on the clipboard,
 //! write a clip (every format in one offer where the platform allows), remember the
 //! window that was focused when the picker opened, and paste into it after the
-//! modifier wait. Hotkeys live in the app: Windows and macOS use Tauri's global
+//! modifier wait. Hotkeys live in the app: Windows, macOS and X11 use Tauri's global
 //! shortcut plugin, GNOME uses the shell extension's `ShortcutActivated` signal.
 
 use std::time::{Duration, Instant};
@@ -12,10 +12,14 @@ use std::time::{Duration, Instant};
 mod bmp;
 #[cfg(target_os = "linux")]
 pub mod gnome;
+#[cfg(target_os = "linux")]
+pub mod linux;
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(windows)]
 pub mod windows;
+#[cfg(target_os = "linux")]
+pub mod x11;
 
 /// Every format a backend could read for one clipboard change.
 #[derive(Debug, Default, Clone)]
@@ -206,6 +210,8 @@ pub enum Session {
     Windows,
     MacOs,
     Gnome,
+    /// An X11 session (SPEC 9.5, tier 2).
+    X11,
     /// No supported clipboard backend: sync and the manager still work.
     Degraded,
 }
@@ -219,10 +225,12 @@ pub fn detect_session() -> Session {
         let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
         let gnome = std::env::var("XDG_CURRENT_DESKTOP")
             .is_ok_and(|d| d.split(':').any(|part| part.eq_ignore_ascii_case("GNOME")));
-        if wayland && gnome {
-            Session::Gnome
-        } else {
-            Session::Degraded
+        let x11 = std::env::var_os("DISPLAY").is_some();
+        match (wayland, gnome, x11) {
+            (true, true, _) => Session::Gnome,
+            // On other Wayland desktops DISPLAY is XWayland, which only sees X apps.
+            (false, _, true) => Session::X11,
+            _ => Session::Degraded,
         }
     }
 }
