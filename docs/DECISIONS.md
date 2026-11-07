@@ -7,6 +7,40 @@ written into SPEC.md).
 
 ---
 
+## D-032 · Check macOS capture against the new pasteboard read alerts · proposed
+
+Found while researching mobile (6 November): Apple announced in May 2025 that macOS
+alerts the user when an app reads the pasteboard programmatically, and added
+`NSPasteboard` `detect` methods and an `accessBehavior` property. SPEC 9.3's capture path
+may trigger that alert on macOS 26/27. Proposed: test v0.2.x on current macOS, and if it
+prompts, change SPEC 9.3 to check `changeCount` and types before reading and document the
+permission in first run.
+
+## D-031 · Phone apps (iOS and Android) · landed
+
+Owner request and decisions (6 November): native iOS and Android apps in React Native,
+designed per platform with integrations; **the phone rides the official Tailscale app and
+trusts peers through QR pairing**; **Lilac colours only** (no Material You dynamic
+colour); **straight to the full build, no spike milestone**. Brand icons only (the
+owner didn't take up the SF Symbols exception; revisit if a system control needs one).
+Research: `docs/MOBILE-RESEARCH.md`. SPEC now has section 21, milestones M5 and M6, and
+these changes:
+
+- **2.1, 2.3:** phones are a platform group gated in M5 and M6; "Phone apps" is no longer
+  out of scope. Embedded Tailscale stays out, on phones too.
+- **0.2:** phone app id, iOS App Group and the `tailcopy` URL scheme.
+- **6.2:** `role` accepts `mobile` (schema 4), and a `peer_keys` table.
+- **7.2, 7.3:** proto minor 1: `key` in `/v1/hello`; `key`, `challenge` and `proof` in
+  `Hello`; a `Directory` frame for phones. Nodes never send role `mobile` to minor-0 peers.
+- **7.7, 8.5:** phones always dial and are never dialled; they verify peers by pinned
+  identity keys instead of whois. Desktops authorize phones by whois as before.
+- **9.7:** "secrets are never stored" is best effort on iOS (no documented marker).
+
+**Change from the research proposal:** the QR code carries no one-time secret. Desktops
+already authenticate the phone by whois (rule 1), so pairing only needs to carry the
+desktop's public key to the phone over a channel nobody else controls (the camera).
+Pairing is one-way and the desktop stores nothing new for the phone.
+
 ## D-030 · X11 backend (tier 2) · applied
 
 Owner decision (6 November): build the X11 backend now, because the owner's Zorin OS 17
