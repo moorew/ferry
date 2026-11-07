@@ -5,6 +5,7 @@ import type {
   ClipDetail,
   ClipRow,
   Devices,
+  PairCode,
   PasteMode,
   Settings,
   SetupStep,
@@ -67,6 +68,7 @@ export const api = {
   openUpdate: () => call<void>('open_update'),
   recheckTailscale: () => call<void>('recheck_tailscale'),
   getDevices: () => call<Devices>('get_devices'),
+  getPairCode: () => call<PairCode>('get_pair_code'),
   setDeviceSync: (id: string, send: boolean, receive: boolean) =>
     call<void>('set_device_sync', { id, send, receive }),
 };

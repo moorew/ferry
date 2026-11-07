@@ -522,6 +522,12 @@ pub async fn get_devices(app: AppHandle) -> CmdResult<crate::sync::Devices> {
     Ok(crate::sync::devices(&app).await)
 }
 
+/// A QR code a phone scans to pair with this device (SPEC 21.3.3).
+#[tauri::command]
+pub async fn get_pair_code(app: AppHandle) -> CmdResult<crate::sync::PairCode> {
+    crate::sync::pair_code(&app).await.map_err(err)
+}
+
 /// Per-device Send and Receive switches (D-023).
 #[tauri::command]
 pub async fn set_device_sync(

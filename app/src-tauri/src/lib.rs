@@ -113,6 +113,7 @@ pub fn run(initial: Command, autostart: bool) {
             commands::open_update,
             commands::get_devices,
             commands::set_device_sync,
+            commands::get_pair_code,
         ])
         .on_window_event(|window, event| {
             if window.label() == picker::MANAGER

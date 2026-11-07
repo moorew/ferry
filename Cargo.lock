@@ -4566,10 +4566,12 @@ name = "tailcopy"
 version = "0.2.4"
 dependencies = [
  "ammonia",
+ "anyhow",
  "directories",
  "futures-util",
  "interprocess",
  "libc",
+ "qrcode",
  "reqwest",
  "rustls",
  "semver",
