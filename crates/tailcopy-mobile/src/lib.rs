@@ -96,6 +96,8 @@ pub struct ClipContent {
     pub png: Option<Vec<u8>>,
     /// Some format is still on another device that didn't answer in time.
     pub incomplete: bool,
+    /// Copied on another device (its pasteboard write stays local, SPEC 21.4).
+    pub remote: bool,
 }
 
 #[derive(Clone, Debug, uniffi::Record)]
@@ -441,8 +443,11 @@ impl TailCopy {
                 let _ = f.await;
             }
         }
+        let remote = detail.clip.origin;
         self.call(move |core| {
-            let view = core.store()?.view();
+            let store = core.store()?;
+            let remote = remote != *store.device_id();
+            let view = store.view();
             let read = |m: &str| view.read_format(&id, m);
             let text = read(mime::TEXT)?.and_then(|b| String::from_utf8(b).ok());
             let html = read(mime::HTML)?.and_then(|b| String::from_utf8(b).ok());
@@ -459,6 +464,7 @@ impl TailCopy {
                 rtf,
                 png,
                 incomplete: got < wanted,
+                remote,
             })
         })
         .await

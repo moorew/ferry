@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- The text-selection menu shows this label (SPEC 21.4). -->
+  <string name="tc_save_action">Save to TailCopy</string>
+  <string name="tc_tile_label">Save clipboard</string>
+  <string name="tc_search">Search</string>
+  <string name="tc_pinned">Pinned</string>
+  <string name="tc_saved">Saved to TailCopy</string>
+  <string name="tc_nothing">Nothing to save</string>
+  <string name="tc_sensitive">Not saved: marked as a password</string>
+</resources>

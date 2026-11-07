@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App shortcuts (SPEC 21.4): long-press the TailCopy icon. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+    android:shortcutId="save"
+    android:enabled="true"
+    android:icon="@drawable/tc_paste_ink"
+    android:shortcutShortLabel="@string/tc_tile_label">
+    <intent
+      android:action="io.github.moorew.tailcopy.SAVE_CLIPBOARD"
+      android:targetPackage="io.github.moorew.tailcopy"
+      android:targetClass="io.github.moorew.tailcopy.core.SaveActivity" />
+  </shortcut>
+  <shortcut
+    android:shortcutId="search"
+    android:enabled="true"
+    android:icon="@drawable/tc_search_ink"
+    android:shortcutShortLabel="@string/tc_search">
+    <intent android:action="android.intent.action.VIEW" android:data="tailcopy://search" />
+  </shortcut>
+  <shortcut
+    android:shortcutId="pinned"
+    android:enabled="true"
+    android:icon="@drawable/tc_pin_ink"
+    android:shortcutShortLabel="@string/tc_pinned">
+    <intent android:action="android.intent.action.VIEW" android:data="tailcopy://pinned" />
+  </shortcut>
+</shortcuts>

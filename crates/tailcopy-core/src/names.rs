@@ -85,6 +85,25 @@ mod tests {
     }
 
     #[test]
+    fn names_match_phone_apps() {
+        let config = include_str!("../../../mobile/app.config.ts");
+        assert!(config.contains(&format!("const APP_ID = '{PHONE_APP_ID}';")));
+        assert!(config.contains(&format!("const IOS_APP_GROUP = '{IOS_APP_GROUP}';")));
+        assert!(config.contains(&format!("const PAIR_URL_SCHEME = '{PAIR_URL_SCHEME}';")));
+        for plist in [
+            include_str!("../../../mobile/targets/share/Info.plist"),
+            include_str!("../../../mobile/targets/action/Info.plist"),
+        ] {
+            assert!(plist.contains(&format!("<string>{IOS_APP_GROUP}</string>")));
+        }
+        let shortcuts = include_str!(
+            "../../../mobile/modules/tailcopy-core/android/src/main/res/xml/tc_shortcuts.xml"
+        );
+        assert!(shortcuts.contains(&format!("android:targetPackage=\"{PHONE_APP_ID}\"")));
+        assert!(shortcuts.contains(&format!("android:data=\"{PAIR_URL_SCHEME}://search\"")));
+    }
+
+    #[test]
     fn capability_is_not_reserved() {
         assert!(!DEFAULT_CAPABILITY.starts_with("tailscale.com"));
         assert!(!DEFAULT_CAPABILITY.starts_with("tailscale.io"));

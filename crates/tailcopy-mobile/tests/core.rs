@@ -72,7 +72,7 @@ async fn captures_lists_searches_copies_and_pins() {
     let id = found[0].id.clone();
     let content = core.content(id.clone(), 0).await.unwrap();
     assert_eq!(content.text.as_deref(), Some("first note"));
-    assert!(!content.incomplete);
+    assert!(!content.incomplete && !content.remote);
 
     core.set_pinned(id.clone(), true).await.unwrap();
     core.set_label(id.clone(), Some("  todo ".into()))
