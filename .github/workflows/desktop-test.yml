@@ -1,0 +1,108 @@
+name: Desktop test build
+
+# Installers from a branch for testing, not for release: unsigned on Windows,
+# ad-hoc signed on macOS, version unchanged, uploaded as workflow artifacts only.
+# Nothing is published, and the desktop's update check never sees them.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [desktop-test]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Installer
+        working-directory: app
+        run: npx tauri build
+      - name: Name
+        shell: bash
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/release/bundle/nsis/*-setup.exe "out/TailCopy-$V-${GITHUB_SHA::7}-windows-x64-setup.exe"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tailcopy-test-windows-x64
+          path: out/
+
+  macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: App and disk image (ad-hoc signed)
+        working-directory: app
+        run: npx tauri build --target universal-apple-darwin
+      - name: Name
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/universal-apple-darwin/release/bundle/dmg/*.dmg "out/TailCopy-$V-${GITHUB_SHA::7}-macos-universal.dmg"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tailcopy-test-macos-universal
+          path: out/
+
+  linux:
+    name: Ubuntu amd64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Debian package (app and GNOME extension)
+        working-directory: app
+        run: npx tauri build
+      - name: Name and inspect
+        run: |
+          V=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          mkdir out
+          cp target/release/bundle/deb/*.deb "out/TailCopy-$V-${GITHUB_SHA::7}-ubuntu-amd64.deb"
+          dpkg-deb --info out/*.deb
+          dpkg-deb --contents out/*.deb
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tailcopy-test-ubuntu-amd64
+          path: out/
