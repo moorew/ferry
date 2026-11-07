@@ -7,6 +7,26 @@ written into SPEC.md).
 
 ---
 
+## D-034 · npm overrides for vulnerable phone build tooling · applied
+
+Dependabot flagged 16 advisories in `mobile/package-lock.json` (7 November). All are in
+build and test tooling (Expo prebuild, `@bacons/apple-targets`, jest, eslint); none ship
+in the app bundle. `mobile/package.json` now forces patched releases with npm
+`overrides`, keyed by version so that older majors on separate code paths stay put
+(glob 7 and minimatch 3 have different APIs and are outside the advisories):
+
+- `@xmldom/xmldom` 0.7.x → 0.8.15 (pulled in by `@bacons/xcode` through `@expo/plist` 0.0.18)
+- `uuid` 8 → 11.1.1 (`@bacons/xcode`)
+- `glob` 10/13 → 14.0.x and `minimatch` 9/10 → 11.0.x (Expo CLI, jest, typescript-eslint)
+
+Verified with a clean `npm ci`, the mobile checks and an `expo prebuild` for both
+platforms (all three iOS extension targets generated, plists valid). Drop each override
+once upstream depends on a fixed release.
+
+`deepmerge` (GHSA-gcqx-w48m-w2h4, low) has no fixed release. It only merges our own
+config files (jest-config, `@expo/config`, `@sveltejs/vite-plugin-svelte`), never
+untrusted input, so the alert is dismissed as tolerable risk.
+
 ## D-033 · Phone app build choices (M5) · applied
 
 Choices within SPEC 21's latitude while building M5 (6 November):
