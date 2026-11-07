@@ -42,3 +42,4 @@ yarn-error.*
 
 # Rust core and bindings, built by scripts/build-rust.sh
 /modules/tailcopy-core/rust/
+/modules/tailcopy-core/android/build/

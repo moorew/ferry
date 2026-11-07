@@ -181,6 +181,11 @@ Found a bug, or something that went missing or arrived twice?
 Settings > About > Copy diagnostics, which never contains anything you copied.
 
 **Coming next:**
+- iPhone and Android apps (in progress, not released yet). A phone can't read the
+  clipboard in the background, so on a phone you save on purpose: from the share sheet,
+  Android's text-selection menu and Quick Settings tile, or iPhone's Control Center and
+  Shortcuts. You pair a phone once by scanning a code in Settings > Tailnet. It needs
+  the Tailscale app, connected.
 - an optional self-hosted relay, so devices catch up even while your others are off
 - signed updates
 - a listing on extensions.gnome.org

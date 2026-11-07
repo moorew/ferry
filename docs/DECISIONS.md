@@ -7,6 +7,28 @@ written into SPEC.md).
 
 ---
 
+## D-033 · Phone app build choices (M5) · applied
+
+Choices within SPEC 21's latitude while building M5 (6 November):
+
+- **One system symbol.** iOS Control Center controls can only show SF Symbols or a
+  custom symbol exported from the SF Symbols app. The Save clipboard control uses the
+  system `list.clipboard` symbol until the brand `paste` icon is exported as a custom
+  symbol (needs a Mac). Everything else, including the iOS tab bar, uses the brand set,
+  compiled into the asset catalog from `design/assets/icons`.
+- **New design assets:** `phone` and `scan` icons (same grid and stroke), `qr-ink` and
+  `qr-paper` tokens for pairing codes (dark on light in both themes), and phone app
+  icons rendered from the mark by `mobile/scripts/app-icons.mjs`.
+- **Intents open the app.** "Save clipboard" and "Copy latest" run through
+  `tailcopy://capture` and `tailcopy://copy-latest`, because an intent writing the
+  pasteboard in the background is unverified. "Copy latest from <device>" and "Copy
+  pinned <label>" move to M6 with the widget.
+- **Bindings:** uniffi 0.32 Swift and Kotlin bindings behind a local Expo Module (no
+  uniffi-bindgen-react-native, which still says it isn't for production).
+- **Android minimum is API 29**, the first release with today's clipboard rules.
+- **No Expo cloud services:** builds are local, in `mobile/docker/android.Dockerfile`,
+  or in the Mobile workflow; `EXPO_NO_TELEMETRY=1` everywhere.
+
 ## D-032 · Check macOS capture against the new pasteboard read alerts · proposed
 
 Found while researching mobile (6 November): Apple announced in May 2025 that macOS

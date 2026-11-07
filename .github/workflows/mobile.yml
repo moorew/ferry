@@ -1,0 +1,100 @@
+name: Mobile
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  EXPO_NO_TELEMETRY: 1
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Front end
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run check:design
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  android:
+    name: Android build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: NDK and cargo-ndk
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.1.12297006" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.1.12297006" >> "$GITHUB_ENV"
+          cargo install cargo-ndk --version 4.1.2 --locked
+      - run: npm ci
+      - run: npm run rust:android
+      - run: npx expo prebuild -p android --clean --no-install
+      - name: Gradle
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease --console=plain
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tailcopy-android
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+
+  ios:
+    name: iOS build (simulator, unsigned)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, pinned
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run rust:ios
+      - run: npx expo prebuild -p ios --clean
+      - name: Xcode
+        working-directory: mobile/ios
+        run: |
+          xcodebuild -workspace TailCopy.xcworkspace -scheme TailCopy -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -40
+          exit "${PIPESTATUS[0]}"

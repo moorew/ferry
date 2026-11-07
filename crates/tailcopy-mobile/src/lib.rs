@@ -29,17 +29,19 @@ use crate::actor::Actor;
 
 uniffi::setup_scaffolding!();
 
+// The field isn't called `message`: in Kotlin that would clash with
+// `Throwable.message`.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CoreError {
-    #[error("{message}")]
-    Failed { message: String },
-    #[error("{message}")]
-    BadPairingCode { message: String },
+    #[error("{detail}")]
+    Failed { detail: String },
+    #[error("{detail}")]
+    BadPairingCode { detail: String },
 }
 
 fn failed(e: impl std::fmt::Display) -> CoreError {
     CoreError::Failed {
-        message: e.to_string(),
+        detail: e.to_string(),
     }
 }
 
@@ -609,7 +611,7 @@ impl TailCopy {
     /// Trusts the desktop or relay in a scanned pairing code (SPEC 21.3.3).
     pub async fn pair(&self, link: String) -> Result<Paired, CoreError> {
         let link = PairLink::parse(&link).map_err(|e| CoreError::BadPairingCode {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         let entry = PeerKey {
             device_id: link.device_id.clone(),

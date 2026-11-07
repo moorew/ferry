@@ -3,7 +3,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { withDangerousMod, withAndroidManifest, AndroidConfig } = require('expo/config-plugins');
+const { withDangerousMod, withAndroidManifest, withGradleProperties, AndroidConfig } = require('expo/config-plugins');
 
 function withBrandIcons(config) {
   return withDangerousMod(config, [
@@ -30,4 +30,14 @@ function withShortcuts(config) {
   });
 }
 
-module.exports = (config) => withShortcuts(withBrandIcons(config));
+// The Rust core is built for these two (scripts/build-rust.sh); a build with more
+// ABIs would install on a phone that can't load it.
+function withAbis(config) {
+  return withGradleProperties(config, (cfg) => {
+    cfg.modResults = cfg.modResults.filter((p) => !(p.type === 'property' && p.key === 'reactNativeArchitectures'));
+    cfg.modResults.push({ type: 'property', key: 'reactNativeArchitectures', value: 'arm64-v8a,x86_64' });
+    return cfg;
+  });
+}
+
+module.exports = (config) => withAbis(withShortcuts(withBrandIcons(config)));

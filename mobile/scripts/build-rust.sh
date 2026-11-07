@@ -13,10 +13,15 @@ profile="${PROFILE:-release}"
 flag=$([ "$profile" = release ] && echo --release || true)
 
 bindgen() {
-  # $1 language, $2 built library, $3 out dir
-  rm -rf "$3"
+  # $1 language, $2 out dir. Release builds strip the uniffi metadata, so the
+  # bindings come from an unstripped host build; the API is the same everywhere.
+  (cd "$repo" && cargo build -q -p tailcopy-mobile --lib)
+  local target="${CARGO_TARGET_DIR:-$repo/target}"
+  local lib="$target/debug/libtailcopy_mobile.so"
+  [ -f "$lib" ] || lib="$target/debug/libtailcopy_mobile.dylib"
+  rm -rf "$2"
   cargo run -q --manifest-path "$repo/Cargo.toml" -p tailcopy-mobile --features bindgen \
-    --bin uniffi-bindgen -- generate --library "$2" --language "$1" --out-dir "$3" --no-format
+    --bin uniffi-bindgen -- generate --library "$lib" --language "$1" --out-dir "$2" --no-format
 }
 
 case "${1:-}" in
@@ -26,7 +31,7 @@ case "${1:-}" in
     rm -rf "$out/jniLibs"
     (cd "$repo" && cargo ndk -t arm64-v8a -t x86_64 --platform 29 -o "$out/jniLibs" \
       build $flag -p tailcopy-mobile --lib)
-    bindgen kotlin "$out/jniLibs/arm64-v8a/libtailcopy_mobile.so" "$out/kotlin"
+    bindgen kotlin "$out/kotlin"
     ;;
   ios)
     targets=(aarch64-apple-ios aarch64-apple-ios-sim)
@@ -34,7 +39,7 @@ case "${1:-}" in
       (cd "$repo" && cargo build $flag -p tailcopy-mobile --lib --target "$t")
     done
     lib() { echo "$repo/target/$1/$profile/libtailcopy_mobile.a"; }
-    bindgen swift "$(lib aarch64-apple-ios)" "$out/swift.tmp"
+    bindgen swift "$out/swift.tmp"
     mkdir -p "$out/swift" "$out/include"
     rm -f "$out/swift/"* "$out/include/"*
     mv "$out/swift.tmp/tailcopy_mobile.swift" "$out/swift/"
