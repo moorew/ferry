@@ -6,16 +6,20 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use std::net::SocketAddr;
+
 use tailcopy_core::names::{
-    DEFAULT_CAPABILITY, DEFAULT_RELAY_TAG, DEFAULT_SYNC_PORT, RELAY_BINARY,
+    DEFAULT_CAPABILITY, DEFAULT_RELAY_TAG, DEFAULT_SYNC_PORT, IDENTITY_KEY_FILE, RELAY_BINARY,
 };
-use tailcopy_core::{RetentionPolicy, Role, Store, StoreOptions};
-use tailcopy_sync::{Engine, EngineConfig, spawn_store_thread};
+use tailcopy_core::{Reader, RetentionPolicy, Role, Store, StoreOptions};
+use tailcopy_sync::{Engine, EngineConfig, Identity, PairLink, spawn_store_thread};
 use tailcopy_tailnet::{Backend, Options, Tailnet, TailnetTransport};
 
 const RETENTION_EVERY: Duration = Duration::from_secs(3600);
 
 struct Args {
+    /// `pair`: print a phone pairing code and exit (SPEC 21.3.3).
+    pair: bool,
     data_dir: PathBuf,
     port: u16,
     retention: RetentionPolicy,
@@ -25,8 +29,9 @@ struct Args {
 
 fn usage() -> ! {
     eprintln!(
-        "usage: {RELAY_BINARY} --data-dir DIR [--port {DEFAULT_SYNC_PORT}] [--max-items 10000] \
-         [--max-age-days 90] [--tailscale-socket {}] [--allow-capability]",
+        "usage: {RELAY_BINARY} [pair] --data-dir DIR [--port {DEFAULT_SYNC_PORT}] [--max-items 10000] \
+         [--max-age-days 90] [--tailscale-socket {}] [--allow-capability]\n\n\
+         `pair` prints a QR code a phone scans to pair with this relay.",
         tailcopy_tailnet::DEFAULT_SOCKET
     );
     std::process::exit(2)
@@ -34,6 +39,7 @@ fn usage() -> ! {
 
 fn parse() -> Args {
     let mut args = Args {
+        pair: false,
         data_dir: PathBuf::new(),
         port: DEFAULT_SYNC_PORT,
         retention: RetentionPolicy::RELAY,
@@ -44,6 +50,7 @@ fn parse() -> Args {
     while let Some(flag) = it.next() {
         let mut value = || it.next().unwrap_or_else(|| usage());
         match flag.as_str() {
+            "pair" => args.pair = true,
             "--data-dir" => args.data_dir = value().into(),
             "--port" => args.port = value().parse().unwrap_or_else(|_| usage()),
             "--max-items" => args.retention.max_items = value().parse().unwrap_or_else(|_| usage()),
@@ -66,9 +73,77 @@ fn parse() -> Args {
     args
 }
 
+fn tailnet(args: &Args) -> Tailnet {
+    Tailnet::new(Options {
+        backend: Backend::LocalApi {
+            socket: args.socket.clone(),
+        },
+        capability: DEFAULT_CAPABILITY.into(),
+        relay_tag: DEFAULT_RELAY_TAG.into(),
+    })
+}
+
+fn identity(args: &Args) -> Identity {
+    let path = args.data_dir.join(IDENTITY_KEY_FILE);
+    Identity::load_or_create(&path).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1)
+    })
+}
+
+/// Prints the pairing link and its QR code for a phone to scan.
+async fn pair(args: &Args) {
+    let me = Reader::open(&args.data_dir)
+        .and_then(|r| r.view().devices())
+        .ok()
+        .and_then(|d| d.into_iter().find(|d| d.is_self))
+        .unwrap_or_else(|| {
+            eprintln!(
+                "no relay data in {}; start the relay once first",
+                args.data_dir.display()
+            );
+            std::process::exit(1)
+        });
+    let status = tailnet(args).refresh().await.unwrap_or_else(|e| {
+        eprintln!("couldn't read Tailscale's status: {e}");
+        std::process::exit(1)
+    });
+    let mut ips = status
+        .self_node
+        .as_ref()
+        .map(|n| n.ips.clone())
+        .unwrap_or_default();
+    ips.sort_by_key(|ip| !ip.is_ipv4());
+    if ips.is_empty() {
+        eprintln!("Tailscale reports no addresses for this machine");
+        std::process::exit(1);
+    }
+    let link = PairLink {
+        device_id: me.device_id,
+        display_name: me.display_name,
+        key: identity(args).public_key(),
+        addrs: ips
+            .into_iter()
+            .map(|ip| SocketAddr::new(ip, args.port))
+            .collect(),
+    }
+    .to_url();
+    let code = qrcode::QrCode::new(link.as_bytes()).expect("a pairing link fits in a QR code");
+    // Light modules as blocks, for the usual dark terminal.
+    let art = code
+        .render::<qrcode::render::unicode::Dense1x2>()
+        .dark_color(qrcode::render::unicode::Dense1x2::Light)
+        .light_color(qrcode::render::unicode::Dense1x2::Dark)
+        .build();
+    println!("{art}\n\nScan this with TailCopy on your phone, or open:\n{link}");
+}
+
 #[tokio::main]
 async fn main() {
     let args = parse();
+    if args.pair {
+        return pair(&args).await;
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
@@ -93,13 +168,8 @@ async fn main() {
         }
     };
     let store = spawn_store_thread(store);
-    let tailnet = Tailnet::new(Options {
-        backend: Backend::LocalApi {
-            socket: args.socket.clone(),
-        },
-        capability: DEFAULT_CAPABILITY.into(),
-        relay_tag: DEFAULT_RELAY_TAG.into(),
-    });
+    let identity = Arc::new(identity(&args));
+    let tailnet = tailnet(&args);
     if let Ok(status) = tailnet.refresh().await
         && let Some(me) = &status.self_node
     {
@@ -119,6 +189,7 @@ async fn main() {
             port: args.port,
             strict_same_login: args.strict,
             app_version: env!("CARGO_PKG_VERSION").into(),
+            identity: Some(identity),
             ..EngineConfig::default()
         },
     );

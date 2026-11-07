@@ -6,6 +6,7 @@
 
 mod actions;
 mod blobs;
+mod keys;
 mod materialize;
 mod read;
 pub mod schema;

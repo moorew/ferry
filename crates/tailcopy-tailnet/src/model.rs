@@ -127,6 +127,7 @@ impl Status {
             .iter()
             .filter(|p| {
                 p.online
+                    && !p.is_phone()
                     && ((p.tags.is_empty() && Some(p.user_id) == self_user) || p.has_tag(relay_tag))
             })
             .collect()
@@ -138,6 +139,11 @@ impl Status {
 }
 
 impl Node {
+    /// A phone never listens, so it's never a candidate to dial (SPEC 21.3.1).
+    pub fn is_phone(&self) -> bool {
+        self.os.eq_ignore_ascii_case("ios") || self.os.eq_ignore_ascii_case("android")
+    }
+
     pub fn path(&self) -> Path {
         if !self.cur_addr.is_empty() {
             Path::Direct(self.cur_addr.clone())

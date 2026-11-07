@@ -1018,3 +1018,61 @@ fn deleted_and_trimmed_clips_keep_no_content_hash() {
     );
     f.check();
 }
+
+#[test]
+fn a_phone_is_a_device_row_with_role_mobile() {
+    let mut f = fixture();
+    let phone = DeviceId::from("phone");
+    f.store
+        .merge_device_names(&[DeviceName {
+            device_id: phone.clone(),
+            display_name: "iPhone".into(),
+            role: Role::Mobile,
+            updated_hlc: 3,
+        }])
+        .unwrap();
+    let names = f.store.device_names().unwrap();
+    let row = names.iter().find(|n| n.device_id == phone).unwrap();
+    assert_eq!(row.role, Role::Mobile);
+}
+
+#[test]
+fn peer_keys_merge_addresses_and_trust_only_grows() {
+    let mut f = fixture();
+    let desk = DeviceId::from("desk");
+    let entry = |addrs: &[&str], trusted, at| crate::model::PeerKey {
+        device_id: desk.clone(),
+        display_name: "desk".into(),
+        role: Role::Device,
+        key: [7; 32],
+        addrs: addrs.iter().map(|a| a.to_string()).collect(),
+        trusted,
+        updated_ms: at,
+    };
+    f.store
+        .record_peer_key(&entry(&["100.1.1.1:7441"], true, 10))
+        .unwrap();
+    f.store
+        .record_peer_key(&entry(&["100.2.2.2:7441", "100.1.1.1:7441"], false, 20))
+        .unwrap();
+    let got = f.store.peer_key(&desk).unwrap().unwrap();
+    assert!(got.trusted, "a later untrusted record doesn't remove trust");
+    assert_eq!(got.addrs, ["100.2.2.2:7441", "100.1.1.1:7441"]);
+    assert_eq!(got.updated_ms, 20);
+
+    let me = f.store.device_id().clone();
+    f.store
+        .record_peer_key(&crate::model::PeerKey {
+            device_id: me,
+            ..entry(&["100.9.9.9:7441"], true, 30)
+        })
+        .unwrap();
+    assert_eq!(
+        f.store.peer_keys().unwrap().len(),
+        1,
+        "own key never stored"
+    );
+
+    f.store.forget_peer_key(&desk).unwrap();
+    assert!(f.store.peer_key(&desk).unwrap().is_none());
+}

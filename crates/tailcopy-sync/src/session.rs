@@ -16,15 +16,20 @@ use tailcopy_core::model::blake3_hash;
 use tailcopy_core::{DeviceId, DeviceName, Hash32, Op, OpBody, PeerSeen, VersionVector};
 use tokio::sync::{mpsc, oneshot};
 
+use tailcopy_core::{PeerKey, Role};
+
 use crate::engine::{Inner, Me, SyncEvent, now_ms};
-use crate::frame::{ErrorCode, Frame, MAX_OPS_PER_FRAME, PROTO_MAJOR, PROTO_MINOR};
-use crate::transport::PeerIdentity;
+use crate::frame::{DirEntry, ErrorCode, Frame, MAX_OPS_PER_FRAME, PROTO_MAJOR, PROTO_MINOR};
+use crate::identity::{new_challenge, verify_proof};
+use crate::transport::{PeerIdentity, Pinned};
 use crate::ws::{FrameSink, FrameStream};
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const PING_EVERY: Duration = Duration::from_secs(15);
 /// No frame for this long means the session is dead.
 const DEAD_AFTER: Duration = Duration::from_secs(45);
+/// Peers in a phone's `Directory` were seen this recently (SPEC 21.3.5).
+const DIRECTORY_MAX_AGE_MS: u64 = 30 * 24 * 3600 * 1000;
 /// Live ops further than this from local time never touch the clipboard (SPEC 7.6).
 const LIVE_WINDOW_MS: u64 = 10_000;
 /// Inline blobs held while waiting for the `Ops` frame that needs them.
@@ -42,8 +47,22 @@ async fn recv(stream: &mut FrameStream) -> anyhow::Result<Frame> {
     }
 }
 
+/// What the peer's `Hello` carried beyond who it is.
+struct PeerHello {
+    minor: u16,
+    key: Option<[u8; 32]>,
+    challenge: Option<[u8; 32]>,
+    proof: Option<ByteBuf>,
+}
+
+fn bytes32(b: Option<ByteBuf>) -> Option<[u8; 32]> {
+    b.and_then(|b| b.as_slice().try_into().ok())
+}
+
 /// Runs a session to its end. `dialer` is this side's role; `expected` is the peer's
-/// device id from its `/v1/hello`, when this side dialled.
+/// device id from its `/v1/hello`, when this side dialled. A phone passes the paired
+/// key it expects the listener to prove (SPEC 21.3.4).
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn run(
     inner: &Inner,
     mut sink: FrameSink,
@@ -52,27 +71,41 @@ pub(crate) async fn run(
     who: PeerIdentity,
     addr: SocketAddr,
     expected: Option<DeviceId>,
+    pinned: Option<Pinned>,
 ) -> anyhow::Result<()> {
     let me = inner.me().await?;
-    let my_hello = Frame::Hello {
+    let identity = inner.cfg().identity;
+    let challenge = match pinned {
+        Some(_) => Some(new_challenge()?),
+        None => None,
+    };
+    let my_hello = |proof: Option<[u8; 64]>| Frame::Hello {
         proto_major: PROTO_MAJOR,
         proto_minor: PROTO_MINOR,
         device_id: me.device_id.clone(),
         role: me.role,
         display_name: me.display_name.clone(),
+        key: identity
+            .as_ref()
+            .map(|i| ByteBuf::from(i.public_key().to_vec())),
+        challenge: challenge.map(|c| ByteBuf::from(c.to_vec())),
+        proof: proof.map(|p| ByteBuf::from(p.to_vec())),
     };
     if dialer {
-        send(&mut sink, &my_hello).await?;
+        send(&mut sink, &my_hello(None)).await?;
     }
-    let peer = match tokio::time::timeout(HELLO_TIMEOUT, recv(&mut stream)).await {
+    let (peer, extra) = match tokio::time::timeout(HELLO_TIMEOUT, recv(&mut stream)).await {
         Err(_) => anyhow::bail!("no hello"),
         Ok(frame) => match frame? {
             Frame::Hello {
                 proto_major,
+                proto_minor,
                 device_id,
                 role,
                 display_name,
-                ..
+                key,
+                challenge,
+                proof,
             } => {
                 if proto_major != PROTO_MAJOR {
                     let _ = send(
@@ -88,17 +121,51 @@ pub(crate) async fn run(
                     });
                     anyhow::bail!("protocol {proto_major} from {}", who.node_name);
                 }
-                Me {
-                    device_id,
-                    display_name,
-                    role,
-                }
+                (
+                    Me {
+                        device_id,
+                        display_name,
+                        role,
+                    },
+                    PeerHello {
+                        minor: proto_minor,
+                        key: bytes32(key),
+                        challenge: bytes32(challenge),
+                        proof,
+                    },
+                )
             }
             other => anyhow::bail!("expected Hello, got {}", other.kind()),
         },
     };
     if !dialer {
-        send(&mut sink, &my_hello).await?;
+        let proof = match (&identity, &extra.challenge) {
+            (Some(id), Some(c)) => Some(id.prove(c, &me.device_id, &peer.device_id)),
+            _ => None,
+        };
+        send(&mut sink, &my_hello(proof)).await?;
+    }
+    if let (Some(p), Some(c)) = (&pinned, &challenge) {
+        let proven = peer.device_id == p.device_id
+            && extra.proof.as_ref().is_some_and(|proof| {
+                verify_proof(&p.key, c, &peer.device_id, &me.device_id, proof)
+            });
+        if !proven {
+            let _ = send(
+                &mut sink,
+                &Frame::Error {
+                    code: ErrorCode::Unauthorized,
+                    message: "the identity proof didn't verify".into(),
+                },
+            )
+            .await;
+            inner.note_peer_error(
+                &p.device_id,
+                &who,
+                format!("{} couldn't prove it's your device", who.node_name),
+            );
+            anyhow::bail!("{} failed the identity proof", who.node_name);
+        }
     }
     if peer.device_id == me.device_id {
         anyhow::bail!("connected to itself");
@@ -132,6 +199,22 @@ pub(crate) async fn run(
         now_ms: now_ms(),
     };
     let _ = inner.store.call(move |s| s.record_peer(&seen)).await;
+    // A peer's key is as trustworthy as the session: 8.5 on desktops and relays, the
+    // proof on phones (SPEC 21.3.2).
+    if let Some(key) = extra.key
+        && peer.role != Role::Mobile
+    {
+        let entry = PeerKey {
+            device_id: peer.device_id.clone(),
+            display_name: peer.display_name.clone(),
+            role: peer.role,
+            key,
+            addrs: vec![http_addr.to_string()],
+            trusted: pinned.is_some(),
+            updated_ms: now_ms(),
+        };
+        let _ = inner.store.call(move |s| s.record_peer_key(&entry)).await;
+    }
     inner.emit(SyncEvent::PeersChanged);
 
     let peer_has = Mutex::new(VersionVector::new());
@@ -144,6 +227,8 @@ pub(crate) async fn run(
         who: &who,
         peer_has: &peer_has,
         sid,
+        peer_minor: extra.minor,
+        proven: pinned.is_some(),
     };
     let result = tokio::select! {
         r = ctx.writer(&mut sink, vv_rx, pong_rx) => r,
@@ -168,6 +253,21 @@ struct Ctx<'a> {
     who: &'a PeerIdentity,
     peer_has: &'a Mutex<VersionVector>,
     sid: u64,
+    peer_minor: u16,
+    /// The peer proved a paired key (a phone's session).
+    proven: bool,
+}
+
+/// Device names as a peer can decode them: minor-0 builds don't know `mobile`.
+fn names_for(mut names: Vec<DeviceName>, peer_minor: u16) -> Vec<DeviceName> {
+    if peer_minor == 0 {
+        for n in &mut names {
+            if n.role == Role::Mobile {
+                n.role = Role::Device;
+            }
+        }
+    }
+    names
 }
 
 impl Ctx<'_> {
@@ -187,10 +287,13 @@ impl Ctx<'_> {
         send(
             sink,
             &Frame::Devices {
-                devices: names.clone(),
+                devices: names_for(names.clone(), self.peer_minor),
             },
         )
         .await?;
+        if self.peer.role == Role::Mobile && self.me.role != Role::Mobile {
+            send(sink, &self.directory().await?).await?;
+        }
         let mut sent_names = names;
         let their = tokio::time::timeout(HELLO_TIMEOUT, vv_rx)
             .await
@@ -216,7 +319,7 @@ impl Ctx<'_> {
                     self.push(sink).await?;
                     let names = self.inner.store.call(|s| s.device_names()).await??;
                     if names != sent_names {
-                        send(sink, &Frame::Devices { devices: names.clone() }).await?;
+                        send(sink, &Frame::Devices { devices: names_for(names.clone(), self.peer_minor) }).await?;
                         sent_names = names;
                     }
                 }
@@ -224,6 +327,75 @@ impl Ctx<'_> {
                 Some(t) = pong_rx.recv() => send(sink, &Frame::Pong { t }).await?,
             }
         }
+    }
+
+    /// This node and the desktops and relays it knows keys for (SPEC 21.3.5).
+    async fn directory(&self) -> anyhow::Result<Frame> {
+        let mut peers = Vec::new();
+        if let Some(id) = self.inner.cfg().identity {
+            peers.push(DirEntry {
+                device_id: self.me.device_id.clone(),
+                display_name: self.me.display_name.clone(),
+                role: self.me.role,
+                key: ByteBuf::from(id.public_key().to_vec()),
+                addrs: self
+                    .inner
+                    .listening()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            });
+        }
+        let now = now_ms();
+        let keys = self.inner.store.call(|s| s.peer_keys()).await??;
+        peers.extend(
+            keys.into_iter()
+                .filter(|k| k.role != Role::Mobile && k.device_id != self.peer.device_id)
+                .filter(|k| now.saturating_sub(k.updated_ms) < DIRECTORY_MAX_AGE_MS)
+                .map(|k| DirEntry {
+                    device_id: k.device_id,
+                    display_name: k.display_name,
+                    role: k.role,
+                    key: ByteBuf::from(k.key.to_vec()),
+                    addrs: k.addrs,
+                }),
+        );
+        Ok(Frame::Directory { peers })
+    }
+
+    /// A phone trusts what a proven peer vouches for (SPEC 21.3.5).
+    async fn learn_directory(&self, peers: Vec<DirEntry>) -> anyhow::Result<()> {
+        if self.me.role != Role::Mobile || !self.proven {
+            tracing::warn!(peer = %self.who.node_name, "ignored a Directory this side didn't ask for");
+            return Ok(());
+        }
+        let now = now_ms();
+        let entries: Vec<PeerKey> = peers
+            .into_iter()
+            .filter(|e| e.role != Role::Mobile)
+            .filter_map(|e| {
+                Some(PeerKey {
+                    key: e.key.as_slice().try_into().ok()?,
+                    device_id: e.device_id,
+                    display_name: e.display_name,
+                    role: e.role,
+                    addrs: e.addrs,
+                    trusted: true,
+                    updated_ms: now,
+                })
+            })
+            .collect();
+        self.inner
+            .store
+            .call(move |s| -> tailcopy_core::Result<()> {
+                for e in &entries {
+                    s.record_peer_key(e)?;
+                }
+                Ok(())
+            })
+            .await??;
+        self.inner.emit(SyncEvent::PeersChanged);
+        Ok(())
     }
 
     /// Sends every op the peer lacks, inline blobs first. Returns how many.
@@ -341,6 +513,7 @@ impl Ctx<'_> {
                     anyhow::bail!("peer error {code:?}: {message}");
                 }
                 Frame::Hello { .. } => anyhow::bail!("a second Hello"),
+                Frame::Directory { peers } => self.learn_directory(peers).await?,
             }
         }
     }

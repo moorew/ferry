@@ -1188,7 +1188,7 @@ Android keeps the database in app-private storage; every surface runs in the app
 
 Every desktop and relay holds an Ed25519 identity key pair, created on first start as `identity.key` (the 32-byte seed) in the data directory, readable only by the user. The public key is published in `/v1/hello` (`key`) and in the WebSocket `Hello`. It never leaves the device otherwise and is not a Tailscale key. Phones don't need one: desktops authenticate them by whois (8.5).
 
-Between desktops and relays, each side sends a 32-byte random `challenge` in its `Hello`, and the other side answers with `proof` (21.3.4). A node records a peer's key (table `peer_keys`) only after the peer's proof verifies on a session that passed 8.5. A changed key from an authorized peer replaces the old one (reinstall).
+A desktop or relay records the `key` from the `Hello` of every desktop or relay whose session passed 8.5 (table `peer_keys`, with the address it used), and a changed key replaces the old one (a reinstall). That peer is the owner's own device, so its claim is as trustworthy as the session; the key only matters to phones, which check it with the proof (21.3.4). Desktops don't send each other challenges.
 
 #### 21.3.3 Pairing
 
@@ -1216,7 +1216,7 @@ The phone checks that the listener's `device_id` is the trusted row it dialled f
 
 After `Devices`, a desktop or relay sends a phone `Directory { peers }`, where each `DirEntry` is `{ device_id, display_name, role, key: ByteBuf, addrs: Vec<String> }` for itself (its listen addresses) and every peer in its `peer_keys` with a recent address (last seen within 30 days). The phone marks every entry trusted and updates addresses, so pairing with one desktop is enough to reach the relay and the others. Entries never remove trust; only the user does.
 
-The phone's candidates are its trusted rows, each tried at its addresses in order. Devices shows a trusted peer that never connects as "Not reachable".
+The phone's candidates are its trusted rows, each dialled at its most recent address; a session moves the address it reached to the front. Devices shows a trusted peer that never connects as "Not reachable".
 
 **Unpair.** Devices > a peer > **Forget** deletes the trusted row; a later Directory from another paired peer can trust it again, so Settings explains that forgetting one device of several should be followed by removing it from the tailnet. **Forget all** clears every trusted row and returns to pairing.
 

@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tailcopy_core::Hash32;
 use tailcopy_core::model::hash_hex;
+use tailcopy_core::{Hash32, Role};
 
 use crate::engine::{Inner, SyncEvent};
 
@@ -58,7 +58,7 @@ async fn fetch_one(inner: &Inner, hash: Hash32, size: u64) -> bool {
         let mut peers: Vec<_> = st
             .peers
             .iter()
-            .filter(|(_, p)| p.session.is_some())
+            .filter(|(_, p)| p.session.is_some() && p.role != Role::Mobile)
             .filter_map(|(id, p)| Some((Some(id) != hint, p.http_addr?, p.node_name.clone())))
             .collect();
         peers.sort();

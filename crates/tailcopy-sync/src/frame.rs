@@ -8,7 +8,8 @@ use tailcopy_core::{DeviceId, DeviceName, Hash32, Op, Role, VersionVector};
 
 /// Protocol version. A different major ends the session (SPEC 7.4).
 pub const PROTO_MAJOR: u16 = 1;
-pub const PROTO_MINOR: u16 = 0;
+/// Minor 1: identity keys, the session proof, `Directory` and role `mobile` (SPEC 21.3).
+pub const PROTO_MINOR: u16 = 1;
 
 /// Largest frame accepted or sent.
 pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
@@ -33,6 +34,15 @@ pub enum Frame {
         device_id: DeviceId,
         role: Role,
         display_name: String,
+        /// This node's identity public key; desktops and relays only.
+        #[serde(default)]
+        key: Option<ByteBuf>,
+        /// A phone's 32 random bytes for the listener to sign.
+        #[serde(default)]
+        challenge: Option<ByteBuf>,
+        /// The listener's signature of the dialler's challenge (SPEC 21.3.4).
+        #[serde(default)]
+        proof: Option<ByteBuf>,
     },
     Vector {
         vv: VersionVector,
@@ -60,6 +70,21 @@ pub enum Frame {
         code: ErrorCode,
         message: String,
     },
+    /// Desktops and relays a phone may trust; only ever sent to a phone (SPEC 21.3.5).
+    Directory {
+        peers: Vec<DirEntry>,
+    },
+}
+
+/// One entry of a `Directory` frame.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DirEntry {
+    pub device_id: DeviceId,
+    pub display_name: String,
+    pub role: Role,
+    pub key: ByteBuf,
+    /// `ip:port` of its sync listener, most recent first.
+    pub addrs: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -100,6 +125,7 @@ impl Frame {
             Frame::Ping { .. } => "Ping",
             Frame::Pong { .. } => "Pong",
             Frame::Error { .. } => "Error",
+            Frame::Directory { .. } => "Directory",
         }
     }
 }
@@ -111,9 +137,12 @@ pub struct HelloInfo {
     pub proto_minor: u16,
     pub device_id: DeviceId,
     pub display_name: String,
-    /// `device` or `relay`.
+    /// `device`, `relay` or `mobile`.
     pub role: String,
     pub app_version: String,
+    /// Identity public key, base64url (SPEC 21.3.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 #[cfg(test)]
@@ -149,6 +178,9 @@ mod tests {
                 device_id: id.clone(),
                 role: Role::Relay,
                 display_name: "desk".into(),
+                key: Some(ByteBuf::from(vec![1; 32])),
+                challenge: Some(ByteBuf::from(vec![2; 32])),
+                proof: None,
             },
             Frame::Vector {
                 vv: VersionVector::from([(id.clone(), 4)]),
@@ -172,6 +204,15 @@ mod tests {
             Frame::Error {
                 code: ErrorCode::BadHash,
                 message: "m".into(),
+            },
+            Frame::Directory {
+                peers: vec![DirEntry {
+                    device_id: id.clone(),
+                    display_name: "desk".into(),
+                    role: Role::Device,
+                    key: ByteBuf::from(vec![1; 32]),
+                    addrs: vec!["100.64.0.1:7441".into()],
+                }],
             },
         ]
     }
@@ -206,6 +247,37 @@ mod tests {
         assert!(matches!(
             Frame::decode(&vec![0u8; MAX_FRAME_BYTES + 1]),
             Err(FrameError::TooLarge(_))
+        ));
+    }
+
+    #[test]
+    fn a_minor_0_hello_decodes_without_keys() {
+        #[derive(Serialize)]
+        enum OldFrame {
+            Hello {
+                proto_major: u16,
+                proto_minor: u16,
+                device_id: DeviceId,
+                role: Role,
+                display_name: String,
+            },
+        }
+        let bytes = rmp_serde::to_vec_named(&OldFrame::Hello {
+            proto_major: 1,
+            proto_minor: 0,
+            device_id: "d".into(),
+            role: Role::Device,
+            display_name: "n".into(),
+        })
+        .unwrap();
+        assert!(matches!(
+            Frame::decode(&bytes).unwrap(),
+            Frame::Hello {
+                key: None,
+                challenge: None,
+                proof: None,
+                ..
+            }
         ));
     }
 

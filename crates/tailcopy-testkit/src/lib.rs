@@ -15,12 +15,12 @@ use async_trait::async_trait;
 use tailcopy_core::hlc::Clock;
 use tailcopy_core::store::ClipRow;
 use tailcopy_core::{
-    Capture, CaptureOutcome, CapturedFormats, ClipId, DeviceId, Role, Store, StoreOptions,
+    Capture, CaptureOutcome, CapturedFormats, ClipId, DeviceId, PeerKey, Role, Store, StoreOptions,
     SyncFlags, VersionVector,
 };
 use tailcopy_sync::{
-    Candidate, Engine, EngineConfig, PeerIdentity, StoreHandle, SyncEvent, Transport,
-    spawn_store_thread,
+    Candidate, Engine, EngineConfig, Identity, PairLink, PairedTransport, PeerIdentity,
+    StoreHandle, SyncEvent, Transport, spawn_store_thread,
 };
 
 /// Port every simulated node listens on (each has its own address).
@@ -43,6 +43,8 @@ struct FakeNode {
     capability: bool,
     /// Accepts no connections (a firewall).
     no_inbound: bool,
+    /// A phone: Tailscale reports it as iOS or Android, so desktops never dial it.
+    phone: bool,
 }
 
 /// A tailnet: nodes, their logins and tags, who is online and who can reach whom.
@@ -70,6 +72,7 @@ impl FakeTailnet {
                 online: true,
                 capability: false,
                 no_inbound: false,
+                phone: false,
             },
         );
         ip
@@ -108,6 +111,18 @@ impl FakeTailnet {
             net: self.clone(),
             ip,
         })
+    }
+
+    /// A phone's transport: its only tailnet knowledge is whether it's online.
+    fn phone_transport(self: &Arc<Self>, ip: IpAddr, store: StoreHandle) -> Arc<dyn Transport> {
+        let net = self.clone();
+        Arc::new(PairedTransport::new(
+            store,
+            Box::new(move || {
+                let nodes = net.nodes.lock().unwrap();
+                nodes.get(&ip).filter(|n| n.online).map(|_| vec![ip])
+            }),
+        ))
     }
 }
 
@@ -161,6 +176,7 @@ impl Transport for FakeTransport {
             .filter(|(ip, n)| {
                 **ip != self.ip
                     && n.online
+                    && !n.phone
                     && self.net.reachable(self.ip, **ip)
                     && ((n.tags.is_empty() && n.login == me.login)
                         || n.tags.iter().any(|t| t == RELAY_TAG))
@@ -170,6 +186,7 @@ impl Transport for FakeTransport {
                 stable_id: format!("n{}", n.name),
                 addr: SocketAddr::new(*ip, SIM_PORT),
                 relay_tagged: n.tags.iter().any(|t| t == RELAY_TAG),
+                pinned: None,
             })
             .collect())
     }
@@ -199,6 +216,7 @@ pub struct SimNode {
     pub store: StoreHandle,
     pub engine: Engine,
     net: Arc<FakeTailnet>,
+    identity: Option<Arc<Identity>>,
 }
 
 fn open_store(dir: &Path, name: &str, role: Role, skew_ms: i64) -> Store {
@@ -214,13 +232,29 @@ fn open_store(dir: &Path, name: &str, role: Role, skew_ms: i64) -> Store {
     .expect("store opens")
 }
 
-fn engine_config(role: Role) -> EngineConfig {
+fn engine_config(role: Role, identity: &Option<Arc<Identity>>) -> EngineConfig {
     EngineConfig {
         role,
         port: SIM_PORT,
         app_version: "test".into(),
+        identity: identity.clone(),
         ..EngineConfig::default()
     }
+}
+
+fn start_engine(
+    net: &Arc<FakeTailnet>,
+    ip: IpAddr,
+    store: &StoreHandle,
+    role: Role,
+    identity: &Option<Arc<Identity>>,
+) -> Engine {
+    let transport: Arc<dyn Transport> = if role == Role::Mobile {
+        net.phone_transport(ip, store.clone())
+    } else {
+        net.transport(ip)
+    };
+    Engine::start(store.clone(), transport, engine_config(role, identity))
 }
 
 impl SimNode {
@@ -328,11 +362,7 @@ impl SimNode {
         self.shut_down().await;
         let store = open_store(&self.dir, &self.name, self.role, self.skew_ms);
         self.store = spawn_store_thread(store);
-        self.engine = Engine::start(
-            self.store.clone(),
-            self.net.transport(self.ip),
-            engine_config(self.role),
-        );
+        self.engine = start_engine(&self.net, self.ip, &self.store, self.role, &self.identity);
     }
 
     /// Starts again from a copy of `backup` (a restored or cloned install) on the
@@ -346,11 +376,7 @@ impl SimNode {
         self.dir = restored;
         let store = open_store(&self.dir, &self.name, self.role, self.skew_ms);
         self.store = spawn_store_thread(store);
-        self.engine = Engine::start(
-            self.store.clone(),
-            self.net.transport(self.ip),
-            engine_config(self.role),
-        );
+        self.engine = start_engine(&self.net, self.ip, &self.store, self.role, &self.identity);
     }
 
     /// Copies this node's data directory (while it runs; WAL is checkpointed first).
@@ -371,6 +397,46 @@ impl SimNode {
 
     pub fn set_online(&self, online: bool) {
         self.net.edit(self.ip, |n| n.online = online);
+    }
+
+    /// What this desktop's or relay's pairing QR code would carry (SPEC 21.3.3).
+    pub async fn pair_link(&self) -> PairLink {
+        let id = self.identity.as_ref().expect("phones have no pairing code");
+        PairLink {
+            device_id: self.device_id().await,
+            display_name: self.name.clone(),
+            key: id.public_key(),
+            addrs: vec![SocketAddr::new(self.ip, SIM_PORT)],
+        }
+    }
+
+    /// A phone scans a pairing code.
+    pub async fn pair(&self, link: &PairLink) {
+        let entry = PeerKey {
+            device_id: link.device_id.clone(),
+            display_name: link.display_name.clone(),
+            role: Role::Device,
+            key: link.key,
+            addrs: link.addrs.iter().map(ToString::to_string).collect(),
+            trusted: true,
+            updated_ms: 0,
+        };
+        self.store
+            .call(move |s| s.record_peer_key(&entry).unwrap())
+            .await
+            .unwrap();
+        self.engine.retry_now();
+    }
+
+    /// Gives this desktop or relay a different identity key (an impostor at a
+    /// paired address).
+    pub async fn replace_identity(&mut self, seed: [u8; 32]) {
+        self.identity = Some(Arc::new(Identity::from_seed(seed)));
+        self.restart().await;
+    }
+
+    pub async fn peer_keys(&self) -> Vec<PeerKey> {
+        self.store.call(|s| s.peer_keys().unwrap()).await.unwrap()
     }
 }
 
@@ -406,6 +472,14 @@ pub struct NodeSpec {
 }
 
 impl NodeSpec {
+    /// A phone signed in to the owner's login.
+    pub fn phone(name: &str) -> Self {
+        Self {
+            role: Role::Mobile,
+            ..Self::device(name)
+        }
+    }
+
     pub fn device(name: &str) -> Self {
         Self {
             name: name.into(),
@@ -447,13 +521,12 @@ impl Sim {
             n.no_inbound = spec.no_inbound;
             n.capability = spec.capability;
         });
+        self.net.edit(ip, |n| n.phone = spec.role == Role::Mobile);
         let dir = self.tmp.path().join(&spec.name);
         let store = spawn_store_thread(open_store(&dir, &spec.name, spec.role, spec.skew_ms));
-        let engine = Engine::start(
-            store.clone(),
-            self.net.transport(ip),
-            engine_config(spec.role),
-        );
+        let identity = (spec.role != Role::Mobile)
+            .then(|| Arc::new(Identity::generate().expect("system randomness")));
+        let engine = start_engine(&self.net, ip, &store, spec.role, &identity);
         SimNode {
             name: spec.name,
             ip,
@@ -463,6 +536,7 @@ impl Sim {
             store,
             engine,
             net: self.net.clone(),
+            identity,
         }
     }
 }

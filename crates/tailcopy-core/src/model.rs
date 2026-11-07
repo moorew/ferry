@@ -284,6 +284,8 @@ pub enum Role {
     #[default]
     Device,
     Relay,
+    /// A phone: always dials, never listens, never dialled (SPEC 21.3.1).
+    Mobile,
 }
 
 impl Role {
@@ -291,6 +293,7 @@ impl Role {
         match self {
             Role::Device => "device",
             Role::Relay => "relay",
+            Role::Mobile => "mobile",
         }
     }
 
@@ -298,6 +301,7 @@ impl Role {
         match s {
             "device" => Some(Role::Device),
             "relay" => Some(Role::Relay),
+            "mobile" => Some(Role::Mobile),
             _ => None,
         }
     }
@@ -343,6 +347,22 @@ pub struct PeerSeen {
     pub ip: Option<String>,
     pub os: Option<String>,
     pub now_ms: u64,
+}
+
+/// A desktop's or relay's identity key and where to reach it (SPEC 6.2 `peer_keys`,
+/// 21.3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PeerKey {
+    pub device_id: DeviceId,
+    pub display_name: String,
+    pub role: Role,
+    /// Ed25519 public key.
+    pub key: [u8; 32],
+    /// Sync listener addresses, most recent first.
+    pub addrs: Vec<String>,
+    /// A phone paired with it or a trusted peer vouched for it.
+    pub trusted: bool,
+    pub updated_ms: u64,
 }
 
 /// Per-device sync switches (D-023).

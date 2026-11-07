@@ -63,18 +63,53 @@ pub(crate) async fn attempt(inner: &Inner, cand: &Candidate, online_since: Insta
         return Attempt::Wait(Duration::from_secs(300));
     }
     let role = Role::parse(&hello.role).unwrap_or(Role::Device);
-    let who = match inner.transport.whois(cand.addr).await {
-        Ok(w) => w,
-        Err(e) => {
-            tracing::warn!(peer = %cand.node_name, "whois failed: {e}");
-            return Attempt::Failed;
-        }
-    };
-    if !inner.authorize_outbound(&who, role) {
-        return Attempt::Wait(Duration::from_secs(300));
+    if role == Role::Mobile {
+        // Phones dial; nobody dials them (SPEC 21.3.1).
+        return Attempt::Wait(Duration::from_secs(3600));
     }
+    let who = if let Some(p) = &cand.pinned {
+        // A phone can't whois; the session proof checks the key (SPEC 21.3.4).
+        if hello.proto_minor < 1 {
+            set_error(Some(format!("Update TailCopy on {}", hello.display_name)));
+            return Attempt::Wait(Duration::from_secs(300));
+        }
+        if hello.device_id != p.device_id {
+            tracing::warn!(peer = %cand.node_name, "a different device answers at a paired address");
+            inner.note_peer_error(
+                &p.device_id,
+                &crate::PeerIdentity {
+                    node_name: cand.node_name.clone(),
+                    stable_id: cand.stable_id.clone(),
+                    ..Default::default()
+                },
+                format!("{} isn't at its last address", cand.node_name),
+            );
+            return Attempt::Wait(Duration::from_secs(60));
+        }
+        crate::PeerIdentity {
+            node_name: cand.node_name.clone(),
+            stable_id: cand.stable_id.clone(),
+            same_user: true,
+            ..Default::default()
+        }
+    } else {
+        let who = match inner.transport.whois(cand.addr).await {
+            Ok(w) => w,
+            Err(e) => {
+                tracing::warn!(peer = %cand.node_name, "whois failed: {e}");
+                return Attempt::Failed;
+            }
+        };
+        if !inner.authorize_outbound(&who, role) {
+            return Attempt::Wait(Duration::from_secs(300));
+        }
+        who
+    };
     let lower = me.device_id < hello.device_id;
-    let dial = role == Role::Relay || lower || online_since.elapsed() >= DIAL_ANYWAY;
+    let dial = me.role == Role::Mobile
+        || role == Role::Relay
+        || lower
+        || online_since.elapsed() >= DIAL_ANYWAY;
     if !dial {
         // The lower id dials; give it time before dialling from this side too.
         return Attempt::Wait(DIAL_ANYWAY.saturating_sub(online_since.elapsed()));
@@ -99,6 +134,7 @@ pub(crate) async fn attempt(inner: &Inner, cand: &Candidate, online_since: Insta
         who,
         cand.addr,
         Some(hello.device_id),
+        cand.pinned.clone(),
     )
     .await;
     if let Err(e) = result {
