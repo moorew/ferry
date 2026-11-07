@@ -16,7 +16,6 @@ Pod::Spec.new do |s|
 
   # CocoaPods only takes files under the podspec's directory, so it lives here.
   s.source_files = 'ios/*.swift', 'rust/swift/*.swift'
-  s.vendored_frameworks = 'rust/TailCopyMobile.xcframework'
   s.frameworks = 'BackgroundTasks', 'UniformTypeIdentifiers'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
@@ -25,8 +24,13 @@ Pod::Spec.new do |s|
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
   # The pod's Swift module mentions the FFI module, so targets that import the pod
-  # need to find it too (mobile/ios/Pods -> mobile/modules/tailcopy-core).
+  # need to find it too, and the app links the Rust library's slice for its SDK
+  # directly (CocoaPods' copy step for static xcframeworks didn't put it on the
+  # link line). Paths go from mobile/ios/Pods to mobile/modules/tailcopy-core.
+  rust = '$(PODS_ROOT)/../../modules/tailcopy-core/rust'
   s.user_target_xcconfig = {
-    'SWIFT_INCLUDE_PATHS' => '$(PODS_ROOT)/../../modules/tailcopy-core/rust/include'
+    'SWIFT_INCLUDE_PATHS' => "#{rust}/include",
+    'OTHER_LDFLAGS[sdk=iphoneos*]' => "$(inherited) \"#{rust}/TailCopyMobile.xcframework/ios-arm64/libtailcopy_mobile.a\"",
+    'OTHER_LDFLAGS[sdk=iphonesimulator*]' => "$(inherited) \"#{rust}/TailCopyMobile.xcframework/ios-arm64-simulator/libtailcopy_mobile.a\""
   }
 end

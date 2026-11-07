@@ -50,6 +50,11 @@ case "${1:-}" in
       -library "$(lib aarch64-apple-ios)" -headers "$out/include" \
       -library "$(lib aarch64-apple-ios-sim)" -headers "$out/include" \
       -output "$out/TailCopyMobile.xcframework"
+    # TailCopyCore.podspec links these slices by path.
+    for slice in ios-arm64 ios-arm64-simulator; do
+      test -f "$out/TailCopyMobile.xcframework/$slice/libtailcopy_mobile.a" \
+        || { echo "missing xcframework slice $slice" >&2; exit 1; }
+    done
     ;;
   *)
     echo "usage: $0 android|ios" >&2
