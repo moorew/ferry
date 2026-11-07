@@ -4,7 +4,13 @@ Branch `mobile`. Spec: SPEC section 21, milestones M5 and M6, D-031 (owner decis
 D-033 (build choices). Research: `docs/MOBILE-RESEARCH.md`.
 
 The M5 gate needs hardware: an iPhone and an Android phone against a Windows or Ubuntu
-desktop and a relay (SPEC 21.9). Nothing here has run on a phone yet.
+desktop and a relay (SPEC 21.9).
+
+**Status (7 November):**
+- The Android APK from CI installs and runs on the owner's phone. Pairing waits on the
+  desktop test builds, made by `desktop-test.yml` as artifacts and not released.
+- iOS builds in CI: an unsigned simulator build, after five rounds of fixes to the pod
+  layout and linking. It hasn't run on an iPhone yet.
 
 ## What was built
 
@@ -78,8 +84,7 @@ desktop and a relay (SPEC 21.9). Nothing here has run on a phone yet.
 
 ## Not verified (needs hardware or a Mac)
 
-- Any Swift: this machine can't compile it. The Mobile workflow's iOS job builds for the
-  simulator, unsigned; it will be the first compile.
+- iOS at run time: the simulator build compiles and links, but nothing has launched it.
 - Everything in SPEC 21.9 on real phones.
 - iOS paste prompts: whether checking `types` and `changeCount` stays silent, and how
   "Allow" behaves.
@@ -96,7 +101,6 @@ desktop and a relay (SPEC 21.9). Nothing here has run on a phone yet.
 2. **Go-ahead to merge** the protocol change (proto 1.1, schema 4) into main, or keep
    it on `mobile` until the phones pass. Desktops that are updated still sync with
    0.2.x desktops. Phones need updated desktops.
-3. **The CI run** on this branch: the iOS job is the first Swift compile.
 
 ## Test steps
 
