@@ -109,7 +109,11 @@ jobs:
       - name: Xcode
         working-directory: mobile/ios
         run: |
+          set +e
           xcodebuild -workspace TailCopy.xcworkspace -scheme TailCopy -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build | tail -40
-          exit "${PIPESTATUS[0]}"
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/xcodebuild.log" 2>&1
+          status=$?
+          grep -E "error:|Undefined symbol|referenced from|ld: [^w]" "$RUNNER_TEMP/xcodebuild.log" | sort -u | head -60
+          tail -15 "$RUNNER_TEMP/xcodebuild.log"
+          exit $status

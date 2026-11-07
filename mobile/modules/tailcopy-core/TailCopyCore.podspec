@@ -19,6 +19,7 @@ Pod::Spec.new do |s|
   s.frameworks = 'BackgroundTasks', 'UniformTypeIdentifiers'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64',
     # The bindings import the C module described by rust/include/module.modulemap.
     'SWIFT_INCLUDE_PATHS' => '$(PODS_TARGET_SRCROOT)/rust/include',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
@@ -30,6 +31,8 @@ Pod::Spec.new do |s|
   rust = '$(PODS_ROOT)/../../modules/tailcopy-core/rust'
   s.user_target_xcconfig = {
     'SWIFT_INCLUDE_PATHS' => "#{rust}/include",
+    # The Rust core is built for arm64 only (devices, Apple silicon simulators).
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64',
     'OTHER_LDFLAGS[sdk=iphoneos*]' => "$(inherited) \"#{rust}/TailCopyMobile.xcframework/ios-arm64/libtailcopy_mobile.a\"",
     'OTHER_LDFLAGS[sdk=iphonesimulator*]' => "$(inherited) \"#{rust}/TailCopyMobile.xcframework/ios-arm64-simulator/libtailcopy_mobile.a\""
   }

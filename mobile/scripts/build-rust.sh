@@ -34,6 +34,9 @@ case "${1:-}" in
     bindgen kotlin "$out/kotlin"
     ;;
   ios)
+    # Match the app's deployment target (app.config.ts), or the linker warns that
+    # the C parts (SQLite, ring, blake3) were built for a newer iOS.
+    export IPHONEOS_DEPLOYMENT_TARGET=26.0
     targets=(aarch64-apple-ios aarch64-apple-ios-sim)
     for t in "${targets[@]}"; do
       (cd "$repo" && cargo build $flag -p tailcopy-mobile --lib --target "$t")
