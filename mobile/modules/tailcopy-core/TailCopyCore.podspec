@@ -14,11 +14,14 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  s.source_files = '*.swift', '../rust/swift/*.swift'
-  s.vendored_frameworks = '../rust/TailCopyMobile.xcframework'
+  # CocoaPods only takes files under the podspec's directory, so it lives here.
+  s.source_files = 'ios/*.swift', 'rust/swift/*.swift'
+  s.vendored_frameworks = 'rust/TailCopyMobile.xcframework'
   s.frameworks = 'BackgroundTasks', 'UniformTypeIdentifiers'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    # The bindings import the C module described by rust/include/module.modulemap.
+    'SWIFT_INCLUDE_PATHS' => '$(PODS_TARGET_SRCROOT)/rust/include',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
 end

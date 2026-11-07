@@ -62,9 +62,24 @@ jobs:
       - run: npm ci
       - run: npm run rust:android
       - run: npx expo prebuild -p android --clean --no-install
+      - name: Upload key
+        # Without these secrets the APK is signed with the public debug key: fine for
+        # testing, but installs signed that way can't be updated by a properly signed one.
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE != ''
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "TAILCOPY_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
       - name: Gradle
         working-directory: mobile/android
-        run: ./gradlew assembleRelease --console=plain
+        env:
+          TAILCOPY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAILCOPY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TAILCOPY_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --console=plain
+          mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/tailcopy-${GITHUB_SHA::7}.apk"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tailcopy-android

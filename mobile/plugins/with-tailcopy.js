@@ -3,7 +3,13 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { withDangerousMod, withAndroidManifest, withGradleProperties, AndroidConfig } = require('expo/config-plugins');
+const {
+  withAndroidManifest,
+  withAppBuildGradle,
+  withDangerousMod,
+  withGradleProperties,
+  AndroidConfig,
+} = require('expo/config-plugins');
 
 function withBrandIcons(config) {
   return withDangerousMod(config, [
@@ -40,4 +46,36 @@ function withAbis(config) {
   });
 }
 
-module.exports = (config) => withAbis(withShortcuts(withBrandIcons(config)));
+// Release builds are signed with the owner's upload key when TAILCOPY_KEYSTORE (a
+// path) and its passwords are set in the environment, and with the template's debug
+// key otherwise (test builds only: that key is public).
+const releaseSigning = `
+        release {
+            if (System.getenv('TAILCOPY_KEYSTORE')) {
+                storeFile file(System.getenv('TAILCOPY_KEYSTORE'))
+                storePassword System.getenv('TAILCOPY_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('TAILCOPY_KEY_ALIAS')
+                keyPassword System.getenv('TAILCOPY_KEY_PASSWORD')
+            }
+        }`;
+
+function withReleaseSigning(config) {
+  return withAppBuildGradle(config, (cfg) => {
+    let gradle = cfg.modResults.contents;
+    if (gradle.includes('TAILCOPY_KEYSTORE')) return cfg;
+    const debugConfig = /signingConfigs \{\s*debug \{[^}]*\}/;
+    const releaseUse = /(release \{[^}]*?)signingConfig signingConfigs\.debug/;
+    if (!debugConfig.test(gradle) || !releaseUse.test(gradle)) {
+      throw new Error('with-tailcopy: app/build.gradle no longer has the expected signing blocks');
+    }
+    gradle = gradle.replace(debugConfig, (m) => m + releaseSigning);
+    gradle = gradle.replace(
+      releaseUse,
+      "$1signingConfig System.getenv('TAILCOPY_KEYSTORE') ? signingConfigs.release : signingConfigs.debug",
+    );
+    cfg.modResults.contents = gradle;
+    return cfg;
+  });
+}
+
+module.exports = (config) => withReleaseSigning(withAbis(withShortcuts(withBrandIcons(config))));

@@ -1,10 +1,20 @@
 {
-  "platforms": ["apple", "android"],
+  "platforms": [
+    "apple",
+    "android"
+  ],
   "apple": {
-    "modules": ["TailCopyCoreModule"],
-    "appDelegateSubscribers": ["TailCopyAppDelegate"]
+    "modules": [
+      "TailCopyCoreModule"
+    ],
+    "appDelegateSubscribers": [
+      "TailCopyAppDelegate"
+    ],
+    "podspecPath": "./TailCopyCore.podspec"
   },
   "android": {
-    "modules": ["io.github.moorew.tailcopy.core.TailCopyCoreModule"]
+    "modules": [
+      "io.github.moorew.tailcopy.core.TailCopyCoreModule"
+    ]
   }
 }
