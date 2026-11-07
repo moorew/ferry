@@ -238,6 +238,14 @@ export const mock = {
         return r(null);
       case 'get_devices':
         return r(devices());
+      case 'get_pair_code':
+        // A fixed pattern that looks like a QR code; the mock has no real link.
+        return r({
+          url: 'tailcopy://pair?v=1&id=mock',
+          modules: Array.from({ length: 29 }, (_, y) =>
+            Array.from({ length: 29 }, (_, x) => ((x * 7 + y * 13 + x * y) % 3 === 0 ? '1' : '0')).join(''),
+          ),
+        });
       default:
         return r(undefined);
     }

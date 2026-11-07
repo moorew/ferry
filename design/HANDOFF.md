@@ -1,6 +1,6 @@
 # TailCopy design handoff
 
-**Summary.** TailCopy gets a "Lilac utility" look: lilac paper and aubergine ink in light mode, a deep night purple in dark mode, one violet accent, and six purple-family device colours that make the tailnet visible in every row. The logo is a clipboard leaving a trail of dots (Option A, "Trail"); the same dots become the tray's syncing animation and the "trail" card that shows where an item came from. The work is split into eight Claude Code phases below, each with a paste-ready prompt, acceptance checks and a stop point. Tokens, fonts, logo, app icons, tray icons and 36 UI icons are all in this folder as real files.
+**Summary.** TailCopy gets a "Lilac utility" look: lilac paper and aubergine ink in light mode, a deep night purple in dark mode, one violet accent, and six purple-family device colours that make the tailnet visible in every row. The logo is a clipboard leaving a trail of dots (Option A, "Trail"); the same dots become the tray's syncing animation and the "trail" card that shows where an item came from. The work is split into eight Claude Code phases below, each with a paste-ready prompt, acceptance checks and a stop point. Tokens, fonts, logo, app icons, tray icons and 38 UI icons are all in this folder as real files.
 
 Design canvas (private to Will): https://claude.ai/artifact/R58nFYxe2chH3ECjeghqKQ
 
@@ -35,7 +35,7 @@ design/
   assets/app-icon/           macOS, Windows, Linux SVGs, PNGs 16 to 1024, tailcopy.ico
   assets/tray/svg/           7 states at 24 grid, plus 16 px optimised versions
   assets/tray/png/           every state in black (macOS template), ink and white
-  assets/icons/              36 UI icons, currentColor
+  assets/icons/              38 UI icons, currentColor (phone and scan added for the phone apps, SPEC 21)
 ```
 
 ---

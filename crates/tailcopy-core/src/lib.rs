@@ -20,8 +20,8 @@ pub use error::{Error, Result};
 pub use hlc::{Clock, ManualClock, SystemClock};
 pub use look::Look;
 pub use model::{
-    ClipId, ClipKind, DeviceId, DeviceInfo, DeviceName, FormatRef, Hash32, Op, OpBody, PeerSeen,
-    Role, SyncFlags, VersionVector,
+    ClipId, ClipKind, DeviceId, DeviceInfo, DeviceName, FormatRef, Hash32, Op, OpBody, PeerKey,
+    PeerSeen, Role, SyncFlags, VersionVector,
 };
 pub use search::{Counts, SearchContext, SearchHit, SearchIndex, parse_query};
 pub use store::{

@@ -7,7 +7,7 @@
   // change saves at once.
   import { onMount } from 'svelte';
   import { api, on } from '../lib/api';
-  import type { Devices, PeerDevice, RuleMode, Settings, Status } from '../lib/types';
+  import type { Devices, PairCode, PeerDevice, RuleMode, Settings, Status } from '../lib/types';
   import { bytes, isMac, relativeTime } from '../lib/format';
   import { t, type StringKey } from '../lib/strings';
   import Button from '../components/Button.svelte';
@@ -92,6 +92,26 @@
     devices = await api.getDevices();
   }
 
+  let pairCode = $state<PairCode | null>(null);
+  let pairError = $state<string | null>(null);
+
+  async function showPairCode() {
+    pairError = null;
+    try {
+      pairCode = await api.getPairCode();
+    } catch (e) {
+      pairError = String(e);
+    }
+  }
+
+  // One path for every dark module, inside a four-module quiet zone.
+  const qrPath = $derived(
+    pairCode?.modules
+      .flatMap((row, y) => [...row].map((m, x) => (m === '1' ? `M${x + 4} ${y + 4}h1v1h-1z` : '')))
+      .join('') ?? '',
+  );
+  const qrSize = $derived((pairCode?.modules.length ?? 0) + 8);
+
   async function setFlags(d: PeerDevice, send: boolean, receive: boolean) {
     await api.setDeviceSync(d.id, send, receive);
     await loadDevices();
@@ -104,6 +124,11 @@
 
   function deviceLine(d: PeerDevice): string {
     if (d.error) return d.error;
+    if (d.role === 'mobile' && !d.connected) {
+      return d.lastSyncMs
+        ? t('settings.tailnet.phone_idle', { ago: relativeTime(d.lastSyncMs) })
+        : t('settings.tailnet.phone_never');
+    }
     if (d.connected && d.caughtUp) return t('settings.tailnet.synced', { path: pathText(d) });
     if (d.connected) return t('settings.tailnet.syncing');
     if (d.online) return t('settings.tailnet.connecting');
@@ -345,6 +370,43 @@
             <p class="hint">{t('settings.tailnet.toggles_note')}</p>
           {/if}
         </section>
+
+        {#if tailscaleUp}
+          <section>
+            <h2 class="label">{t('settings.tailnet.phones')}</h2>
+            <div class="group">
+              {#if pairCode}
+                <div class="set pair">
+                  <svg
+                    class="qr"
+                    viewBox="0 0 {qrSize} {qrSize}"
+                    role="img"
+                    aria-label={t('settings.tailnet.pair.alt', { device: status?.thisDevice?.name ?? '' })}
+                    shape-rendering="crispEdges"
+                  >
+                    <rect width={qrSize} height={qrSize} class="qr-paper" />
+                    <path d={qrPath} class="qr-ink" />
+                  </svg>
+                  <div class="st">
+                    <b>{t('settings.tailnet.pair')}</b>
+                    <span>{t('settings.tailnet.pair.desc')}</span>
+                    <span>{t('settings.tailnet.pair.why')}</span>
+                  </div>
+                  <Button compact onclick={() => (pairCode = null)}>{t('settings.tailnet.pair.hide')}</Button>
+                </div>
+              {:else}
+                <div class="set">
+                  <Icon name="phone" />
+                  <div class="st">
+                    <b>{t('settings.tailnet.pair')}</b>
+                    <span>{pairError ?? t('settings.tailnet.pair.desc')}</span>
+                  </div>
+                  <Button compact onclick={showPairCode}>{t('settings.tailnet.pair')}</Button>
+                </div>
+              {/if}
+            </div>
+          </section>
+        {/if}
 
         {#if devices?.others.length}
           <section>
@@ -646,6 +708,25 @@
   .role {
     font-weight: 400;
     color: var(--tc-ink-2);
+  }
+
+  .pair {
+    align-items: flex-start;
+  }
+
+  .qr {
+    flex: none;
+    width: 168px;
+    height: 168px;
+    border-radius: var(--tc-r-tile);
+  }
+
+  .qr-paper {
+    fill: var(--tc-qr-paper);
+  }
+
+  .qr-ink {
+    fill: var(--tc-qr-ink);
   }
 
   .hint {

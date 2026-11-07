@@ -118,18 +118,16 @@ fn candidates() {
         .iter()
         .map(|p| p.short_name())
         .collect();
-    // Not old-laptop (offline), builder (other tag) or friends-iphone (other user).
-    assert_eq!(
-        names,
-        ["desktop", "nas", "phone", "studio", "tailcopy-relay"]
-    );
+    // Not old-laptop (offline), builder (other tag), friends-iphone (other user) or
+    // phone (an Android phone never listens, SPEC 21.3.1).
+    assert_eq!(names, ["desktop", "nas", "studio", "tailcopy-relay"]);
 
     let names: Vec<_> = s
         .candidates("tag:something-else")
         .iter()
         .map(|p| p.short_name())
         .collect();
-    assert_eq!(names, ["desktop", "nas", "phone", "studio"]);
+    assert_eq!(names, ["desktop", "nas", "studio"]);
 }
 
 #[test]

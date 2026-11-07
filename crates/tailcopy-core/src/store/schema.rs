@@ -9,6 +9,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0001_initial.sql"),
     include_str!("migrations/0002_design.sql"),
     include_str!("migrations/0003_sync.sql"),
+    include_str!("migrations/0004_phones.sql"),
 ];
 
 /// Schema version this build writes.
@@ -82,6 +83,7 @@ mod tests {
             "formats",
             "blobs",
             "clips_fts",
+            "peer_keys",
         ] {
             let n: i64 = conn
                 .query_row(
@@ -157,6 +159,47 @@ mod tests {
             .collect::<Result<_, _>>()
             .unwrap();
         assert_eq!(colours, [("me".into(), 0), ("peer".into(), 1)]);
+    }
+
+    #[test]
+    fn phones_migration_keeps_devices_and_allows_mobile() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate_with(&mut conn, &MIGRATIONS[..3]).unwrap();
+        conn.execute_batch(
+            "INSERT INTO devices (device_id, display_name, role, is_self, color_index,
+               send_enabled, name_hlc)
+             VALUES ('me', 'Laptop', 'device', 1, 0, 1, 5), ('r', 'Box', 'relay', 0, 1, 0, 7);",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        let rows: Vec<(String, String, i64, i64)> = conn
+            .prepare(
+                "SELECT device_id, role, send_enabled, name_hlc FROM devices ORDER BY device_id",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            [
+                ("me".into(), "device".into(), 1, 5),
+                ("r".into(), "relay".into(), 0, 7)
+            ]
+        );
+        conn.execute(
+            "INSERT INTO devices (device_id, display_name, role) VALUES ('p', 'Phone', 'mobile')",
+            [],
+        )
+        .unwrap();
+        assert!(
+            conn.execute(
+                "INSERT INTO devices (device_id, display_name, role) VALUES ('x', 'X', 'toaster')",
+                [],
+            )
+            .is_err()
+        );
     }
 
     #[test]

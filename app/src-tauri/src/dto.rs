@@ -27,7 +27,9 @@ pub fn device(d: &DeviceInfo) -> Device {
             Some("server") => "server",
             Some("board") => "board",
             Some("desktop") => "desktop",
+            Some("phone") => "phone",
             _ if d.role == Role::Relay => "server",
+            _ if d.role == Role::Mobile => "phone",
             _ => "desktop",
         },
     }

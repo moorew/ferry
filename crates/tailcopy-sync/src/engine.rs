@@ -30,6 +30,8 @@ pub struct EngineConfig {
     /// Larger blobs are never fetched.
     pub max_fetch_bytes: u64,
     pub app_version: String,
+    /// Identity key of a desktop or relay; phones have none (SPEC 21.3.2).
+    pub identity: Option<Arc<crate::Identity>>,
 }
 
 impl Default for EngineConfig {
@@ -41,6 +43,7 @@ impl Default for EngineConfig {
             inline_blob_bytes: 256 * 1024,
             max_fetch_bytes: 20 * 1024 * 1024,
             app_version: String::new(),
+            identity: None,
         }
     }
 }
@@ -67,6 +70,8 @@ pub enum SyncEvent {
 pub enum TailnetState {
     Starting,
     Listening,
+    /// A phone on the tailnet: it dials and never listens (SPEC 21.3.1).
+    DialOnly,
     Unavailable(String),
 }
 
@@ -215,6 +220,10 @@ impl Inner {
             display_name: me.display_name,
             role: me.role.as_str().into(),
             app_version: self.cfg().app_version,
+            key: self
+                .cfg()
+                .identity
+                .map(|i| crate::identity::encode_key(&i.public_key())),
         })
     }
 
@@ -309,6 +318,24 @@ impl Inner {
                 p.error = error;
             }
         }
+    }
+
+    /// Shows an error on a peer that may not have had a session yet.
+    pub fn note_peer_error(&self, peer: &DeviceId, who: &PeerIdentity, error: String) {
+        let mut st = self.state.lock().unwrap();
+        let p = st.peers.entry(peer.clone()).or_insert(Peer {
+            display_name: who.node_name.clone(),
+            role: Role::Device,
+            node_name: who.node_name.clone(),
+            stable_id: who.stable_id.clone(),
+            http_addr: None,
+            session: None,
+            last_sync_ms: None,
+            error: None,
+        });
+        p.error = Some(error);
+        drop(st);
+        self.emit(SyncEvent::PeersChanged);
     }
 
     pub fn with_peer(&self, peer: &DeviceId, f: impl FnOnce(&mut Peer)) {
@@ -486,6 +513,9 @@ fn set_tailnet(inner: &Inner, state: TailnetState, listening: Vec<SocketAddr>) {
 /// Binds the listener on the tailnet addresses and rebinds when they change
 /// (SPEC 8.3). Never binds a wildcard address.
 async fn listen_loop(inner: Arc<Inner>) {
+    if inner.cfg().role == Role::Mobile {
+        return dial_only_loop(inner).await;
+    }
     let router = crate::server::router(inner.clone());
     let mut bound: Vec<SocketAddr> = Vec::new();
     let mut servers: Vec<JoinHandle<()>> = Vec::new();
@@ -541,6 +571,26 @@ async fn listen_loop(inner: Arc<Inner>) {
             servers.drain(..).for_each(|s| s.abort());
             return;
         }
+    }
+}
+
+/// A phone never binds a listener; it only reports whether the tailnet is up.
+async fn dial_only_loop(inner: Arc<Inner>) {
+    loop {
+        match inner.transport.listen_addrs().await {
+            Ok(_) => set_tailnet(&inner, TailnetState::DialOnly, Vec::new()),
+            Err(e) => set_tailnet(&inner, TailnetState::Unavailable(e.to_string()), Vec::new()),
+        }
+        if wait_or_shutdown(&inner, LISTEN_TICK).await {
+            return;
+        }
+    }
+}
+
+/// The node's own listen addresses, for its `Directory` entry.
+impl Inner {
+    pub fn listening(&self) -> Vec<SocketAddr> {
+        self.state.lock().unwrap().listening.clone()
     }
 }
 

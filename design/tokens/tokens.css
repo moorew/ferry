@@ -42,6 +42,10 @@
   --tc-device-5: #D9A8C4; /* mauve */
   --tc-device-6: #B07CC6; /* plum */
 
+  /* pairing QR code, both themes: dark modules on a light ground for scanners */
+  --tc-qr-ink: #2A1838;
+  --tc-qr-paper: #FFFFFF;
+
   /* mark */
   --tc-mark-sheet: #7B52F0;
   --tc-mark-clip: #2A1838;

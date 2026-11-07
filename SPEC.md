@@ -31,6 +31,9 @@ All of these live in `crates/tailcopy-core/src/names.rs` (Rust) and are mirrored
 | D-Bus object path | `/org/gnome/Shell/Extensions/TailCopy` | Exported on the shell's session bus connection |
 | GSettings schema | `org.gnome.shell.extensions.tailcopy`, path `/org/gnome/shell/extensions/tailcopy/` | EGO-mandated base id and path |
 | Licence | App: `MIT OR Apache-2.0`. Extension: `GPL-2.0-or-later` | The extension must be GPL-compatible to be distributed by extensions.gnome.org |
+| Phone app id | `io.github.moorew.tailcopy` | iOS bundle id and Android application id; iOS extensions append `.share`, `.action`, `.widget`, `.keyboard` |
+| iOS App Group | `group.io.github.moorew.tailcopy` | Shared container for the app and its extensions (21.2) |
+| Pairing URL scheme | `tailcopy` | `tailcopy://pair?...` (21.3.3) |
 
 ---
 
@@ -72,6 +75,13 @@ TailCopy is a keyboard-first clipboard manager for Windows, macOS and Linux. It 
 - X11 sessions on older distros.
 - Windows on arm64.
 
+**Phones (section 21; gated in M5 and M6, not in M0 to M3)**
+
+| Platform | Versions | Notes |
+| --- | --- | --- |
+| iOS and iPadOS | 26 and later; designed for 27 | Requires the official Tailscale app, connected |
+| Android | 10 (API 29) and later; target API 36 | Requires the official Tailscale app, connected |
+
 ### 2.2 In scope for v1
 
 - Clipboard capture of plain text, HTML, RTF and images (PNG, normalized from platform formats).
@@ -85,12 +95,11 @@ TailCopy is a keyboard-first clipboard manager for Windows, macOS and Linux. It 
 
 ### 2.3 Out of scope for v1
 
-- Phone apps.
 - File and folder copying (file lists are ignored; Taildrop already covers files).
 - Sharing clips with other people. Single user per install.
 - Any cloud or third-party relay.
 - Snippet expansion or text templates.
-- Embedded Tailscale (tailscale-rs). The `Transport` trait leaves room for it later.
+- Embedded Tailscale (tailscale-rs, tsnet), on desktop or phone. The `Transport` trait leaves room for it later.
 - Taking over Win+V on Windows.
 
 ---
@@ -227,7 +236,7 @@ CREATE TABLE meta (
 CREATE TABLE devices (
   device_id     TEXT PRIMARY KEY,
   display_name  TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('device','relay')),
+  role          TEXT NOT NULL CHECK (role IN ('device','relay','mobile')),  -- 'mobile' since schema 4 (21.3)
   ts_node_id    TEXT,
   ts_hostname   TEXT,
   last_ts_ip    TEXT,
@@ -238,6 +247,17 @@ CREATE TABLE devices (
   os            TEXT,                -- from Tailscale status
   send_enabled    INTEGER NOT NULL DEFAULT 1,   -- per-device sync switches (M2)
   receive_enabled INTEGER NOT NULL DEFAULT 1
+);
+
+-- Identity keys of desktops and relays (21.3). Local; never synced as ops.
+CREATE TABLE peer_keys (
+  device_id     TEXT PRIMARY KEY,
+  display_name  TEXT NOT NULL,
+  role          TEXT NOT NULL,
+  key           BLOB NOT NULL,       -- Ed25519 public key, 32 bytes
+  addrs         TEXT NOT NULL,       -- JSON array of "ip:port", most recent first
+  trusted       INTEGER NOT NULL DEFAULT 0,  -- phones: paired or vouched (21.3.3, 21.3.5)
+  updated_ms    INTEGER NOT NULL
 );
 
 CREATE TABLE version_vector (
@@ -396,7 +416,7 @@ All endpoints are served only on Tailscale addresses, and every request passes t
 
 | Method and path | Response |
 | --- | --- |
-| `GET /v1/hello` | JSON `{ "proto_major": 1, "proto_minor": 0, "device_id": "...", "display_name": "...", "role": "device" or "relay", "app_version": "..." }` |
+| `GET /v1/hello` | JSON `{ "proto_major": 1, "proto_minor": 1, "device_id": "...", "display_name": "...", "role": "device", "relay" or "mobile", "app_version": "...", "key": "<base64url>" }`. `key` is the identity public key (21.3.2); absent on phones and older builds |
 | `GET /v1/sync` | WebSocket upgrade; binary frames (7.3) |
 | `GET /v1/blob/{hex_hash}` | `200` with raw bytes, `404` if not present locally |
 
@@ -406,7 +426,8 @@ Every WebSocket message is one binary frame containing one `Frame`, encoded with
 
 ```rust
 pub enum Frame {
-    Hello   { proto_major: u16, proto_minor: u16, device_id: DeviceId, role: Role, display_name: String },
+    Hello   { proto_major: u16, proto_minor: u16, device_id: DeviceId, role: Role, display_name: String,
+              key: Option<ByteBuf>, challenge: Option<ByteBuf>, proof: Option<ByteBuf> },  // 21.3.4; serde(default)
     Vector  { vv: BTreeMap<DeviceId, u64> },
     Devices { devices: Vec<DeviceInfo> },            // { device_id, display_name, role, updated_hlc }; LWW by updated_hlc
     Blob    { hash: ByteArray<32>, data: ByteBuf },  // serde_bytes; inline blobs, sent before the Ops frame that needs them
@@ -415,8 +436,11 @@ pub enum Frame {
     Ping    { t: u64 },
     Pong    { t: u64 },
     Error   { code: ErrorCode, message: String },
+    Directory { peers: Vec<DirEntry> },              // 21.3.5; only ever sent to a peer whose Hello role is mobile
 }
 ```
+
+Proto minor 1 adds the Hello fields, `Directory` and `Role::Mobile`. A node never sends `mobile` in a `Devices` frame to a peer that reported `proto_minor` 0; it sends `device` instead, because older builds can't decode the new role.
 
 `Devices` carries names and roles for every origin a node knows, so device chips and `from:` search work for devices this one has never connected to directly.
 
@@ -451,7 +475,7 @@ Per-device setting, default on. Off while capture is paused.
 ### 7.7 Connection management
 
 - Discovery yields candidates (8.4). Probe each with `GET /v1/hello` (2 s timeout).
-- **Who dials:** a device always dials relays. Between two devices, the one with the lexicographically lower `device_id` dials. If no session exists 10 s after both see each other online (for example a firewall blocks inbound on one side), the higher-id device dials too. A relay never dials.
+- **Who dials:** a phone (role `mobile`) always dials and is never dialled (21.3.1). A device always dials relays. Between two devices, the one with the lexicographically lower `device_id` dials. If no session exists 10 s after both see each other online (for example a firewall blocks inbound on one side), the higher-id device dials too. A relay never dials.
 - At most one session per peer. When a second one appears: if the same side dialled both, keep the newer (a restart); otherwise keep the one dialled by the lower `device_id`.
 - Heartbeat: `Ping` every 15 s. No frame for 45 s means the session is dead.
 - Reconnect with exponential backoff (1, 2, 4 ... 60 s) plus or minus 20% jitter. Reset backoff when the peer's Tailscale `Online` flips from false to true.
@@ -514,6 +538,8 @@ Run `whois` on the remote address of every inbound connection, and on the addres
 3. **Relay:** the peer carries the configured relay tag and its `/v1/hello` reports `role: relay`. Only the policy's `tagOwners` can put that tag on a node.
 
 Reject everything else and log the peer's node name.
+
+**Phones** can't run whois (21.3). They check the other end with a pinned identity key instead (21.3.4). Desktops and relays authorize a phone by the rules above, unchanged: an untagged phone signed in to the owner's login passes rule 1.
 
 **Login binding.** The history belongs to the Tailscale login it was synced under, recorded the first time Tailscale answers. If this machine signs in as a different login (re-login, `tailscale switch`, another tailnet), rule 1 matches nobody and open sessions end until the user allows the new login in Settings > Tailnet (D-027).
 
@@ -1059,6 +1085,18 @@ macOS polish (passing the M2 sync items), relay (binary, systemd, Docker), packa
 
 Multi-format background writes on GNOME, tailscale-rs transport, non-activating macOS panel, RemoteDesktop portal paste on KDE and wlroots, encrypted store with OS keychain key, snippets, Win+V takeover, winget and Homebrew.
 
+### M5: Phone apps v1 (section 21)
+
+iOS and Android apps: History, Pinned, Devices, Settings, onboarding with pairing (21.3), foreground capture, share and action capture, Android `PROCESS_TEXT` and Quick Settings tile, iOS Control Center control and App Intents, dial-only sync with catch-up and blob fetch, identity keys and "Pair a phone" on desktop and relay. Owner decision (D-031): no spike milestone; risky items are proved on the M5 builds.
+
+**Gate:** phone smoke items (21.9) pass on one iPhone and one Android phone against a Windows or Ubuntu desktop and a relay; TestFlight and Play internal testing builds installed without commands.
+
+### M6: Phone apps, integrations
+
+Pinned widgets (WidgetKit, Glance), the picker keyboard on both platforms, iPad and large-screen layouts, Android "Keep connected", Spotlight for pinned items, App Store and Play releases.
+
+**Gate:** M5 items still pass; each integration has a smoke item that passes on hardware.
+
 ---
 
 ## 18. Risks and mitigations
@@ -1077,6 +1115,10 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 | DERP-only paths add latency | Devices view shows the path; budgets apply to direct paths |
 | The ops log grows forever (ops are never deleted) | Stubs keep entries around 100 bytes; measure growth in M2 |
 | A restored or cloned data directory reuses `seq` numbers | Regenerate `device_id` on node-ID mismatch or a higher peer-reported seq (6.1) |
+| Phones capture far less than desktops (no background reads) | Say so in onboarding; make share, selection menu, tile, Control Center and intents one tap (21.4) |
+| A shared SQLite lock kills the suspended iOS app (`0xdead10cc`) | Only the app writes; extensions use the inbox; close on resign active (21.2) |
+| A phone trusts a node that took over a paired address | Pinned identity keys and the session proof (21.3.4) |
+| Expo and React Native churn | Pin exact versions; upgrade one SDK at a time, never mid-milestone |
 
 ---
 
@@ -1100,3 +1142,166 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 - GNOME: [Extension review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html), [Porting to GNOME Shell 51](https://gjs.guide/extensions/upgrading/gnome-shell-51.html), [Porting to GNOME Shell 48](https://gjs.guide/extensions/upgrading/gnome-shell-48.html)
 - Clipboard: [clipboard-rs](https://github.com/ChurchTao/clipboard-rs), [lamco-data-control](https://docs.rs/lamco-data-control)
 - Prior art for the GNOME approach: [Strata daemon and extension](https://git.edu4rdshl.dev/edu4rdshl/Strata/src/commit/8a7091755bce03435c79009882fea2e9f8815a38/strata-daemon), [virtual keyboard paste discussion](https://discourse.gnome.org/t/api-to-paste-from-clipboard-for-extensions/8593), [voxput release notes on synthetic keystroke crashes](https://github.com/jonochang/voxput/releases)
+
+---
+
+## 21. Phone apps (iOS and Android)
+
+Owner decisions (D-031): React Native, designed per platform; the phone rides the official Tailscale app and trusts peers through QR pairing; Lilac colours only (no Material You dynamic colour); brand icons only. Research and sources: `docs/MOBILE-RESEARCH.md`.
+
+### 21.1 What a phone can and can't do
+
+Neither OS lets an app read the clipboard in the background (Android's only exception is the default keyboard). On a phone TailCopy is a history you browse and copy out of, and you save into it on purpose. It MUST NOT claim automatic capture it can't deliver. Section 1.1 applies with one change: "the picker is the product" means the History screen opens straight into search.
+
+A phone never listens for connections. iOS suspends apps in the background and Android's Doze cuts their network, so a phone dials out, catches up and stays connected only while the app (or an extension or service of it) runs. Waking a phone needs a push service, which needs a server holding the platform's keys; TailCopy has no such server, so it doesn't push.
+
+### 21.2 Architecture
+
+| Surface | Language | Notes |
+| --- | --- | --- |
+| App screens | TypeScript, React Native through Expo (21.7) | History, Pinned, Devices, Settings, onboarding, pairing |
+| Store, merge, search, sync client | Rust: `crates/tailcopy-mobile`, a uniffi facade over `tailcopy-core` and `tailcopy-sync` | One instance per process; the app process is the only writer |
+| Bridge | Swift and Kotlin (local Expo Module `mobile/modules/tailcopy-core`) | Wraps the uniffi Swift and Kotlin bindings; JS never touches SQLite directly |
+| iOS share and action extensions, widget, Control Center control, App Intents, keyboard | Swift | Extensions can't host React Native (memory limits) |
+| Android tile, `PROCESS_TEXT` and share activities, keyboard, widget, sync service | Kotlin | Same process as the app, so they call the Rust facade directly |
+
+**Storage.** iOS keeps the database in the App Group container so extensions can read it. A suspended process that holds a SQLite lock in a shared container is killed (`0xdead10cc`), so:
+
+- Only the app writes the database. It closes its write connection, and the engine stops its sessions, when it resigns active; it reopens on activation.
+- Extensions MUST NOT open the database for writing. They add clips by writing one JSON file per clip, atomically, to `inbox/` in the App Group container (`{ "v": 1, "added_ms", "source", "formats": [{ "mime", "path" }] }`, data files beside it). The app ingests and deletes inbox files on activation, as normal local captures.
+- Extensions that read (widget, keyboard) open the database read-only, briefly, and outside a transaction they hold across suspension.
+
+Android keeps the database in app-private storage; every surface runs in the app process.
+
+**Device names.** The phone can't read its Tailscale machine name, so its default name is the OS device name (iOS: the model, such as "iPhone", because iOS 16 and later hide the user-set name; Android: `Settings.Global.DEVICE_NAME`). Onboarding and Settings let the user change it.
+
+### 21.3 Tailnet and trust
+
+#### 21.3.1 Reaching peers
+
+- The phone uses the official Tailscale app's VPN and opens ordinary sockets to peers' Tailscale addresses. It stores addresses, not MagicDNS names (names don't always resolve in third-party apps).
+- "Tailscale connected" means this device has an interface address in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`. When it has none, the app says Tailscale isn't connected and offers to open the Tailscale app; it doesn't dial.
+- The phone's role is `mobile`. It never binds a listener, never serves `/v1/blob`, and always dials.
+- Desktops and relays MUST NOT dial a `mobile` peer: they drop tailnet candidates whose Tailscale `OS` is `iOS` or `android`, and stop dialling a candidate whose `/v1/hello` reports `mobile`.
+
+#### 21.3.2 Identity keys
+
+Every desktop and relay holds an Ed25519 identity key pair, created on first start as `identity.key` (the 32-byte seed) in the data directory, readable only by the user. The public key is published in `/v1/hello` (`key`) and in the WebSocket `Hello`. It never leaves the device otherwise and is not a Tailscale key. Phones don't need one: desktops authenticate them by whois (8.5).
+
+A desktop or relay records the `key` from the `Hello` of every desktop or relay whose session passed 8.5 (table `peer_keys`, with the address it used), and a changed key replaces the old one (a reinstall). That peer is the owner's own device, so its claim is as trustworthy as the session; the key only matters to phones, which check it with the proof (21.3.4). Desktops don't send each other challenges.
+
+#### 21.3.3 Pairing
+
+Settings > Devices > **Pair a phone** on a desktop, and `tailcopy-relay pair` on a relay, show a QR code for:
+
+```text
+tailcopy://pair?v=1&id=<device_id>&name=<percent-encoded display name>&key=<base64url public key, no padding>&addr=<ip:port>[&addr=<ip:port>...]
+```
+
+`addr` lists the node's sync listener addresses (IPv4 first). The phone scans it (camera or the system scanner opening the `tailcopy` URL), asks "Pair with <name>?", and stores `{device_id, key, addrs}` as a **trusted** row in `peer_keys`. Pairing is one-way: the desktop needs nothing from the phone, because it authorizes the phone by whois. A URL that is malformed, has an unknown `v`, a key that isn't 32 bytes, or no address is refused with a message.
+
+#### 21.3.4 Session proof
+
+A phone dials only trusted addresses (21.3.5). It sends `Hello` with a fresh 32-byte `challenge`. The listener answers with its `Hello`, carrying `proof`, an Ed25519 signature by its identity key over:
+
+```text
+"tailcopy-session-v1" 0x00 challenge(32) listener_device_id 0x00 dialler_device_id
+```
+
+The phone checks that the listener's `device_id` is the trusted row it dialled for, and that `proof` verifies against that row's key. Otherwise it sends `Error { Unauthorized }`, closes the session, shows "<name> couldn't prove it's your device" in Devices, and backs off as for a failed dial. A node only signs inside a session that has passed 8.5, so a node that merely holds a paired address can't obtain a proof by relaying the challenge.
+
+`/v1/blob` fetches from a phone need no proof: the phone verifies every blob's hash (7.4 step 6), and a request reveals only a hash.
+
+#### 21.3.5 Directory
+
+After `Devices`, a desktop or relay sends a phone `Directory { peers }`, where each `DirEntry` is `{ device_id, display_name, role, key: ByteBuf, addrs: Vec<String> }` for itself (its listen addresses) and every peer in its `peer_keys` with a recent address (last seen within 30 days). The phone marks every entry trusted and updates addresses, so pairing with one desktop is enough to reach the relay and the others. Entries never remove trust; only the user does.
+
+The phone's candidates are its trusted rows, each dialled at its most recent address; a session moves the address it reached to the front. Devices shows a trusted peer that never connects as "Not reachable".
+
+**Unpair.** Devices > a peer > **Forget** deletes the trusted row; a later Directory from another paired peer can trust it again, so Settings explains that forgetting one device of several should be followed by removing it from the tailnet. **Forget all** clears every trusted row and returns to pairing.
+
+#### 21.3.6 Lifecycle
+
+- **iOS:** the engine starts on activation and stops when the app resigns active, after finishing an in-flight frame (`beginBackgroundTask`). A `BGAppRefreshTask` runs one catch-up when the system allows (about 30 s, hours apart). Share and action extensions don't sync; the app sends their clips the next time it runs.
+- **Android:** the engine runs while any TailCopy surface is visible, plus a WorkManager catch-up every 15 minutes or more while unmetered or charging. Settings > Sync > **Keep connected** (off by default) runs a `connectedDevice` foreground service with a quiet, persistent notification; it's the only way to receive live while the app is in the background.
+- Catch-up ops never touch the clipboard (7.6). Live mirror on phones is a per-device setting, **off** by default (on Android each write shows the system copy overlay), and applies only while the app is in the foreground.
+
+### 21.4 Capture
+
+**iOS.**
+- On activation, compare `UIPasteboard.changeCount` with the last one seen; if it changed, read the pasteboard. That shows "Allow Paste" unless the user set Settings > TailCopy > Paste from Other Apps to **Allow**; onboarding asks once, with the reason, and never nags.
+- An in-app system Paste control (`UIPasteControl`) reads once without a prompt.
+- Share extension and action extension ("Save to TailCopy") accept text, URLs, rich text and images.
+- App Intents: "Save clipboard to TailCopy", "Copy latest", "Copy latest from <device>", "Copy pinned <label>", available to Shortcuts, Siri and the Action button. A Control Center control runs "Save clipboard".
+- Drag and drop into the app (iPad) adds a clip.
+- Secrets (best effort, said so in Settings > Privacy): skip items whose types include `org.nspasteboard.ConcealedType` or `org.nspasteboard.TransientType`, and items detected as one-time codes. TailCopy's own pasteboard writes from other devices set `localOnly` so Universal Clipboard doesn't send them on, and capture skips a pasteboard whose content's `group_key` it just wrote (loop guard, 7.6).
+
+**Android.**
+- When a TailCopy surface gains focus, read `getPrimaryClipDescription()` first (no toast); read the clip only if its timestamp is new, it isn't marked `EXTRA_IS_SENSITIVE`, and TailCopy didn't write it. A clip marked remote-excluded (`isExcludedFromRemoteClipboard()`, where the API exists) is saved but not synced.
+- "Save to TailCopy" in the text-selection menu (`ACTION_PROCESS_TEXT`).
+- Share target for text, URLs and images (`ACTION_SEND`).
+- Quick Settings tile "Save clipboard": opens a transparent activity that reads the clipboard once it has focus, saves, and finishes (`startActivityAndCollapse(PendingIntent)`).
+- App shortcuts: Search, Save clipboard, Pinned.
+- The picker keyboard (M6) captures passively while it's the default keyboard and never offers or captures clips in password fields.
+- Accessibility services MUST NOT be used for capture.
+
+Formats follow 9.6. Size caps and privacy rules (9.7) apply; source app is the sharing app's bundle id or package name where the platform gives it.
+
+### 21.5 UI
+
+Lilac tokens, fonts and the brand icon set apply as on desktop (design/HANDOFF.md). Device colour is never the only signal. Reduced motion means fades only, at most 120 ms. Text scales with Dynamic Type and Android font scale up to 200%; rows grow rather than truncate.
+
+**iOS** (Liquid Glass; system bars stay system):
+- Tab bar: History, Pinned, Devices, Search. Settings is a sheet from a toolbar button.
+- Rows: tap copies (haptic, a brief "Copied"); leading swipe pins, trailing swipe deletes with undo; long-press opens a context menu with a preview and Copy, Copy as plain text, Pin, Label, Share, Delete.
+- Violet is the app tint and the only accent. Lilac paper and ink colour content surfaces, not glass.
+- iPad: sidebar, list and detail; ⌘F, arrow keys and Return.
+
+**Android** (Material 3 Expressive components, Lilac colour scheme, edge-to-edge, predictive back):
+- No bottom bar: History is home, with a search app bar and filter chips (All, Pinned, This phone, one per device, Images, Links). Devices and Settings are in the overflow menu. Detail opens in a bottom sheet.
+- Rows: tap copies; swipe to delete with an Undo snackbar; swipe the other way pins; long-press selects.
+- Adaptive icon with a monochrome layer.
+
+**Both:** onboarding is Tailscale check, pair (QR), name this device, capture setup (honest about the limits), done. Settings: General, Capture (setup guide per entry point), Privacy, Sync, Paired devices, Storage, About. Accessibility labels read as "<preview>, from <device>, <age>, pinned".
+
+### 21.6 Configuration
+
+Phones keep settings in the store's `meta` table, not TOML: device name, live mirror (default off), keep connected (Android, default off), send and receive per device, the 9.6 caps, and privacy rules. There is no app denylist on phones (no source app on most captures).
+
+### 21.7 Stack, build and release
+
+| Concern | Choice |
+| --- | --- |
+| Framework | Expo with Continuous Native Generation (`ios/` and `android/` are generated and gitignored), a development build (never Expo Go), New Architecture, Hermes |
+| Navigation | Expo Router: native tabs on iOS, native stack |
+| Native controls | `@expo/ui` (SwiftUI and Jetpack Compose) where a platform control exists |
+| Lists | `@legendapp/list` |
+| Motion | `react-native-reanimated` with `ReduceMotion.System`; `expo-haptics` |
+| iOS extension targets | `@bacons/apple-targets` |
+| Camera (pairing) | `expo-camera` barcode scanning |
+| Rust bindings | uniffi (Swift and Kotlin), `cargo-ndk`, an xcframework |
+| Tokens | Generated from `design/tokens/tokens.json` by a script in `mobile/scripts/` |
+
+No Expo cloud services (EAS Build, Update, Insights) and no telemetry: builds run locally or on GitHub Actions with `EXPO_NO_TELEMETRY=1`. CI builds the Android app on Ubuntu and the iOS app on macOS. Releases: TestFlight and the App Store; Play internal testing and production; a signed APK on GitHub Releases.
+
+Layout: `crates/tailcopy-mobile/` (workspace member) and `mobile/` (the Expo app with its own `package-lock.json`, `modules/`, `targets/`, `scripts/`).
+
+### 21.8 Store policy
+
+- App Review 4.2 and 4.4: list every extension in the description; the keyboard (M6) must type, include a next-keyboard key and work without Full Access. Privacy policy link: `docs/PRIVACY.md`.
+- Play: target API per Play's current requirement; 16 KB page alignment for every native library; Data safety form says nothing is collected; the `connectedDevice` foreground service is declared with its justification; no accessibility service.
+
+### 21.9 Phone smoke checklist (M5)
+
+1. Fresh install, Tailscale connected: onboarding pairs with a desktop by QR in under a minute; Devices shows the desktop and, through the Directory, the relay.
+2. Tailscale disconnected: the app says so and doesn't dial.
+3. Copy on the desktop; open the phone app: the clip is at the top within 2 s of opening, with the desktop's colour and name.
+4. Copy on the phone, open the app (iOS: with Allow set; Android: the app gains focus): the clip reaches the desktop within 2 s.
+5. Share a URL and an image from the browser into TailCopy; both reach the desktop on the next sync.
+6. Android: "Save to TailCopy" from the selection menu in Chrome; the tile saves the clipboard.
+7. iOS: the Control Center control and the "Save clipboard" shortcut save the clipboard.
+8. Tap a row: the clipboard holds it; pasting into Notes or Keep gives the right text, and an image pastes as an image.
+9. A desktop that isn't paired (a different identity key at a paired address) is refused with the "couldn't prove" message.
+10. A password copied from a password manager that marks it is not saved (Android `EXTRA_IS_SENSITIVE`; iOS concealed type where set).
+11. Airplane mode for an hour on the phone while copying on the desktop; reopening catches up with nothing lost and nothing written to the phone's clipboard.
+12. VoiceOver and TalkBack read rows as specified; text at the largest size doesn't truncate rows.

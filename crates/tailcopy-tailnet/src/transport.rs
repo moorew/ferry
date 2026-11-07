@@ -132,6 +132,7 @@ impl Transport for TailnetTransport {
                 stable_id: n.stable_id.clone(),
                 addr: SocketAddr::new(ip, self.port),
                 relay_tagged: n.has_tag(tag),
+                pinned: None,
             })
         };
         let mut out: Vec<Candidate> = status
@@ -154,6 +155,7 @@ impl Transport for TailnetTransport {
                     stable_id: relay.clone(),
                     addr: SocketAddr::new(ip, self.port),
                     relay_tagged: false,
+                    pinned: None,
                 }),
                 (None, None) => None,
             };

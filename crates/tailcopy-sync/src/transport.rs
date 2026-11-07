@@ -29,6 +29,16 @@ pub struct Candidate {
     /// Address of its sync listener.
     pub addr: SocketAddr,
     pub relay_tagged: bool,
+    /// A phone's paired peer: dial without whois and check the session proof
+    /// against this key instead (SPEC 21.3.4).
+    pub pinned: Option<Pinned>,
+}
+
+/// The device a phone expects at a candidate address, and its identity key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Pinned {
+    pub device_id: tailcopy_core::DeviceId,
+    pub key: [u8; 32],
 }
 
 #[async_trait]

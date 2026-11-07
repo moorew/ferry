@@ -2,15 +2,17 @@
 //! the windows and tray up to date as peers change things, and mirrors live clips to
 //! the clipboard (SPEC 7.6).
 
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tailcopy_core::model::hash_hex;
+use tailcopy_core::names::IDENTITY_KEY_FILE;
 use tailcopy_core::{ClipId, Config, DeviceId, Hash32, Op, OpBody, Role, SyncFlags};
 use tailcopy_sync::{
-    Engine, EngineConfig, StoreHandle, StoreJob, StoreRunner, SyncEvent, TailnetState,
+    Engine, EngineConfig, Identity, PairLink, StoreHandle, StoreJob, StoreRunner, SyncEvent,
+    TailnetState,
 };
 use tailcopy_tailnet::{Path, TailnetTransport};
 use tauri::{AppHandle, Emitter, Manager};
@@ -31,6 +33,9 @@ impl StoreRunner for DbRunner {
     }
 }
 
+/// This device's identity key for phones (SPEC 21.3.2), loaded when sync starts.
+static IDENTITY: OnceLock<Arc<Identity>> = OnceLock::new();
+
 pub fn engine_config(c: &Config) -> EngineConfig {
     EngineConfig {
         role: Role::Device,
@@ -39,12 +44,19 @@ pub fn engine_config(c: &Config) -> EngineConfig {
         inline_blob_bytes: c.limits.inline_blob_bytes,
         max_fetch_bytes: c.limits.max_image_bytes.max(c.limits.max_text_bytes),
         app_version: env!("CARGO_PKG_VERSION").into(),
+        identity: IDENTITY.get().cloned(),
     }
 }
 
 /// Starts sync. Call once, from inside the async runtime.
 pub fn start(app: &AppHandle) {
     let state = app.state::<AppState>();
+    match Identity::load_or_create(&state.data_dir.join(IDENTITY_KEY_FILE)) {
+        Ok(id) => {
+            let _ = IDENTITY.set(Arc::new(id));
+        }
+        Err(e) => tracing::warn!("no identity key, so phones can't pair: {e}"),
+    }
     let config = state.config();
     let tailnet = crate::tailscale::init(&config);
     let transport = Arc::new(
@@ -411,7 +423,7 @@ pub async fn devices(app: &AppHandle) -> Devices {
     let snapshot = state.sync.get().map(Engine::snapshot);
     let status = crate::tailscale::status().await.ok();
     let (sync, sync_detail) = match snapshot.as_ref().map(|s| &s.tailnet) {
-        Some(TailnetState::Listening) => ("listening", None),
+        Some(TailnetState::Listening | TailnetState::DialOnly) => ("listening", None),
         Some(TailnetState::Unavailable(why)) => ("unavailable", Some(why.clone())),
         _ => ("starting", None),
     };
@@ -483,6 +495,66 @@ pub async fn devices(app: &AppHandle) -> Devices {
         others,
         rejected: snapshot.map(|s| s.rejected).unwrap_or_default(),
     }
+}
+
+/// A pairing code for a phone to scan (SPEC 21.3.3): the link, and its QR code as
+/// rows of dark (`1`) and light (`0`) modules for the UI to draw.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PairCode {
+    pub url: String,
+    pub modules: Vec<String>,
+}
+
+pub async fn pair_code(app: &AppHandle) -> anyhow::Result<PairCode> {
+    let state = app.state::<AppState>();
+    let identity = IDENTITY
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("This device has no identity key; see the log"))?;
+    let mut addrs = state
+        .sync
+        .get()
+        .map(|e| e.snapshot().listening)
+        .unwrap_or_default();
+    if addrs.is_empty() {
+        anyhow::bail!("TailCopy isn't listening on the tailnet yet");
+    }
+    addrs.sort_by_key(|a| !a.is_ipv4());
+    let (device_id, display_name) = state
+        .db
+        .run(|core| {
+            let id = core.store.device_id().clone();
+            let name = core
+                .store
+                .view()
+                .devices()
+                .unwrap_or_default()
+                .into_iter()
+                .find(|d| d.is_self)
+                .map(|d| d.display_name)
+                .unwrap_or_default();
+            (id, name)
+        })
+        .await;
+    let url = PairLink {
+        device_id,
+        display_name,
+        key: identity.public_key(),
+        addrs,
+    }
+    .to_url();
+    let code = qrcode::QrCode::new(url.as_bytes())?;
+    let width = code.width();
+    let modules = code
+        .to_colors()
+        .chunks(width)
+        .map(|row| {
+            row.iter()
+                .map(|c| if *c == qrcode::Color::Dark { '1' } else { '0' })
+                .collect()
+        })
+        .collect();
+    Ok(PairCode { url, modules })
 }
 
 pub async fn set_flags(app: &AppHandle, id: &str, flags: SyncFlags) -> tailcopy_core::Result<()> {

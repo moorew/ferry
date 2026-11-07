@@ -79,7 +79,7 @@ async fn sync(
             let (sink, stream) = crate::ws::from_axum(socket);
             let node = who.node_name.clone();
             if let Err(e) =
-                crate::session::run(&inner, sink, stream, false, who, remote, None).await
+                crate::session::run(&inner, sink, stream, false, who, remote, None, None).await
             {
                 tracing::info!(peer = %node, "session ended: {e:#}");
             }

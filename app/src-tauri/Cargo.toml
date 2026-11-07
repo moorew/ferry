@@ -18,6 +18,8 @@ tauri-build = { version = "2.7.4", features = [] }
 tailcopy-core.workspace = true
 tailcopy-platform.workspace = true
 tailcopy-sync.workspace = true
+qrcode = { version = "0.14.1", default-features = false }
+anyhow = "1.0.100"
 tailcopy-tailnet.workspace = true
 ammonia = "4.2.4"
 directories = "6.0.0"

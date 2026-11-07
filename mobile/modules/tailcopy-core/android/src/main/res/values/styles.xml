@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Invisible: the activity only exists to have focus while it reads the clipboard. -->
+  <style name="TailCopy.Transparent" parent="android:Theme.Translucent.NoTitleBar">
+    <item name="android:windowAnimationStyle">@null</item>
+    <item name="android:windowNoDisplay">false</item>
+  </style>
+</resources>

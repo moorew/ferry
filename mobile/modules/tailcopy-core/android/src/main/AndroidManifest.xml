@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+  <!-- To open the Tailscale app when it isn't connected (SPEC 21.3.1). -->
+  <queries>
+    <package android:name="com.tailscale.ipn" />
+  </queries>
+
+  <application>
+    <!-- Text selection, share sheet and the tile all land here (SPEC 21.4). -->
+    <activity
+      android:name="io.github.moorew.tailcopy.core.SaveActivity"
+      android:exported="true"
+      android:label="@string/tc_save_action"
+      android:theme="@style/TailCopy.Transparent"
+      android:excludeFromRecents="true"
+      android:noHistory="true"
+      android:taskAffinity="">
+      <intent-filter>
+        <action android:name="android.intent.action.PROCESS_TEXT" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="text/plain" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="text/*" />
+        <data android:mimeType="image/*" />
+      </intent-filter>
+    </activity>
+
+    <service
+      android:name="io.github.moorew.tailcopy.core.SaveClipboardTile"
+      android:exported="true"
+      android:icon="@drawable/tc_paste"
+      android:label="@string/tc_tile_label"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+      <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="false" />
+    </service>
+
+    <provider
+      android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.clips"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/tc_clip_paths" />
+    </provider>
+  </application>
+</manifest>

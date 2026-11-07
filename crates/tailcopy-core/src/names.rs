@@ -50,6 +50,18 @@ pub const PICKER_TITLE: &str = "TailCopy Picker";
 /// Prefix of the local IPC socket name; the full name is `tailcopy-<username>`.
 pub const IPC_SOCKET_PREFIX: &str = "tailcopy";
 
+/// iOS bundle id and Android application id (SPEC 21).
+pub const PHONE_APP_ID: &str = "io.github.moorew.tailcopy";
+
+/// iOS App Group shared by the app and its extensions (SPEC 21.2).
+pub const IOS_APP_GROUP: &str = "group.io.github.moorew.tailcopy";
+
+/// URL scheme of pairing links (SPEC 21.3.3).
+pub const PAIR_URL_SCHEME: &str = "tailcopy";
+
+/// Identity key file in the data directory (SPEC 21.3.2).
+pub const IDENTITY_KEY_FILE: &str = "identity.key";
+
 /// Licence of the desktop app, relay and crates.
 pub const APP_LICENSE: &str = "MIT OR Apache-2.0";
 
@@ -70,6 +82,25 @@ mod tests {
         assert!(METADATA.contains(&format!("\"settings-schema\": \"{GSETTINGS_SCHEMA}\"")));
         assert!(SCHEMA.contains(&format!("id=\"{GSETTINGS_SCHEMA}\"")));
         assert!(SCHEMA.contains(&format!("path=\"{GSETTINGS_PATH}\"")));
+    }
+
+    #[test]
+    fn names_match_phone_apps() {
+        let config = include_str!("../../../mobile/app.config.ts");
+        assert!(config.contains(&format!("const APP_ID = '{PHONE_APP_ID}';")));
+        assert!(config.contains(&format!("const IOS_APP_GROUP = '{IOS_APP_GROUP}';")));
+        assert!(config.contains(&format!("const PAIR_URL_SCHEME = '{PAIR_URL_SCHEME}';")));
+        for plist in [
+            include_str!("../../../mobile/targets/share/Info.plist"),
+            include_str!("../../../mobile/targets/action/Info.plist"),
+        ] {
+            assert!(plist.contains(&format!("<string>{IOS_APP_GROUP}</string>")));
+        }
+        let shortcuts = include_str!(
+            "../../../mobile/modules/tailcopy-core/android/src/main/res/xml/tc_shortcuts.xml"
+        );
+        assert!(shortcuts.contains(&format!("android:targetPackage=\"{PHONE_APP_ID}\"")));
+        assert!(shortcuts.contains(&format!("android:data=\"{PAIR_URL_SCHEME}://search\"")));
     }
 
     #[test]

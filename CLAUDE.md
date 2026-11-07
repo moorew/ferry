@@ -36,10 +36,11 @@ and keep moving.
 
 ## Layout
 
-See SPEC 4. `crates/` (core, sync, tailnet, platform, relay, testkit), `app/`
+See SPEC 4 and 21.7. `crates/` (core, sync, tailnet, platform, relay, testkit, mobile), `app/`
 (Tauri 2 shell in `src-tauri`, Svelte 5 UI in `src`), `extension/` (GNOME Shell
-extension, GPL-2.0-or-later), `spikes/` (M0 throwaway proofs, standalone projects,
-not in the workspace or CI), `docs/`.
+extension, GPL-2.0-or-later), `mobile/` (Expo app for iOS and
+Android, SPEC 21), `spikes/` (M0 throwaway proofs, standalone projects, not in the
+workspace or CI), `docs/`.
 
 ## Commands
 
@@ -63,6 +64,23 @@ glib-compile-schemas --strict --dry-run extension/schemas
 Linux builds of the Tauri crate need `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
 librsvg2-dev libxdo-dev`. Without root, build in Docker (see the CI workflow for the
 package list).
+
+### Phone apps (`mobile/`)
+
+```sh
+cd mobile && npm ci && npm run check:design && npm run typecheck && npm run lint && npm test
+npm run design        # regenerate theme, icon shapes and native icons from design/
+npm run rust:android  # Rust core + Kotlin bindings (NDK + cargo-ndk); rust:ios on a Mac
+# Android build without a local SDK (image: mobile/docker/android.Dockerfile)
+docker run --rm -v "$PWD":/src -w /src/mobile -e CARGO_TARGET_DIR=/src/target/docker-android tailcopy-android \
+  bash -c 'npm run rust:android && npx expo prebuild -p android --clean --no-install && cd android && ./gradlew assembleRelease'
+```
+
+Always add packages with `npx expo install` (SDK-matched versions). `ios/` and
+`android/` are generated; change native config in `app.config.ts`,
+`plugins/with-tailcopy.js`, `modules/` or `targets/`. Never use EAS or other Expo
+cloud services, and keep `EXPO_NO_TELEMETRY=1`. Swift can't be compiled on this
+machine: the Mobile workflow's iOS job is the check.
 
 ### Releases
 

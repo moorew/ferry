@@ -6,7 +6,7 @@ export type ClipKind = 'text' | 'rich' | 'image';
 export type Look = 'text' | 'rich' | 'image' | 'code' | 'link' | 'colour';
 export type PasteMode = 'all' | 'plain';
 
-export type DeviceType = 'laptop' | 'desktop' | 'server' | 'board';
+export type DeviceType = 'laptop' | 'desktop' | 'server' | 'board' | 'phone';
 
 /** A device as the UI draws it: name, colour (join order, 0 to 5) and glyph. */
 export interface DeviceRef {
@@ -110,10 +110,17 @@ export interface Status {
 
 export type SyncPath = 'direct' | 'peer-relay' | 'derp' | 'idle';
 
+/** What a phone scans to pair with this device (SPEC 21.3.3). */
+export interface PairCode {
+  url: string;
+  /** QR code rows, '1' for a dark module. */
+  modules: string[];
+}
+
 /** A device that runs TailCopy, as the Tailnet settings show it. */
 export interface PeerDevice extends DeviceRef {
   id: string;
-  role: 'device' | 'relay';
+  role: 'device' | 'relay' | 'mobile';
   os: string | null;
   tailscaleName: string | null;
   online: boolean;
