@@ -1076,3 +1076,25 @@ fn peer_keys_merge_addresses_and_trust_only_grows() {
     f.store.forget_peer_key(&desk).unwrap();
     assert!(f.store.peer_key(&desk).unwrap().is_none());
 }
+
+#[test]
+fn settings_round_trip_in_their_own_namespace() {
+    let mut f = fixture();
+    assert_eq!(f.store.setting("live_mirror").unwrap(), None);
+    f.store.set_setting("live_mirror", "on").unwrap();
+    f.store
+        .set_setting("device_id", "not the real one")
+        .unwrap();
+    assert_eq!(
+        f.store.setting("live_mirror").unwrap().as_deref(),
+        Some("on")
+    );
+    let id = f.store.device_id().clone();
+    drop(f.store);
+    let reopened = open(f._tmp.path(), &f.clock);
+    assert_eq!(reopened.device_id(), &id);
+    assert_eq!(
+        reopened.setting("live_mirror").unwrap().as_deref(),
+        Some("on")
+    );
+}

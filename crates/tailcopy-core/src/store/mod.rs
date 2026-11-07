@@ -425,6 +425,17 @@ impl Store {
         })
     }
 
+    /// A phone setting kept in `meta` (SPEC 21.6). Keys are namespaced so they never
+    /// collide with the store's own entries.
+    pub fn setting(&self, key: &str) -> Result<Option<String>> {
+        meta_text(&self.conn, &format!("setting.{key}"))
+    }
+
+    pub fn set_setting(&mut self, key: &str, value: &str) -> Result<()> {
+        let key = format!("setting.{key}");
+        self.write(|s| set_meta(&s.conn, &key, &value))
+    }
+
     /// Blobs referenced by live clips that are not on disk yet, for fetching.
     pub fn missing_blobs(&self) -> Result<Vec<(Hash32, u64)>> {
         self.view().missing_blobs()
