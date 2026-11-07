@@ -24,4 +24,9 @@ Pod::Spec.new do |s|
     'SWIFT_INCLUDE_PATHS' => '$(PODS_TARGET_SRCROOT)/rust/include',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
+  # The pod's Swift module mentions the FFI module, so targets that import the pod
+  # need to find it too (mobile/ios/Pods -> mobile/modules/tailcopy-core).
+  s.user_target_xcconfig = {
+    'SWIFT_INCLUDE_PATHS' => '$(PODS_ROOT)/../../modules/tailcopy-core/rust/include'
+  }
 end
