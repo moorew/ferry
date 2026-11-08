@@ -6,9 +6,20 @@ import type { ExpoConfig } from 'expo/config';
 const APP_ID = 'io.github.moorew.tailcopy';
 const IOS_APP_GROUP = 'group.io.github.moorew.tailcopy';
 const PAIR_URL_SCHEME = 'tailcopy';
-const VERSION = '0.1.0';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const tokens = require('../design/tokens/tokens.json');
+
+// One version for every platform: the desktop's, which release tags must match
+// (D-022). Android orders updates by versionCode, so 0.3.1 becomes 301 (D-036).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const VERSION: string = require('../app/src-tauri/tauri.conf.json').version;
+const [major, minor, patch] = VERSION.split('.').map(Number);
+const VERSION_CODE = major * 10000 + minor * 100 + patch;
+
+// Someone building the iOS app for themselves signs it under their own Apple team,
+// which can't use our bundle id, so TAILCOPY_IOS_ID swaps in theirs (docs/BUILD-IOS.md).
+const IOS_ID = process.env.TAILCOPY_IOS_ID || APP_ID;
+const IOS_GROUP = process.env.TAILCOPY_IOS_ID ? `group.${IOS_ID}` : IOS_APP_GROUP;
 
 const fonts = [
   '../design/fonts/static/BricolageGrotesque-ExtraBold.ttf',
@@ -27,7 +38,8 @@ export default (): ExpoConfig => ({
   orientation: 'default',
   userInterfaceStyle: 'automatic',
   ios: {
-    bundleIdentifier: APP_ID,
+    bundleIdentifier: IOS_ID,
+    buildNumber: String(VERSION_CODE),
     supportsTablet: true,
     appleTeamId: process.env.APPLE_TEAM_ID,
     icon: {
@@ -36,10 +48,10 @@ export default (): ExpoConfig => ({
       tinted: './assets/icon/ios-tinted.png',
     },
     entitlements: {
-      'com.apple.security.application-groups': [IOS_APP_GROUP],
+      'com.apple.security.application-groups': [IOS_GROUP],
     },
     infoPlist: {
-      TailCopyAppGroup: IOS_APP_GROUP,
+      TailCopyAppGroup: IOS_GROUP,
       BGTaskSchedulerPermittedIdentifiers: [`${APP_ID}.refresh`],
       UIBackgroundModes: ['fetch'],
       ITSAppUsesNonExemptEncryption: false,
@@ -47,6 +59,7 @@ export default (): ExpoConfig => ({
   },
   android: {
     package: APP_ID,
+    versionCode: VERSION_CODE,
     adaptiveIcon: {
       foregroundImage: './assets/icon/android-foreground.png',
       monochromeImage: './assets/icon/android-monochrome.png',

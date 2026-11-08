@@ -29,7 +29,11 @@ case "${1:-}" in
     # Google Play requires 16 KB page alignment for native code.
     export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-z,max-page-size=16384"
     rm -rf "$out/jniLibs"
-    (cd "$repo" && cargo ndk -t arm64-v8a -t x86_64 --platform 29 -o "$out/jniLibs" \
+    # Same list as the app's ABIs (plugins/with-tailcopy.js).
+    abis=()
+    IFS=, read -ra list <<< "${TAILCOPY_ANDROID_ABIS:-arm64-v8a}"
+    for abi in "${list[@]}"; do abis+=(-t "$abi"); done
+    (cd "$repo" && cargo ndk "${abis[@]}" --platform 29 -o "$out/jniLibs" \
       build $flag -p tailcopy-mobile --lib)
     bindgen kotlin "$out/kotlin"
     ;;

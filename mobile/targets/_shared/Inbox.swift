@@ -6,8 +6,16 @@ import UniformTypeIdentifiers
 /// database; they write one JSON entry per clip, atomically, with its data files
 /// beside it, and the app saves them the next time it runs.
 enum Inbox {
+  /// The app's App Group, `group.<app id>`. An extension's bundle id is the app's
+  /// plus one component (`.share`, `.action`), so this also holds for a build under
+  /// someone else's bundle id (docs/BUILD-IOS.md).
+  static var group: String? {
+    guard let id = Bundle.main.bundleIdentifier, let dot = id.lastIndex(of: ".") else { return nil }
+    return "group." + id[..<dot]
+  }
+
   static var directory: URL? {
-    guard let group = Bundle.main.object(forInfoDictionaryKey: "TailCopyAppGroup") as? String,
+    guard let group,
       let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)
     else { return nil }
     return base.appendingPathComponent("inbox", isDirectory: true)

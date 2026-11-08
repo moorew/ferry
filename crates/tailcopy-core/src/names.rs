@@ -90,12 +90,10 @@ mod tests {
         assert!(config.contains(&format!("const APP_ID = '{PHONE_APP_ID}';")));
         assert!(config.contains(&format!("const IOS_APP_GROUP = '{IOS_APP_GROUP}';")));
         assert!(config.contains(&format!("const PAIR_URL_SCHEME = '{PAIR_URL_SCHEME}';")));
-        for plist in [
-            include_str!("../../../mobile/targets/share/Info.plist"),
-            include_str!("../../../mobile/targets/action/Info.plist"),
-        ] {
-            assert!(plist.contains(&format!("<string>{IOS_APP_GROUP}</string>")));
-        }
+        // The extensions derive the group from their bundle id: group.<app id>.
+        let inbox = include_str!("../../../mobile/targets/_shared/Inbox.swift");
+        assert!(IOS_APP_GROUP == format!("group.{PHONE_APP_ID}"));
+        assert!(inbox.contains("return \"group.\" + id[..<dot]"));
         let shortcuts = include_str!(
             "../../../mobile/modules/tailcopy-core/android/src/main/res/xml/tc_shortcuts.xml"
         );
