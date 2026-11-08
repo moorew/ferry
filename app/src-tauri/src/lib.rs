@@ -105,6 +105,7 @@ pub fn run(initial: Command, autostart: bool) {
             commands::open_manager,
             commands::picker_focused,
             commands::open_log_folder,
+            commands::open_link,
             commands::diagnostics,
             commands::open_tailscale,
             commands::recheck_tailscale,

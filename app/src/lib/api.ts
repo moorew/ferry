@@ -61,6 +61,7 @@ export const api = {
   openManager: (route?: string) => call<void>('open_manager', { route: route ?? null }),
   pickerFocused: () => call<void>('picker_focused'),
   openLogFolder: () => call<void>('open_log_folder'),
+  openLink: (id: string) => call<boolean>('open_link', { id }),
   diagnostics: () => call<string>('diagnostics'),
   checkShortcut: (shortcut: string) => call<string | null>('check_shortcut', { shortcut }),
   openTailscale: () => call<void>('open_tailscale'),

@@ -95,8 +95,15 @@
   let pairCode = $state<PairCode | null>(null);
   let pairError = $state<string | null>(null);
 
+  /** Phones already connected when the code went up, so a new one stands out. */
+  let phonesBefore = $state<string[]>([]);
+  const newPhone = $derived(
+    pairCode ? devices?.devices.find((d) => d.role === 'mobile' && d.connected && !phonesBefore.includes(d.id)) : undefined,
+  );
+
   async function showPairCode() {
     pairError = null;
+    phonesBefore = (devices?.devices ?? []).filter((d) => d.role === 'mobile' && d.connected).map((d) => d.id);
     try {
       pairCode = await api.getPairCode();
     } catch (e) {
@@ -389,10 +396,25 @@
                   </svg>
                   <div class="st">
                     <b>{t('settings.tailnet.pair')}</b>
-                    <span>{t('settings.tailnet.pair.desc')}</span>
+                    <ol class="steps">
+                      <li>{t('settings.tailnet.pair.step1')}</li>
+                      <li>{t('settings.tailnet.pair.step2')}</li>
+                      <li>{t('settings.tailnet.pair.step3')}</li>
+                    </ol>
+                    <span class="pair-state" class:done={newPhone?.caughtUp} role="status">
+                      {#if newPhone?.caughtUp}
+                        <Icon name="check" size={16} />{t('settings.tailnet.pair.done', { device: newPhone.name })}
+                      {:else if newPhone}
+                        <Icon name="syncing" size={16} />{t('settings.tailnet.pair.syncing', { device: newPhone.name })}
+                      {:else}
+                        {t('settings.tailnet.pair.waiting')}
+                      {/if}
+                    </span>
                     <span>{t('settings.tailnet.pair.why')}</span>
                   </div>
-                  <Button compact onclick={() => (pairCode = null)}>{t('settings.tailnet.pair.hide')}</Button>
+                  <Button compact variant={newPhone?.caughtUp ? 'primary' : undefined} onclick={() => (pairCode = null)}>
+                    {t('settings.tailnet.pair.hide')}
+                  </Button>
                 </div>
               {:else}
                 <div class="set">
@@ -712,6 +734,25 @@
 
   .pair {
     align-items: flex-start;
+  }
+
+  .steps {
+    display: grid;
+    gap: 4px;
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+
+  .pair-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--tc-ink-2);
+  }
+
+  .pair-state.done {
+    color: var(--tc-ink);
   }
 
   .qr {

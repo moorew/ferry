@@ -12,6 +12,7 @@
   import Badge from '../components/Badge.svelte';
   import DeviceDot from '../components/DeviceDot.svelte';
   import Icon from '../components/Icon.svelte';
+  import IconButton from '../components/IconButton.svelte';
   import Keycap from '../components/Keycap.svelte';
   import Preview from './Preview.svelte';
 
@@ -105,6 +106,15 @@
     await api.paste(row.id, plain ? 'plain' : 'all');
   }
 
+  function openLink(row: ClipRow | undefined) {
+    if (row?.look === 'link') api.openLink(row.id);
+  }
+
+  function onRowClick(e: MouseEvent, row: ClipRow) {
+    if ((isMac ? e.metaKey : e.ctrlKey) && row.look === 'link') openLink(row);
+    else choose(row, false);
+  }
+
   function hide() {
     editingLabel = false;
     api.hidePicker();
@@ -169,6 +179,7 @@
     else if (k === 'ArrowUp' || (e.ctrlKey && k === 'k')) select(selected - 1);
     else if (k === 'PageDown') select(selected + VISIBLE);
     else if (k === 'PageUp') select(selected - VISIBLE);
+    else if (k === 'Enter' && primary && current?.look === 'link') openLink(current);
     else if (k === 'Enter') choose(current, e.shiftKey);
     else if (k === 'Tab') previewOpen = !previewOpen;
     else if (k === 'Escape') {
@@ -269,6 +280,7 @@
       <span class="state"><Icon name="paused" size={16} />{t('status.paused_title')}</span>
     {/if}
     <span class="scope">{t('picker.scope.all')}</span>
+    <IconButton icon="settings" compact class="settings" label={t('picker.settings', { mod })} onclick={() => api.openManager('settings')} />
   </header>
 
   <div class="chips" role="group" aria-label={t('a11y.filter')}>
@@ -311,8 +323,9 @@
             tabindex="-1"
             aria-selected={i === selected}
             aria-label={rowLabel(row.kind, row.device, row.sortMs, row.label ?? row.preview)}
+            title={row.look === 'link' ? t('picker.link.title', { mod }) : undefined}
             onmousemove={() => (selected = i)}
-            onclick={() => choose(row, false)}
+            onclick={(e) => onRowClick(e, row)}
           >
             <span class="tile" style:background={row.look === 'colour' ? row.preview.trim() : null}>
               {#if row.kind === 'image' && row.thumbUrl}
@@ -359,6 +372,9 @@
   <footer class="keys">
     <button type="button" onclick={() => choose(current, false)}><kbd>↵</kbd>{t('picker.hint.paste')}</button>
     <button type="button" onclick={() => choose(current, true)}><kbd>⇧</kbd><kbd>↵</kbd>{t('picker.hint.plain')}</button>
+    {#if current?.look === 'link'}
+      <button type="button" onclick={() => openLink(current)}><Keycap keys="{mod}+↵" />{t('picker.hint.open')}</button>
+    {/if}
     <button type="button" class:on={previewOpen} aria-pressed={previewOpen} onclick={togglePreview}><kbd>Tab</kbd>{t('picker.hint.preview')}</button>
     <button type="button" onclick={togglePin}><Keycap keys="{mod}+P" />{t('detail.pin')}</button>
     <button type="button" onclick={startLabel}><Keycap keys="{mod}+L" />{t('detail.label')}</button>
@@ -442,6 +458,11 @@
 
   .state {
     font-weight: 700;
+  }
+
+  .search :global(.settings) {
+    margin-right: -8px;
+    color: var(--tc-ink-2);
   }
 
   .chips {
