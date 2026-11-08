@@ -7,6 +7,27 @@ written into SPEC.md).
 
 ---
 
+## D-035 · Pairing status, link opening, picker settings button, phone icon · landed
+
+Owner requests after the first phone pairing test (8 November):
+
+- **Pairing status.** The phone's pairing screen no longer closes as soon as the code is
+  accepted: it follows the connection (trusted, connecting, connected, syncing, up to
+  date) and, after 15 seconds without a connection, says what to check. The desktop's
+  Pair a phone panel numbers the steps and shows the phone arriving. SPEC 21.5.
+- **Pairing instructions** are spelled out as three numbered steps on both sides.
+- **How saving works** on the phone: one list of the ways in for the platform, in
+  onboarding and again from Settings › Capture. It's a single page shown as part of
+  onboarding's existing capture step, not a carousel, so 10.4's "no onboarding
+  carousels" still holds.
+- **Picker settings button:** a quiet cog at the end of the search bar. SPEC 10.2.
+- **Opening links:** Ctrl+click or Ctrl+Enter (Cmd on macOS) opens a link item; the
+  manager's detail pane has Open link. Only `http`, `https` and `mailto` open, through
+  `tauri-plugin-opener` from the clip's stored text, so a clip can't launch a file or
+  another scheme. SPEC 10.2, 10.3.
+- **Phone app icon:** violet field, white mark (was the colour mark on lilac paper).
+  The desktop icons are unchanged. SPEC 21.5.
+
 ## D-034 · npm overrides for vulnerable phone build tooling · applied
 
 Dependabot flagged 16 advisories in `mobile/package-lock.json` (7 November). All are in
