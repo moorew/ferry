@@ -30,7 +30,7 @@ export default function Settings() {
           title={t('settings.capture.on_open')}
           trailing={<Toggle value={onOpen === 'on'} label={t('settings.capture.on_open')} onChange={(v) => setOnOpen(v ? 'on' : 'off')} />}
         />
-        <Item title={ios ? t('settings.capture.ios') : t('settings.capture.android')} />
+        <Item title={t('settings.capture.how')} detail={ios ? t('settings.capture.ios') : t('settings.capture.android')} onPress={() => router.push('/how-saving')} />
       </Section>
       <Section title={t('settings.privacy')} footer={ios ? t('settings.secrets.ios') : t('settings.secrets.android')}>
         <Item
