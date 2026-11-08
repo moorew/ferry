@@ -92,6 +92,7 @@ Every text pairing above was checked at 4.5:1 or better (WCAG AA), including ink
 | macOS | `app-icon/macos.svg`, `png/macos-1024.png` | 824 px plate on a 1024 canvas. Build the .icns from the 1024 PNG with the platform's icon tooling. |
 | Windows | `app-icon/tailcopy.ico`, `windows.svg` | No plate; the mark fills the tile. The .ico holds 16, 32, 64, 128, 256. |
 | Linux | `linux.svg`, `png/linux-*.png` | Plate with a darker lip. Install PNGs to `share/icons/hicolor/<size>x<size>/apps/tailcopy.png` and the SVG to `hicolor/scalable/apps/tailcopy.svg`. |
+| iOS and Android | `mobile/assets/icon/*.png`, rendered by `mobile/scripts/app-icons.mjs` | `mark-mono.svg` in white (`on-accent`) on a full-bleed violet (`accent`) field, centred on the mark's drawn extent; the system cuts the squircle or adaptive shape (D-035). |
 
 ### Tray and menu bar
 

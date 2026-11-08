@@ -50,7 +50,7 @@ export default (): ExpoConfig => ({
     adaptiveIcon: {
       foregroundImage: './assets/icon/android-foreground.png',
       monochromeImage: './assets/icon/android-monochrome.png',
-      backgroundColor: tokens.color.light.bg.$value,
+      backgroundColor: tokens.color.light.accent.$value,
     },
     predictiveBackGestureEnabled: true,
     blockedPermissions: ['android.permission.RECORD_AUDIO'],
