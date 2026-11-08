@@ -7,6 +7,33 @@ written into SPEC.md).
 
 ---
 
+## D-036 · No app stores: an APK on GitHub Releases, iOS built from source · landed
+
+Owner decision (8 November): the phone apps don't go to the App Store or Google Play.
+Android users get a signed APK from GitHub Releases, which Obtainium and similar
+tools update from; iPhone users who want it build it themselves. SPEC 21.7, 21.8 and
+the M5 and M6 scopes change:
+
+- **One version.** The phone takes the desktop's version from
+  `app/src-tauri/tauri.conf.json`; `versionCode` is `major × 10000 + minor × 100 +
+  patch`. Obtainium compares the release tag with the installed `versionName`, so
+  the release job fails if they differ.
+- **Every release has the APK**, `TailCopy-<version>-android-arm64.apk`, so the
+  latest release always has one. The job requires the release key, refuses a
+  debug-signed APK, and appends the signing certificate's SHA-256 to the notes.
+- **arm64 only.** Phones are arm64; dropping x86_64 (emulators) roughly halves the
+  APK. `TAILCOPY_ANDROID_ABIS=arm64-v8a,x86_64` builds both.
+- **iOS from source.** `TAILCOPY_IOS_ID` swaps in the builder's own bundle id (ours is
+  registered to the owner's team); the App Group follows as `group.<id>`. The share and
+  action extensions now derive the group from their own bundle id instead of reading
+  it from Info.plist. Apple's capabilities table lists App Groups for free personal
+  teams, so a free Apple ID works, with its limits: the app must be reinstalled every
+  7 days, at most 3 such apps per device, and 10 new app IDs a week (TailCopy uses 4).
+  `docs/BUILD-IOS.md` has the steps.
+- **Not needed any more:** App Store Connect keys, TestFlight, Play Console, store
+  privacy forms. The release key matters more: with no store holding a copy, losing it
+  strands every Android install.
+
 ## D-035 · Pairing status, link opening, picker settings button, phone icon · landed
 
 Owner requests after the first phone pairing test (8 November):

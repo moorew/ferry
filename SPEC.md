@@ -1092,11 +1092,11 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 
 iOS and Android apps: History, Pinned, Devices, Settings, onboarding with pairing (21.3), foreground capture, share and action capture, Android `PROCESS_TEXT` and Quick Settings tile, iOS Control Center control and App Intents, dial-only sync with catch-up and blob fetch, identity keys and "Pair a phone" on desktop and relay. Owner decision (D-031): no spike milestone; risky items are proved on the M5 builds.
 
-**Gate:** phone smoke items (21.9) pass on one iPhone and one Android phone against a Windows or Ubuntu desktop and a relay; TestFlight and Play internal testing builds installed without commands.
+**Gate:** phone smoke items (21.9) pass on one iPhone and one Android phone against a Windows or Ubuntu desktop and a relay; the release APK installs and updates through Obtainium, and an iPhone build follows `docs/BUILD-IOS.md` (D-036).
 
 ### M6: Phone apps, integrations
 
-Pinned widgets (WidgetKit, Glance), the picker keyboard on both platforms, iPad and large-screen layouts, Android "Keep connected", Spotlight for pinned items, App Store and Play releases.
+Pinned widgets (WidgetKit, Glance), the picker keyboard on both platforms, iPad and large-screen layouts, Android "Keep connected", Spotlight for pinned items.
 
 **Gate:** M5 items still pass; each integration has a smoke item that passes on hardware.
 
@@ -1287,14 +1287,13 @@ Phones keep settings in the store's `meta` table, not TOML: device name, live mi
 | Rust bindings | uniffi (Swift and Kotlin), `cargo-ndk`, an xcframework |
 | Tokens | Generated from `design/tokens/tokens.json` by a script in `mobile/scripts/` |
 
-No Expo cloud services (EAS Build, Update, Insights) and no telemetry: builds run locally or on GitHub Actions with `EXPO_NO_TELEMETRY=1`. CI builds the Android app on Ubuntu and the iOS app on macOS. Releases: TestFlight and the App Store; Play internal testing and production; a signed APK on GitHub Releases.
+No Expo cloud services (EAS Build, Update, Insights) and no telemetry: builds run locally or on GitHub Actions with `EXPO_NO_TELEMETRY=1`. CI builds the Android app on Ubuntu and the iOS app on macOS. Releases (D-036): no app stores. Every `v*` release carries `TailCopy-<version>-android-arm64.apk`, signed with the release key and checked against the tag, so Obtainium and similar tools update from GitHub Releases. The phone shares the desktop's version (`app/src-tauri/tauri.conf.json`); Android's `versionCode` is `major × 10000 + minor × 100 + patch`. The APK is arm64 only (`TAILCOPY_ANDROID_ABIS` adds ABIs for an emulator). iOS is built from source by whoever wants it (`docs/BUILD-IOS.md`); `TAILCOPY_IOS_ID` gives the app their own bundle id, the App Group becomes `group.<id>`, and the extensions derive the group from their bundle id.
 
 Layout: `crates/tailcopy-mobile/` (workspace member) and `mobile/` (the Expo app with its own `package-lock.json`, `modules/`, `targets/`, `scripts/`).
 
-### 21.8 Store policy
+### 21.8 Platform rules
 
-- App Review 4.2 and 4.4: list every extension in the description; the keyboard (M6) must type, include a next-keyboard key and work without Full Access. Privacy policy link: `docs/PRIVACY.md`.
-- Play: target API per Play's current requirement; 16 KB page alignment for every native library; Data safety form says nothing is collected; the `connectedDevice` foreground service is declared with its justification; no accessibility service.
+The apps aren't in the App Store or Google Play (D-036), but keep to the platforms' rules anyway: the keyboard (M6) must type, include a next-keyboard key and work without Full Access; target the current Android API level; 16 KB page alignment for every native library; the `connectedDevice` foreground service only for "Keep connected"; no accessibility service. The release key never changes: losing it means every Android install has to be removed (with its history) to update.
 
 ### 21.9 Phone smoke checklist (M5)
 

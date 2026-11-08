@@ -69,6 +69,26 @@ Each release has a `SHA256SUMS` file to check the downloads against.
 You don't need Tailscale to use TailCopy: without it, TailCopy keeps your history on the
 device you're using.
 
+### Phones
+
+TailCopy for Android and iPhone syncs with your computers over the same tailnet. You
+pair it once by scanning a code in **Settings › Tailnet › Pair a phone** on a
+computer. It isn't in the App Store or Google Play.
+
+**Android 10 and later (arm64):** each release has `TailCopy-…-android-arm64.apk`.
+To get updates automatically, add this repository to
+[Obtainium](https://obtainium.imranr.dev): tap **Add App** and paste
+`https://github.com/moorew/tailcopy`. Obtainium picks the APK from each release
+and installs updates when they come out. You can also download the APK and open it
+on the phone. Either way, Android asks once to allow installs from that app. Each
+release's notes give the signing certificate's SHA-256, for Obtainium or
+[AppVerifier](https://github.com/soupslurpr/AppVerifier) to check.
+
+**iPhone (iOS 26 and later):** build it yourself on a Mac with Xcode. A free Apple ID
+works. See [docs/BUILD-IOS.md](docs/BUILD-IOS.md).
+
+Both need the Tailscale app, signed in to the same account as your computers.
+
 ## Using it
 
 | Keys (⌘ instead of Ctrl on macOS) | What it does |
@@ -213,6 +233,8 @@ The code is laid out as follows:
 - `crates/`: the core store, sync, the Tailscale adapter and platform code
 - `app/`: the Tauri shell and the Svelte UI
 - `extension/`: the GNOME Shell extension
+- `crates/tailcopy-mobile/` and `mobile/`: the phone apps (Expo; see
+  [docs/BUILD-IOS.md](docs/BUILD-IOS.md) and the commands in [CLAUDE.md](CLAUDE.md))
 - [`design/`](design/HANDOFF.md): design tokens, fonts, icons and the brand
 
 ## Licence
