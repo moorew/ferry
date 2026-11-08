@@ -67,6 +67,7 @@ export const api = {
   openTailscale: () => call<void>('open_tailscale'),
   approveTailscaleLogin: () => call<void>('approve_tailscale_login'),
   openUpdate: () => call<void>('open_update'),
+  checkUpdate: () => call<string | null>('check_update'),
   recheckTailscale: () => call<void>('recheck_tailscale'),
   getDevices: () => call<Devices>('get_devices'),
   getPairCode: () => call<PairCode>('get_pair_code'),

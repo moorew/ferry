@@ -112,6 +112,7 @@ pub fn run(initial: Command, autostart: bool) {
             commands::check_shortcut,
             commands::approve_tailscale_login,
             commands::open_update,
+            commands::check_update,
             commands::get_devices,
             commands::set_device_sync,
             commands::get_pair_code,

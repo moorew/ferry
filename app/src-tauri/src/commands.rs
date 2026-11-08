@@ -595,6 +595,13 @@ pub async fn approve_tailscale_login(app: AppHandle) -> CmdResult<()> {
     crate::sync::approve_current_login(&app).await.map_err(err)
 }
 
+/// "Check now" in Settings > About: asks GitHub straight away, even with the daily
+/// check turned off, and returns the newer version if there is one (D-028).
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> CmdResult<Option<String>> {
+    crate::update::check(&app).await.map_err(err)
+}
+
 /// Opens this platform's download for the available update (D-028).
 #[tauri::command]
 pub fn open_update(app: AppHandle) -> CmdResult<()> {

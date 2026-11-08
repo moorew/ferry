@@ -88,6 +88,18 @@
     }
   }
 
+  let updateCheck = $state<'idle' | 'checking' | 'current' | 'failed'>('idle');
+
+  async function checkUpdate() {
+    updateCheck = 'checking';
+    try {
+      // A newer version shows through status-changed; otherwise say we're current.
+      updateCheck = (await api.checkUpdate()) ? 'idle' : 'current';
+    } catch {
+      updateCheck = 'failed';
+    }
+  }
+
   async function loadDevices() {
     devices = await api.getDevices();
   }
@@ -533,6 +545,16 @@
                 <span>{t('update.available.desc')}</span>
               </div>
               <Button compact variant="primary" onclick={() => api.openUpdate()}>{t('update.download')}</Button>
+            </div>
+          {:else}
+            <div class="set">
+              <div class="st">
+                <b>{t('settings.updates')}</b>
+                <span role="status">{t(updateCheck === 'current' ? 'update.current' : updateCheck === 'failed' ? 'update.failed' : 'update.idle')}</span>
+              </div>
+              <Button compact disabled={updateCheck === 'checking'} onclick={checkUpdate}>
+                {t(updateCheck === 'checking' ? 'update.checking' : 'update.check')}
+              </Button>
             </div>
           {/if}
           <div class="set">
