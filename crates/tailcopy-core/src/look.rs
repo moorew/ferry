@@ -49,6 +49,26 @@ pub fn classify(kind: ClipKind, preview: &str) -> (Look, bool) {
     }
 }
 
+/// The address to open for a clip that looks like a link: web and mail links only,
+/// with `https://` added to bare hosts like `www.example.org`.
+pub fn link_target(text: &str) -> Option<String> {
+    let text = text.trim();
+    if !is_link(text) {
+        return None;
+    }
+    let lower = text.to_ascii_lowercase();
+    if ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|p| lower.starts_with(p))
+    {
+        Some(text.to_owned())
+    } else if lower.contains("://") {
+        None
+    } else {
+        Some(format!("https://{text}"))
+    }
+}
+
 fn single_word(text: &str) -> bool {
     !text.is_empty() && !text.contains(char::is_whitespace)
 }
@@ -196,6 +216,30 @@ mod tests {
         for s in ["see https://x.com", "1.5/2", "a.b/c d", "file.txt"] {
             assert_ne!(look(s).0, Look::Link, "{s}");
         }
+    }
+
+    #[test]
+    fn link_targets() {
+        let target = |s: &str| link_target(s);
+        assert_eq!(
+            target(" https://tailscale.com/kb\n").as_deref(),
+            Some("https://tailscale.com/kb")
+        );
+        assert_eq!(
+            target("www.example.org").as_deref(),
+            Some("https://www.example.org")
+        );
+        assert_eq!(
+            target("login.tailscale.com/admin").as_deref(),
+            Some("https://login.tailscale.com/admin")
+        );
+        assert_eq!(
+            target("mailto:a@example.com").as_deref(),
+            Some("mailto:a@example.com")
+        );
+        assert_eq!(target("ftp://example.org/x"), None);
+        assert_eq!(target("see https://x.com"), None);
+        assert_eq!(target("file.txt"), None);
     }
 
     #[test]

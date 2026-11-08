@@ -839,6 +839,8 @@ On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on va
 - Search: tokens `is:pinned`, `is:image`, `is:rich`, `is:text`, `is:code`, `is:link`, `from:<device name>`, `today`, `yesterday`. `is:code` and `is:link` match a look derived from the preview for display (code, link, colour), which is never stored or synced; remaining text is fuzzy-matched (`nucleo-matcher`) against preview text of every retained clip in memory. If the query is 3+ characters, also run FTS5 over full plain text and merge, fuzzy results first.
 - Preview pane (Tab): full text with monospace when it looks like code, rendered sanitized HTML for rich clips (no scripts, no remote images), image at fit size. Missing blobs show a spinner, then the offline message.
 - Choose: Enter pastes with all formats, Shift+Enter pastes plain text. The picker hides immediately; paste happens after focus returns.
+- Links: a row whose look is link opens in the default browser (or mail app for `mailto:`) with Ctrl+click (Cmd+click on macOS) or Ctrl+Enter (Cmd+Return), and the footer shows an Open link hint while one is selected. Only `http`, `https` and `mailto` open; a bare host such as `www.example.org` gets `https://`. The manager's detail pane has the same Open link action (D-035).
+- A subtle settings button (cog) at the end of the search bar opens Settings, like Ctrl+, (D-035).
 - States: empty history ("Copy something to get started"), no results, paused banner, "Tailscale not running" banner (subtle, one line), degraded-mode banner.
 - Esc clears the query; Esc on an empty query, or losing focus, hides the picker and resets it.
 
@@ -855,6 +857,7 @@ On Ubuntu the tray icon relies on the AppIndicator extension Ubuntu ships; on va
 | Paste as plain text | Shift+Enter | Shift+Return |
 | Paste item 1 to 9 | Ctrl+1 to Ctrl+9 | Cmd+1 to Cmd+9 |
 | Copy without pasting | Ctrl+C (when no text is selected in the search field) | Cmd+C (same rule) |
+| Open a link item | Ctrl+Enter, Ctrl+click | Cmd+Return, Cmd+click |
 | Pin or unpin | Ctrl+P | Cmd+P |
 | Edit label | Ctrl+L | Cmd+L |
 | Toggle preview | Tab | Tab |
@@ -1089,11 +1092,11 @@ Multi-format background writes on GNOME, tailscale-rs transport, non-activating 
 
 iOS and Android apps: History, Pinned, Devices, Settings, onboarding with pairing (21.3), foreground capture, share and action capture, Android `PROCESS_TEXT` and Quick Settings tile, iOS Control Center control and App Intents, dial-only sync with catch-up and blob fetch, identity keys and "Pair a phone" on desktop and relay. Owner decision (D-031): no spike milestone; risky items are proved on the M5 builds.
 
-**Gate:** phone smoke items (21.9) pass on one iPhone and one Android phone against a Windows or Ubuntu desktop and a relay; TestFlight and Play internal testing builds installed without commands.
+**Gate:** phone smoke items (21.9) pass on one iPhone and one Android phone against a Windows or Ubuntu desktop and a relay; the release APK installs and updates through Obtainium, and an iPhone build follows `docs/BUILD-IOS.md` (D-036).
 
 ### M6: Phone apps, integrations
 
-Pinned widgets (WidgetKit, Glance), the picker keyboard on both platforms, iPad and large-screen layouts, Android "Keep connected", Spotlight for pinned items, App Store and Play releases.
+Pinned widgets (WidgetKit, Glance), the picker keyboard on both platforms, iPad and large-screen layouts, Android "Keep connected", Spotlight for pinned items.
 
 **Gate:** M5 items still pass; each integration has a smoke item that passes on hardware.
 
@@ -1262,7 +1265,9 @@ Lilac tokens, fonts and the brand icon set apply as on desktop (design/HANDOFF.m
 - Rows: tap copies; swipe to delete with an Undo snackbar; swipe the other way pins; long-press selects.
 - Adaptive icon with a monochrome layer.
 
-**Both:** onboarding is Tailscale check, pair (QR), name this device, capture setup (honest about the limits), done. Settings: General, Capture (setup guide per entry point), Privacy, Sync, Paired devices, Storage, About. Accessibility labels read as "<preview>, from <device>, <age>, pinned".
+**Both:** onboarding is Tailscale check, pair (QR, with the three steps spelled out), name this device, capture setup (honest about the limits), done. After a code is accepted, the pairing screen follows the first connection: trusted, connecting, connected, syncing history, up to date (with how many more devices the Directory brought in), and after 15 seconds without a connection says what to check. The desktop's Pair a phone panel lists the same steps and shows "Waiting for your phone…", then the phone syncing, then paired. "How saving works" (onboarding and Settings › Capture) lists each way in for the platform: from a computer, on open, the share sheet, the selection menu (Android), Control Center (iOS) and the Quick Settings tile (Android) (D-035).
+
+**App icon:** a violet (`accent`) field with the one-colour mark in white (`on-accent`); the system cuts the squircle on iOS and the adaptive shape on Android. The tinted iOS variant and the Android monochrome layer are the bare mark (D-035). Settings: General, Capture (setup guide per entry point), Privacy, Sync, Paired devices, Storage, About. Accessibility labels read as "<preview>, from <device>, <age>, pinned".
 
 ### 21.6 Configuration
 
@@ -1282,14 +1287,13 @@ Phones keep settings in the store's `meta` table, not TOML: device name, live mi
 | Rust bindings | uniffi (Swift and Kotlin), `cargo-ndk`, an xcframework |
 | Tokens | Generated from `design/tokens/tokens.json` by a script in `mobile/scripts/` |
 
-No Expo cloud services (EAS Build, Update, Insights) and no telemetry: builds run locally or on GitHub Actions with `EXPO_NO_TELEMETRY=1`. CI builds the Android app on Ubuntu and the iOS app on macOS. Releases: TestFlight and the App Store; Play internal testing and production; a signed APK on GitHub Releases.
+No Expo cloud services (EAS Build, Update, Insights) and no telemetry: builds run locally or on GitHub Actions with `EXPO_NO_TELEMETRY=1`. CI builds the Android app on Ubuntu and the iOS app on macOS. Releases (D-036): no app stores. Every `v*` release carries `TailCopy-<version>-android-arm64.apk`, signed with the release key and checked against the tag, so Obtainium and similar tools update from GitHub Releases. The phone shares the desktop's version (`app/src-tauri/tauri.conf.json`); Android's `versionCode` is `major × 10000 + minor × 100 + patch`. The APK is arm64 only (`TAILCOPY_ANDROID_ABIS` adds ABIs for an emulator). iOS is built from source by whoever wants it (`docs/BUILD-IOS.md`); `TAILCOPY_IOS_ID` gives the app their own bundle id, the App Group becomes `group.<id>`, and the extensions derive the group from their bundle id.
 
 Layout: `crates/tailcopy-mobile/` (workspace member) and `mobile/` (the Expo app with its own `package-lock.json`, `modules/`, `targets/`, `scripts/`).
 
-### 21.8 Store policy
+### 21.8 Platform rules
 
-- App Review 4.2 and 4.4: list every extension in the description; the keyboard (M6) must type, include a next-keyboard key and work without Full Access. Privacy policy link: `docs/PRIVACY.md`.
-- Play: target API per Play's current requirement; 16 KB page alignment for every native library; Data safety form says nothing is collected; the `connectedDevice` foreground service is declared with its justification; no accessibility service.
+The apps aren't in the App Store or Google Play (D-036), but keep to the platforms' rules anyway: the keyboard (M6) must type, include a next-keyboard key and work without Full Access; target the current Android API level; 16 KB page alignment for every native library; the `connectedDevice` foreground service only for "Keep connected"; no accessibility service. The release key never changes: losing it means every Android install has to be removed (with its history) to update.
 
 ### 21.9 Phone smoke checklist (M5)
 

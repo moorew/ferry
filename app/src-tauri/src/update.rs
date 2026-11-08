@@ -3,7 +3,7 @@
 //! request to the public releases API; nothing about the user or their clips is
 //! sent. Turned off with `general.check_updates = false`.
 
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -13,6 +13,9 @@ use crate::state::AppState;
 const LATEST: &str = "https://api.github.com/repos/moorew/tailcopy/releases/latest";
 const EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 const FIRST_AFTER: Duration = Duration::from_secs(60);
+/// How often to see whether a day has passed. The day is measured on the wall
+/// clock, because a sleeping timer stops counting while the computer is asleep.
+const TICK: Duration = Duration::from_secs(60 * 60);
 
 /// The installer name suffix for this platform, as the release workflow names it.
 const ASSET: &str = if cfg!(windows) {
@@ -52,16 +55,26 @@ pub fn start(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(FIRST_AFTER).await;
+        let mut last: Option<SystemTime> = None;
         loop {
-            if app.state::<AppState>().config().general.check_updates {
-                match latest().await {
-                    Ok(found) => offer(&app, found),
-                    Err(e) => tracing::info!("update check failed: {e}"),
+            let due = last.is_none_or(|t| t.elapsed().map_or(true, |e| e >= EVERY));
+            if due && app.state::<AppState>().config().general.check_updates {
+                last = Some(SystemTime::now());
+                if let Err(e) = check(&app).await {
+                    tracing::info!("update check failed: {e}");
                 }
             }
-            tokio::time::sleep(EVERY).await;
+            tokio::time::sleep(TICK).await;
         }
     });
+}
+
+/// Asks GitHub now and offers what it finds. Returns the newer version, if any.
+pub async fn check(app: &AppHandle) -> Result<Option<String>, reqwest::Error> {
+    let found = latest().await?;
+    let version = found.as_ref().map(|a| a.version.clone());
+    offer(app, found);
+    Ok(version)
 }
 
 fn offer(app: &AppHandle, found: Option<Available>) {

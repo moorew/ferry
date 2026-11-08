@@ -57,6 +57,7 @@ function Screens() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="clip/[id]" options={{ title: t('detail.title'), presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true }} />
       <Stack.Screen name="settings" options={{ title: t('settings.title'), presentation: 'modal' }} />
+      <Stack.Screen name="how-saving" options={{ title: t('settings.capture.how') }} />
       <Stack.Screen name="pair" options={{ title: t('pair.title'), presentation: 'fullScreenModal' }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="capture" options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }} />

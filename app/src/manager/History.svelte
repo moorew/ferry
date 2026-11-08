@@ -361,6 +361,9 @@
             class={detail.pinned ? 'pinned' : ''}
             onclick={pin}
           />
+          {#if detail.look === 'link'}
+            <IconButton icon="link" label={t('detail.open_link')} onclick={() => detail && api.openLink(detail.id)} />
+          {/if}
           <IconButton icon="delete" label={t('detail.delete')} danger class="push" onclick={remove} />
         </div>
 

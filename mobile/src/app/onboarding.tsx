@@ -10,6 +10,7 @@ import { Core } from '../../modules/tailcopy-core';
 import { useDevices, useSyncStatus } from '../core/hooks';
 import { t, type StringKey } from '../strings';
 import { radius, text, useTheme } from '../theme';
+import { HowSaving } from '../ui/HowSaving';
 import { Button } from '../ui/Settings';
 import { TailnetBanner } from '../ui/TailnetBanner';
 
@@ -58,6 +59,12 @@ export default function Onboarding() {
         <>
           {title('onboarding.pair.title')}
           {body(t('onboarding.pair.body'))}
+          {(['onboarding.pair.step1', 'onboarding.pair.step2', 'onboarding.pair.step3'] as const).map((key, i) => (
+            <View key={key} style={styles.step}>
+              <Text style={[text('bodyStrong'), styles.stepNum, { color: c.onAccent, backgroundColor: c.accent }]}>{i + 1}</Text>
+              <Text style={[text('body'), styles.stepText, { color: c.ink }]}>{t(key)}</Text>
+            </View>
+          ))}
           {!status.tailnet && <TailnetBanner />}
           <View style={styles.spacer} />
           <Button primary title={t('onboarding.pair.scan')} onPress={() => router.push('/pair')} />
@@ -89,7 +96,8 @@ export default function Onboarding() {
       {step === 'capture' && (
         <>
           {title('onboarding.capture.title')}
-          {body(Platform.OS === 'ios' ? t('settings.capture.ios') : t('settings.capture.android'))}
+          {body(t('onboarding.capture.body'))}
+          <HowSaving />
           {Platform.OS === 'ios' && body(t('settings.capture.ios.allow'))}
           <View style={styles.spacer} />
           <Button primary title={t('settings.capture.on_open')} onPress={() => finish(true)} />
@@ -103,5 +111,8 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   page: { flexGrow: 1, paddingHorizontal: 24, gap: 16 },
   spacer: { flex: 1, minHeight: 24 },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  stepNum: { width: 28, height: 28, lineHeight: 28, textAlign: 'center', borderRadius: radius.pill, overflow: 'hidden' },
+  stepText: { flex: 1, paddingTop: 3 },
   input: { paddingHorizontal: 16, paddingVertical: 14, borderRadius: radius.control },
 });

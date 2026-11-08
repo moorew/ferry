@@ -1,5 +1,6 @@
 // Native project changes Expo's own config doesn't cover (SPEC 21.5, 21.4):
-// brand icons into the iOS asset catalog, and Android app shortcuts.
+// brand icons into the iOS asset catalog, Android app shortcuts, ABIs and release
+// signing.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -36,12 +37,14 @@ function withShortcuts(config) {
   });
 }
 
-// The Rust core is built for these two (scripts/build-rust.sh); a build with more
-// ABIs would install on a phone that can't load it.
+// The Rust core is built for the same ABIs (scripts/build-rust.sh); a build with
+// more would install on a phone that can't load it. Phones are arm64; add x86_64
+// for an emulator with TAILCOPY_ANDROID_ABIS=arm64-v8a,x86_64 (D-036).
 function withAbis(config) {
+  const abis = process.env.TAILCOPY_ANDROID_ABIS || 'arm64-v8a';
   return withGradleProperties(config, (cfg) => {
     cfg.modResults = cfg.modResults.filter((p) => !(p.type === 'property' && p.key === 'reactNativeArchitectures'));
-    cfg.modResults.push({ type: 'property', key: 'reactNativeArchitectures', value: 'arm64-v8a,x86_64' });
+    cfg.modResults.push({ type: 'property', key: 'reactNativeArchitectures', value: abis });
     return cfg;
   });
 }
@@ -78,4 +81,5 @@ function withReleaseSigning(config) {
   });
 }
 
-module.exports = (config) => withReleaseSigning(withAbis(withShortcuts(withBrandIcons(config))));
+module.exports = (config) =>
+  withReleaseSigning(withAbis(withShortcuts(withBrandIcons(config))));

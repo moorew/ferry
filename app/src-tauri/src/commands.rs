@@ -438,6 +438,24 @@ pub async fn open_log_folder(app: AppHandle, state: State<'_, AppState>) -> CmdR
         .map_err(err)
 }
 
+/// Opens a clip that is a link in the default browser or mail app. Anything else is
+/// refused, so a clip can never launch a file or another scheme.
+#[tauri::command]
+pub async fn open_link(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<bool> {
+    use tauri_plugin_opener::OpenerExt;
+    let text = state
+        .db
+        .run(move |core| core.store.view().plain_text(&ClipId::from(id)))
+        .await
+        .map_err(|e: tailcopy_core::Error| err(e))?;
+    let Some(url) = text.as_deref().and_then(tailcopy_core::look::link_target) else {
+        return Ok(false);
+    };
+    picker::hide_picker(&app);
+    app.opener().open_url(url, None::<&str>).map_err(err)?;
+    Ok(true)
+}
+
 #[tauri::command]
 pub async fn open_tailscale() -> CmdResult<()> {
     crate::tailscale::open_app().map_err(err)
@@ -575,6 +593,13 @@ pub async fn check_shortcut(shortcut: String) -> CmdResult<Option<String>> {
 #[tauri::command]
 pub async fn approve_tailscale_login(app: AppHandle) -> CmdResult<()> {
     crate::sync::approve_current_login(&app).await.map_err(err)
+}
+
+/// "Check now" in Settings > About: asks GitHub straight away, even with the daily
+/// check turned off, and returns the newer version if there is one (D-028).
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> CmdResult<Option<String>> {
+    crate::update::check(&app).await.map_err(err)
 }
 
 /// Opens this platform's download for the available update (D-028).

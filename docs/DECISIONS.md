@@ -7,6 +7,54 @@ written into SPEC.md).
 
 ---
 
+## D-036 · No app stores: an APK on GitHub Releases, iOS built from source · landed
+
+Owner decision (8 November): the phone apps don't go to the App Store or Google Play.
+Android users get a signed APK from GitHub Releases, which Obtainium and similar
+tools update from; iPhone users who want it build it themselves. SPEC 21.7, 21.8 and
+the M5 and M6 scopes change:
+
+- **One version.** The phone takes the desktop's version from
+  `app/src-tauri/tauri.conf.json`; `versionCode` is `major × 10000 + minor × 100 +
+  patch`. Obtainium compares the release tag with the installed `versionName`, so
+  the release job fails if they differ.
+- **Every release has the APK**, `TailCopy-<version>-android-arm64.apk`, so the
+  latest release always has one. The job requires the release key, refuses a
+  debug-signed APK, and appends the signing certificate's SHA-256 to the notes.
+- **arm64 only.** Phones are arm64; dropping x86_64 (emulators) roughly halves the
+  APK. `TAILCOPY_ANDROID_ABIS=arm64-v8a,x86_64` builds both.
+- **iOS from source.** `TAILCOPY_IOS_ID` swaps in the builder's own bundle id (ours is
+  registered to the owner's team); the App Group follows as `group.<id>`. The share and
+  action extensions now derive the group from their own bundle id instead of reading
+  it from Info.plist. Apple's capabilities table lists App Groups for free personal
+  teams, so a free Apple ID works, with its limits: the app must be reinstalled every
+  7 days, at most 3 such apps per device, and 10 new app IDs a week (TailCopy uses 4).
+  `docs/BUILD-IOS.md` has the steps.
+- **Not needed any more:** App Store Connect keys, TestFlight, Play Console, store
+  privacy forms. The release key matters more: with no store holding a copy, losing it
+  strands every Android install.
+
+## D-035 · Pairing status, link opening, picker settings button, phone icon · landed
+
+Owner requests after the first phone pairing test (8 November):
+
+- **Pairing status.** The phone's pairing screen no longer closes as soon as the code is
+  accepted: it follows the connection (trusted, connecting, connected, syncing, up to
+  date) and, after 15 seconds without a connection, says what to check. The desktop's
+  Pair a phone panel numbers the steps and shows the phone arriving. SPEC 21.5.
+- **Pairing instructions** are spelled out as three numbered steps on both sides.
+- **How saving works** on the phone: one list of the ways in for the platform, in
+  onboarding and again from Settings › Capture. It's a single page shown as part of
+  onboarding's existing capture step, not a carousel, so 10.4's "no onboarding
+  carousels" still holds.
+- **Picker settings button:** a quiet cog at the end of the search bar. SPEC 10.2.
+- **Opening links:** Ctrl+click or Ctrl+Enter (Cmd on macOS) opens a link item; the
+  manager's detail pane has Open link. Only `http`, `https` and `mailto` open, through
+  `tauri-plugin-opener` from the clip's stored text, so a clip can't launch a file or
+  another scheme. SPEC 10.2, 10.3.
+- **Phone app icon:** violet field, white mark (was the colour mark on lilac paper).
+  The desktop icons are unchanged. SPEC 21.5.
+
 ## D-034 · npm overrides for vulnerable phone build tooling · applied
 
 Dependabot flagged 16 advisories in `mobile/package-lock.json` (7 November). All are in
